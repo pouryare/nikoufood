@@ -83,7 +83,8 @@ export function NetworkMap({ provinces, hubSlug = 'tehran', labels, partner, rep
       <div className="network-map-side">
         <label className="network-map-select">
           <span>{labels.provinceList}</span>
-          <select value={selected} onChange={(e) => setSelected(e.target.value)}>
+          {/* The list always names the province the card is showing, also while the pointer previews another one. */}
+          <select value={shown?.slug ?? selected} onChange={(e) => setSelected(e.target.value)}>
             {provinces.map((p) => (
               <option key={p.slug} value={p.slug}>
                 {p.name}
