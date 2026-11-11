@@ -1998,3 +1998,5 @@ select.field option { background: var(--nk-surface); color: var(--nk-ink); }
 .contact-row { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem; border: 1px solid var(--nk-line); border-radius: 1rem; background: rgba(255,255,255,.02); transition: border-color .2s, transform .2s; }
 .contact-row:hover { border-color: var(--nk-gold); transform: translateX(-3px); }
 .contact-row-icon { display: grid; flex: none; width: 2.75rem; height: 2.75rem; place-items: center; border: 1px solid color-mix(in srgb, var(--nk-gold) 40%, transparent); border-radius: 50%; color: var(--nk-gold); }
+.article-card { overflow: hidden; height: 100%; }
+.article-card-cover { position: relative; aspect-ratio: 16 / 9; background: linear-gradient(135deg, color-mix(in srgb, var(--nk-gold) 12%, var(--nk-surface)), var(--nk-surface)); }
