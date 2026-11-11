@@ -2,6 +2,15 @@
 #   - run by hand: Actions → "Release files" → Run workflow
 #   - or push a tag such as v1.0.0 (the files are then also attached to a GitHub release)
 # The result is published as a GitHub release (and kept as a run artifact). install.sh on the server downloads it by itself.
+#
+# The version of a release is the tag (v1.2.0 -> 1.2.0). Without a tag (the "Run workflow" button) it is the "version"
+# in package.json. A server only upgrades to a version higher than the one it runs, so give every release a new one:
+#   git tag v1.2.0 && git push origin v1.2.0
+#
+# After the build, a "deploy" job copies the new tarball to the server (only when the "production" environment has the
+# DEPLOY_* secrets; `sudo nikou github-deploy` on the server makes the key and guides you through adding them).
+# The server applies it at its scheduled hour (UPGRADE_AT, default 03:30 Tehran time) or at once with
+# `sudo nikou upgrade-scheduled`. Without the secrets the release is just published; use `sudo nikou update` on the server.
 # By hand you can still copy:
 #   nikoufood-server-kit.tar.gz  (install.sh + nikou)   and   nikoufood-<version>-linux-x64.tar.gz (+ .sha256)
 name: Release files
@@ -18,21 +27,38 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
+      - name: Version of this release
+        id: ver
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then v="${GITHUB_REF_NAME#v}"; else v=$(node -p "require('./package.json').version"); fi
+          echo "$v" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "the version must look like 1.2.3 (got: $v)" >&2; exit 1; }
+          echo "v=$v" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v7
         with:
           node-version: 22
       - run: corepack enable
+      - name: Installer checks
+        run: bash deploy/test.sh
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: bash scripts/release/pack.sh
+        env:
+          RELEASE_VERSION: ${{ steps.ver.outputs.v }}
+      # The tarball must start and answer before it can reach anyone. robots.txt needs no database.
+      - name: The x64 tarball starts and answers
+        run: |
+          mkdir -p /tmp/rel && tar -xzf dist/nikoufood-*-linux-x64.tar.gz -C /tmp/rel --strip-components=1
+          test -x /tmp/rel/node/bin/node && test -f /tmp/rel/app/server.js && test -d /tmp/rel/tools/node_modules/payload && test -d /tmp/rel/tools/src
+          test "$(cat /tmp/rel/VERSION)" = "${{ steps.ver.outputs.v }}"
+          (cd /tmp/rel/app && PORT=3999 HOSTNAME=127.0.0.1 NODE_ENV=production PAYLOAD_SECRET=smoke-test-secret DATABASE_URL=postgres://nobody:nobody@127.0.0.1:1/none ../node/bin/node server.js > /tmp/rel.log 2>&1 &)
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3999/robots.txt >/dev/null 2>&1 && ok=1 && break; sleep 1; done
+          [ "${ok:-0}" = 1 ] || { echo "the release did not answer:"; cat /tmp/rel.log; exit 1; }
+          echo "the release answers /robots.txt"
       - uses: actions/upload-artifact@v7
         with:
           name: nikoufood-release
           path: dist/nikoufood-*
           retention-days: 30
-      - name: Version for the release name
-        id: ver
-        run: echo "v=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
       # install.sh downloads "the latest release", so every run publishes one (the same version is updated in place).
       - name: Publish the GitHub release
         uses: softprops/action-gh-release@v3
@@ -41,3 +67,51 @@ jobs:
           target_commitish: ${{ github.sha }}
           make_latest: true
           files: dist/nikoufood-*
+
+  # Sends the new version to the server. Native servers get the tarball in $ROOT/incoming; Docker servers
+  # (DEPLOY_MODE=docker) get a one-line note "latest", and pull the image themselves at the scheduled hour.
+  # Runs for tags only, and only when the "production" environment has DEPLOY_HOST.
+  deploy:
+    needs: pack
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      contents: read
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+    steps:
+      - name: Skip when the server is not set up yet
+        id: ready
+        run: '[ -n "$DEPLOY_HOST" ] && echo go=1 >> "$GITHUB_OUTPUT" || echo "DEPLOY_HOST is not set; nothing is sent (on the server: sudo nikou github-deploy)"'
+      - name: Send it to the server
+        if: steps.ready.outputs.go == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_MODE: ${{ secrets.DEPLOY_MODE || 'native' }}
+          DEPLOY_ARCH: ${{ vars.DEPLOY_ARCH || 'x64' }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          # Pinned host key: a server that changed its key (or an impostor) is refused, never trusted.
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh_opts=(-i ~/.ssh/id_deploy -o Port="${DEPLOY_PORT:-22}" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          inc=/opt/nikoufood/incoming
+          if [ "$DEPLOY_MODE" = docker ]; then
+            ssh "${ssh_opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "echo latest > $inc/pending-tag.part && mv $inc/pending-tag.part $inc/pending-tag"
+            echo "Told the server to pull the newest Docker images at its scheduled hour (or now: sudo nikou upgrade-scheduled)."
+          else
+            name="nikoufood-${GITHUB_REF_NAME#v}-linux-$DEPLOY_ARCH.tar.gz"
+            gh release download "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" -p "$name" -p "$name.sha256" -D out
+            (cd out && sha256sum -c "$name.sha256")
+            # The .sha256 goes last: the server ignores a tarball until its sum file is there.
+            scp "${ssh_opts[@]}" "out/$name" "$DEPLOY_USER@$DEPLOY_HOST:$inc/$name.part"
+            ssh "${ssh_opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "mv $inc/$name.part $inc/$name"
+            scp "${ssh_opts[@]}" "out/$name.sha256" "$DEPLOY_USER@$DEPLOY_HOST:$inc/"
+            echo "Sent $name; the server applies it at its scheduled hour (or now: sudo nikou upgrade-scheduled)."
+          fi
