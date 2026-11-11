@@ -1971,3 +1971,13 @@
 .prose-nk ul { list-style: disc; padding-inline-start: 1.4rem; }
 .prose-nk ol { list-style: decimal; padding-inline-start: 1.4rem; }
 .prose-nk a { color: var(--nk-gold); text-decoration: underline; text-underline-offset: 4px; }
+
+/* ---------- FAQ ---------- */
+.faq { border-top: 1px solid var(--nk-line); }
+.faq li { border-bottom: 1px solid var(--nk-line); }
+.faq summary { display: flex; cursor: pointer; align-items: center; justify-content: space-between; gap: 1.5rem; padding-block: 1.4rem; font-size: 1.15rem; font-weight: 700; list-style: none; transition: color .2s; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary:hover { color: var(--nk-gold); }
+.faq summary svg { flex: none; color: var(--nk-gold); transition: transform .3s; }
+.faq details[open] summary svg { transform: rotate(45deg); }
+.faq details > p { max-width: 42rem; padding-bottom: 1.6rem; color: var(--nk-muted); line-height: 2; }

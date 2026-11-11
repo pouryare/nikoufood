@@ -204,7 +204,9 @@ export const NetworkPage = page('network-page', 'شبکه توزیع و نمای
   { name: 'provinces', label: 'سایر استان‌ها', type: 'group', fields: [text('title', 'عنوان'), textarea('text', 'متن')] },
   sectionHeadField('map', 'نقشه'),
   itemsField('legend', 'راهنمای نقشه', [text('status', 'وضعیت (direct / covered / open / soon)', { required: true }), text('label', 'متن راهنما', { required: true })]),
+  text('stepsTitle', 'عنوان بخش مراحل'),
   cardsField('steps', 'مراحل همکاری به‌عنوان نماینده'),
+  text('faqTitle', 'عنوان بخش پرسش‌های پرتکرار'),
   itemsField('faq', 'پرسش‌های پرتکرار', [text('question', 'پرسش', { required: true }), textarea('answer', 'پاسخ', { required: true })]),
   { name: 'cta', label: 'دعوت به اقدام', type: 'group', fields: [text('title', 'تیتر'), textarea('text', 'متن'), text('label', 'متن دکمه')] },
 ])

@@ -1650,6 +1650,7 @@ export interface NetworkPage {
         id?: string | null;
       }[]
     | null;
+  stepsTitle?: string | null;
   steps?:
     | {
         title: string;
@@ -1676,6 +1677,7 @@ export interface NetworkPage {
         id?: string | null;
       }[]
     | null;
+  faqTitle?: string | null;
   faq?:
     | {
         question: string;
@@ -2466,6 +2468,7 @@ export interface NetworkPageSelect<T extends boolean = true> {
         label?: T;
         id?: T;
       };
+  stepsTitle?: T;
   steps?:
     | T
     | {
@@ -2474,6 +2477,7 @@ export interface NetworkPageSelect<T extends boolean = true> {
         icon?: T;
         id?: T;
       };
+  faqTitle?: T;
   faq?:
     | T
     | {
