@@ -371,6 +371,10 @@ export interface ProductCategory {
    */
   order?: number | null;
   description?: string | null;
+  /**
+   * محصولی که تصویر اختصاصی ندارد، این تصویر را نشان می‌دهد. اگر این هم خالی باشد، تصویر پیش‌فرض سایت (در تنظیمات) نمایش داده می‌شود.
+   */
+  image?: (number | null) | Media;
   updatedAt: string;
   createdAt: string;
 }
@@ -782,6 +786,7 @@ export interface ProductCategoriesSelect<T extends boolean = true> {
   slug?: T;
   order?: T;
   description?: T;
+  image?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1257,6 +1262,7 @@ export interface UiText {
     brandProducts?: string | null;
     viewBrand?: string | null;
     filtersLabel?: string | null;
+    countLabel?: string | null;
   };
   network?: {
     direct?: string | null;
@@ -1441,6 +1447,7 @@ export interface HomePage {
     title?: string | null;
     text?: string | null;
     ctaLabel?: string | null;
+    showMarkets?: boolean | null;
   };
   brands?: {
     eyebrow?: string | null;
@@ -1470,6 +1477,25 @@ export interface HomePage {
       | {
           title: string;
           text?: string | null;
+          icon?:
+            | (
+                | 'none'
+                | 'award'
+                | 'truck'
+                | 'shield'
+                | 'headset'
+                | 'users'
+                | 'building'
+                | 'box'
+                | 'layers'
+                | 'leaf'
+                | 'drop'
+                | 'map'
+                | 'utensils'
+                | 'chat'
+                | 'check'
+              )
+            | null;
           id?: string | null;
         }[]
       | null;
@@ -1546,6 +1572,25 @@ export interface AboutPage {
     | {
         title: string;
         text?: string | null;
+        icon?:
+          | (
+              | 'none'
+              | 'award'
+              | 'truck'
+              | 'shield'
+              | 'headset'
+              | 'users'
+              | 'building'
+              | 'box'
+              | 'layers'
+              | 'leaf'
+              | 'drop'
+              | 'map'
+              | 'utensils'
+              | 'chat'
+              | 'check'
+            )
+          | null;
         id?: string | null;
       }[]
     | null;
@@ -1609,6 +1654,25 @@ export interface NetworkPage {
     | {
         title: string;
         text?: string | null;
+        icon?:
+          | (
+              | 'none'
+              | 'award'
+              | 'truck'
+              | 'shield'
+              | 'headset'
+              | 'users'
+              | 'building'
+              | 'box'
+              | 'layers'
+              | 'leaf'
+              | 'drop'
+              | 'map'
+              | 'utensils'
+              | 'chat'
+              | 'check'
+            )
+          | null;
         id?: string | null;
       }[]
     | null;
@@ -1650,6 +1714,25 @@ export interface RepresentationPage {
     | {
         title: string;
         text?: string | null;
+        icon?:
+          | (
+              | 'none'
+              | 'award'
+              | 'truck'
+              | 'shield'
+              | 'headset'
+              | 'users'
+              | 'building'
+              | 'box'
+              | 'layers'
+              | 'leaf'
+              | 'drop'
+              | 'map'
+              | 'utensils'
+              | 'chat'
+              | 'check'
+            )
+          | null;
         id?: string | null;
       }[]
     | null;
@@ -1657,6 +1740,25 @@ export interface RepresentationPage {
     | {
         title: string;
         text?: string | null;
+        icon?:
+          | (
+              | 'none'
+              | 'award'
+              | 'truck'
+              | 'shield'
+              | 'headset'
+              | 'users'
+              | 'building'
+              | 'box'
+              | 'layers'
+              | 'leaf'
+              | 'drop'
+              | 'map'
+              | 'utensils'
+              | 'chat'
+              | 'check'
+            )
+          | null;
         id?: string | null;
       }[]
     | null;
@@ -1694,6 +1796,25 @@ export interface PartnershipPage {
     | {
         title: string;
         text?: string | null;
+        icon?:
+          | (
+              | 'none'
+              | 'award'
+              | 'truck'
+              | 'shield'
+              | 'headset'
+              | 'users'
+              | 'building'
+              | 'box'
+              | 'layers'
+              | 'leaf'
+              | 'drop'
+              | 'map'
+              | 'utensils'
+              | 'chat'
+              | 'check'
+            )
+          | null;
         id?: string | null;
       }[]
     | null;
@@ -1701,6 +1822,25 @@ export interface PartnershipPage {
     | {
         title: string;
         text?: string | null;
+        icon?:
+          | (
+              | 'none'
+              | 'award'
+              | 'truck'
+              | 'shield'
+              | 'headset'
+              | 'users'
+              | 'building'
+              | 'box'
+              | 'layers'
+              | 'leaf'
+              | 'drop'
+              | 'map'
+              | 'utensils'
+              | 'chat'
+              | 'check'
+            )
+          | null;
         id?: string | null;
       }[]
     | null;
@@ -1962,6 +2102,7 @@ export interface UiTextsSelect<T extends boolean = true> {
         brandProducts?: T;
         viewBrand?: T;
         filtersLabel?: T;
+        countLabel?: T;
       };
   network?:
     | T
@@ -2140,6 +2281,7 @@ export interface HomePageSelect<T extends boolean = true> {
         title?: T;
         text?: T;
         ctaLabel?: T;
+        showMarkets?: T;
       };
   brands?:
     | T
@@ -2178,6 +2320,7 @@ export interface HomePageSelect<T extends boolean = true> {
           | {
               title?: T;
               text?: T;
+              icon?: T;
               id?: T;
             };
       };
@@ -2256,6 +2399,7 @@ export interface AboutPageSelect<T extends boolean = true> {
     | {
         title?: T;
         text?: T;
+        icon?: T;
         id?: T;
       };
   cta?:
@@ -2327,6 +2471,7 @@ export interface NetworkPageSelect<T extends boolean = true> {
     | {
         title?: T;
         text?: T;
+        icon?: T;
         id?: T;
       };
   faq?:
@@ -2371,6 +2516,7 @@ export interface RepresentationPageSelect<T extends boolean = true> {
     | {
         title?: T;
         text?: T;
+        icon?: T;
         id?: T;
       };
   process?:
@@ -2378,6 +2524,7 @@ export interface RepresentationPageSelect<T extends boolean = true> {
     | {
         title?: T;
         text?: T;
+        icon?: T;
         id?: T;
       };
   form?:
@@ -2418,6 +2565,7 @@ export interface PartnershipPageSelect<T extends boolean = true> {
     | {
         title?: T;
         text?: T;
+        icon?: T;
         id?: T;
       };
   benefits?:
@@ -2425,6 +2573,7 @@ export interface PartnershipPageSelect<T extends boolean = true> {
     | {
         title?: T;
         text?: T;
+        icon?: T;
         id?: T;
       };
   businessTypes?:

@@ -2,7 +2,7 @@ import { unstable_cache } from 'next/cache'
 import { getPayload, type Payload } from 'payload'
 import config from '@payload-config'
 import { CMS_CACHE_TAG } from '@/hooks/revalidate'
-import type { Brand, Product } from '@/payload-types'
+import type { Brand, Product, SiteSetting } from '@/payload-types'
 import { mergeUi, type UiTexts } from './ui-defaults'
 
 export const getCMS = () => getPayload({ config })
@@ -70,6 +70,9 @@ export const getProduct = (slug: string) =>
 
 export const getCategories = () =>
   cached(['categories'], async (p) => (await p.find({ collection: 'product-categories', sort: 'order', limit: 50, pagination: false })).docs)
+
+export const getMarkets = () =>
+  cached(['markets'], async (p) => (await p.find({ collection: 'markets', sort: 'order', limit: 50, pagination: false })).docs)
 
 export const getFatTypes = () =>
   cached(['fat-types'], async (p) => (await p.find({ collection: 'fat-types', sort: 'order', limit: 50, pagination: false })).docs)
@@ -146,6 +149,19 @@ export function mediaOf(value: unknown): MediaInfo | null {
     mimeType: m.mimeType ?? undefined,
     focal: typeof m.focalX === 'number' && typeof m.focalY === 'number' ? `${m.focalX}% ${m.focalY}%` : undefined,
   }
+}
+
+/** A related document when it was loaded with the page (and not just its id). */
+export const related = <T extends object>(value: T | number | string | null | undefined): T | null => (value && typeof value === 'object' ? value : null)
+
+/**
+ * The picture a product shows: its own first picture, else the stand-in of its category,
+ * else the site-wide default (unpackaged butter). `standIn` tells the page it is not a real product photo.
+ */
+export function productPicture(product: Pick<Product, 'images' | 'category'>, settings: Pick<SiteSetting, 'defaultProductImage'>): { media: MediaInfo | null; standIn: boolean } {
+  const own = mediaOf(product.images?.[0]?.image)
+  if (own) return { media: own, standIn: false }
+  return { media: mediaOf(related(product.category)?.image) ?? mediaOf(settings.defaultProductImage), standIn: true }
 }
 
 /* ---------- interface texts ---------- */

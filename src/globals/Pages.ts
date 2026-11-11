@@ -4,6 +4,7 @@ import {
   cardsField,
   checkbox,
   formCopyField,
+  iconField,
   image,
   itemsField,
   linkGroup,
@@ -145,7 +146,10 @@ export const HomePage = page('home-page', 'صفحه اصلی', [
     ]),
     linkGroup('cta', 'لینک'),
   ]),
-  sectionHeadField('products', 'بخش محصولات', [text('ctaLabel', 'متن دکمه')]),
+  sectionHeadField('products', 'بخش محصولات', [
+    text('ctaLabel', 'متن دکمه'),
+    checkbox('showMarkets', 'نمایش نوار متحرک «مناسب برای» (از فهرست بازارهای هدف)', true),
+  ]),
   sectionHeadField('brands', 'بخش برندها'),
   sectionHeadField('distribution', 'بخش شبکه توزیع', [
     text('tehranTitle', 'عنوان کارت تهران'),
@@ -155,7 +159,7 @@ export const HomePage = page('home-page', 'صفحه اصلی', [
   ]),
   sectionHeadField('map', 'نقشه ایران', [text('ctaLabel', 'متن دکمه')]),
   sectionHeadField('trust', 'اعتمادسازی', [
-    itemsField('items', 'موارد', [text('title', 'عنوان', { required: true }), textarea('text', 'توضیح')]),
+    itemsField('items', 'موارد', [text('title', 'عنوان', { required: true }), textarea('text', 'توضیح'), iconField()]),
   ]),
   {
     name: 'finalCta',

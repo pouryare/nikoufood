@@ -34,6 +34,7 @@ export const UI_DEFAULTS = {
     brandProducts: 'محصولات این برند',
     viewBrand: 'آشنایی با برند',
     filtersLabel: 'فیلتر محصولات',
+    countLabel: 'محصول',
   },
   network: {
     direct: 'پخش مستقیم',

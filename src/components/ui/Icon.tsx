@@ -36,6 +36,9 @@ const PATHS = {
 
 export type IconName = keyof typeof PATHS
 
+/** Turns a value saved in the CMS into an icon name, or null when it is empty, «none» or unknown. */
+export const iconName = (value: unknown): IconName | null => (typeof value === 'string' && value in PATHS ? (value as IconName) : null)
+
 type Props = SVGProps<SVGSVGElement> & { name: IconName; size?: number }
 
 export function Icon({ name, size = 20, strokeWidth = 1.6, ...rest }: Props) {

@@ -95,6 +95,33 @@ export const formCopyField = (name = 'form', label = 'متن فرم'): Field => 
   ],
 })
 
+/** Icons an editor can put next to a card or a list row (they match the site's own icon set). */
+export const ICON_CHOICES = [
+  { label: 'بدون آیکون (شماره نمایش داده می‌شود)', value: 'none' },
+  { label: 'نشان (سابقه، افتخار)', value: 'award' },
+  { label: 'کامیون (پخش و توزیع)', value: 'truck' },
+  { label: 'سپر (کیفیت، اطمینان)', value: 'shield' },
+  { label: 'هدست (پشتیبانی)', value: 'headset' },
+  { label: 'افراد (نمایندگان، همکاران)', value: 'users' },
+  { label: 'ساختمان (کسب‌وکار)', value: 'building' },
+  { label: 'بسته (محصول)', value: 'box' },
+  { label: 'لایه‌ها (تنوع)', value: 'layers' },
+  { label: 'برگ (گیاهی)', value: 'leaf' },
+  { label: 'قطره (شیر، روغن)', value: 'drop' },
+  { label: 'نقشه (گستره)', value: 'map' },
+  { label: 'قاشق و چنگال (رستوران)', value: 'utensils' },
+  { label: 'گفت‌وگو', value: 'chat' },
+  { label: 'تیک', value: 'check' },
+] as const
+
+export const iconField = (name = 'icon', label = 'آیکون'): Field => ({
+  name,
+  label,
+  type: 'select',
+  defaultValue: 'none',
+  options: ICON_CHOICES.map((choice) => ({ ...choice })),
+})
+
 /** A titled block that is a short list of title + text cards. */
 export const cardsField = (name: string, label: string): Field => ({
   name,
@@ -103,6 +130,7 @@ export const cardsField = (name: string, label: string): Field => ({
   fields: [
     { name: 'title', label: 'عنوان', type: 'text', required: true },
     { name: 'text', label: 'توضیح', type: 'textarea' },
+    iconField(),
   ],
 })
 

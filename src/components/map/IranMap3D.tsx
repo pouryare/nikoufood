@@ -21,7 +21,7 @@ function useProvinceGeometries() {
     const loader = new SVGLoader()
     return IRAN_PROVINCE_SHAPES.map((shape) => {
       const data = loader.parse(`<svg xmlns="http://www.w3.org/2000/svg"><path d="${shape.d}"/></svg>`)
-      const shapes = data.paths.flatMap((path) => SVGLoader.createShapes(path))
+      const shapes = data.paths.flatMap((path) => path.toShapes())
       const geometry = new ExtrudeGeometry(shapes, { depth: 1, bevelEnabled: false, curveSegments: 4 })
       geometry.translate(-CX, -CY, 0)
       geometry.scale(1, -1, 1)

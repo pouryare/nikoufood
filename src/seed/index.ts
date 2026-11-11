@@ -41,8 +41,12 @@ async function main() {
   }
 
   const idBySlug: Record<string, number> = {}
+  // Each product group has a stand-in picture of unpackaged butter for products that have no photo yet.
+  for (const { picture, ...row } of c.categories) {
+    const image = picture ? await upload(`src/seed/assets/products/${picture.file}`, picture.alt) : undefined
+    idBySlug[`product-categories:${row.slug}`] = (await upsert('product-categories', row.slug, { ...row, image })).id as number
+  }
   for (const [collection, rows] of [
-    ['product-categories', c.categories],
     ['fat-types', c.fatTypes],
     ['markets', c.markets],
   ] as const) {

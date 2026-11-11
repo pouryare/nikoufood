@@ -1,7 +1,12 @@
+import { BrandsSection } from '@/components/home/BrandsSection'
 import { Hero } from '@/components/home/Hero'
+import { IntroSection } from '@/components/home/IntroSection'
 import { NetworkSection } from '@/components/home/NetworkSection'
+import { ProductsSection } from '@/components/home/ProductsSection'
+import { TrustSection } from '@/components/home/TrustSection'
 import { isFilmArt } from '@/components/home/FilmArt'
 import { OriginFilm, type FilmScene, type FilmSide } from '@/components/home/OriginFilm'
+import { CtaBand } from '@/components/ui/CtaBand'
 import { getHomePage, getSiteSettings, getTheme, getUi, mediaOf } from '@/lib/cms'
 import { pageMetadata } from '@/lib/seo'
 import { themeColors } from '@/lib/theme'
@@ -65,12 +70,17 @@ export default async function HomePage() {
           scenes={scenes}
         />
       ) : null}
+      <IntroSection {...(home.intro ?? {})} />
+      <ProductsSection head={home.products ?? {}} ctaLabel={home.products?.ctaLabel} showMarkets={home.products?.showMarkets !== false} />
+      <BrandsSection head={home.brands ?? {}} />
       <NetworkSection
         head={home.distribution ?? {}}
         tehran={{ title: home.distribution?.tehranTitle, text: home.distribution?.tehranText }}
         others={{ title: home.distribution?.provincesTitle, text: home.distribution?.provincesText }}
         cta={{ label: home.map?.ctaLabel, href: '/network' }}
       />
+      <TrustSection head={home.trust ?? {}} items={home.trust?.items} />
+      <CtaBand title={home.finalCta?.title} text={home.finalCta?.text} actions={[home.finalCta?.primary, home.finalCta?.secondary, home.finalCta?.tertiary]} />
     </>
   )
 }
