@@ -35,7 +35,7 @@ jobs:
           echo "v=$v" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 26
       - run: corepack enable
       - name: Installer checks
         run: bash deploy/test.sh

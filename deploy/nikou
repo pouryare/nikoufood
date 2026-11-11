@@ -420,14 +420,14 @@ render_compose() {   # to stdout
   if [ "$DB_MODE" = builtin ]; then
     cat <<YML
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: $DB_USER
       POSTGRES_DB: $DB_NAME
       POSTGRES_PASSWORD: $(env_get DB_PASSWORD)
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U $DB_USER -d $DB_NAME']
       interval: 5s

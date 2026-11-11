@@ -2,7 +2,7 @@
 # Three stages: install, build, and a small runtime image. The "tools" stage keeps the full source so
 # migrations and the seed can run from the same image:  docker compose run --rm tools pnpm migrate
 
-FROM node:22-bookworm-slim AS base
+FROM node:26-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH NEXT_TELEMETRY_DISABLED=1
 # The version comes from "packageManager" in package.json (a newer pnpm reads build-script permissions from a different file).
 RUN corepack enable
