@@ -10,6 +10,10 @@ t() { local name=$1; shift; if "$@" >/dev/null 2>&1; then printf '  ok    %s\n' 
 has() { grep -qF -- "$2" "$1"; }
 hasnt() { ! grep -qF -- "$2" "$1"; }
 
+# The question tests below type answers in a fixed order. A GitHub token in the environment (this machine, a CI
+# runner) removes one question from the native flow, so set one on purpose: the order is then the same everywhere.
+export GITHUB_TOKEN=test-token-never-used; unset GH_TOKEN
+
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 export NIKOU_CONF_DIR=$TMP/etc NIKOU_ROOT=$TMP/opt NIKOU_DATA=$TMP/var NIKOU_CADDY_DIR=$TMP/caddy
 mkdir -p "$NIKOU_CONF_DIR"
@@ -38,7 +42,7 @@ render() {   # render <name> VAR=value ...   (a fresh answers file each time)
 
 echo "Docker with the built-in PostgreSQL"
 render d1 MODE=docker DOMAIN=nikoufood.ir DOCKERHUB_USER=pourya DB_MODE=builtin
-t "compose has db container"      has "$TMP/d1/docker-compose.yml" "image: postgres:16-alpine"
+t "compose has db container"      has "$TMP/d1/docker-compose.yml" "image: postgres:18-alpine"
 t "app image from Docker Hub"     has "$TMP/d1/docker-compose.yml" "image: pourya/nikoufood:latest"
 t "tools image"                   has "$TMP/d1/docker-compose.yml" "image: pourya/nikoufood-tools:latest"
 t "port published on localhost"   has "$TMP/d1/docker-compose.yml" '127.0.0.1:3000:3000'
@@ -56,13 +60,13 @@ render d2 MODE=docker DOMAIN=nikoufood.ir DOCKERHUB_USER=pourya DB_MODE=local AP
 t "app shares the host network"   has "$TMP/d2/docker-compose.yml" "network_mode: host"
 t "app port from the answers"     has "$TMP/d2/docker-compose.yml" 'PORT: "3010"'
 t "app listens on localhost only" has "$TMP/d2/docker-compose.yml" "HOSTNAME: 127.0.0.1"
-t "no db container"               hasnt "$TMP/d2/docker-compose.yml" "postgres:16-alpine"
+t "no db container"               hasnt "$TMP/d2/docker-compose.yml" "postgres:18-alpine"
 t "caddy uses the chosen port"    has "$TMP/d2/nikoufood.caddy" 'reverse_proxy 127.0.0.1:3010'
 
 echo "Docker with a remote PostgreSQL"
 render d3 MODE=docker DOMAIN=nikoufood.ir DOCKERHUB_USER=pourya DB_MODE=external DB_HOST=10.0.0.5
 t "bridge network, not host"      hasnt "$TMP/d3/docker-compose.yml" "network_mode"
-t "no db container"               hasnt "$TMP/d3/docker-compose.yml" "postgres:16-alpine"
+t "no db container"               hasnt "$TMP/d3/docker-compose.yml" "postgres:18-alpine"
 
 echo "Native"
 render n1 MODE=native DOMAIN=nikoufood.ir APP_PORT=3000 DB_MODE=apt
