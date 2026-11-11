@@ -17,15 +17,15 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: bash scripts/release/pack.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: nikoufood-release
           path: dist/nikoufood-*
@@ -35,7 +35,7 @@ jobs:
         run: echo "v=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
       # install.sh downloads "the latest release", so every run publishes one (the same version is updated in place).
       - name: Publish the GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ steps.ver.outputs.v }}
           target_commitish: ${{ github.sha }}
