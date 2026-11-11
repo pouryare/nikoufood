@@ -97,6 +97,13 @@ Before an upgrade the installer checks that the file is for this machine type (x
 - **Restore test:** every Sunday the newest backup is restored into a scratch database, compared with the live one and thrown away (`sudo nikou restore-test` does it now). The live database is never touched. The backup holds both the database and the uploaded pictures.
 - **Alerts by email:** if the mail settings are set, a failed backup, upgrade or restore test, and a site that does not answer twice in a row (checked every 10 minutes), are emailed to the alert address (asked with the mail questions; default is the admin email). `sudo nikou doctor` shows whether all of this is switched on.
 
+## Speed
+
+- **Pictures** go through the site's image optimizer: AVIF or WebP, sized for each screen, made on the first visit and kept on disk for 31 days. Nothing to convert by hand.
+- **Text and code** are compressed by Caddy (zstd or gzip). The 3D scenes load after the page text.
+- **Cache headers:** site files (`/_next/static`) are kept by browsers for a year (set by Next). `/brand/*` and uploaded media (`/api/media/file/*`) are kept for 30 days.
+- **Arvan edge cache (done in the Arvan panel, CDN section, caching rules):** cache these paths so visitors get them from a nearby Arvan server instead of the VPS: `/_next/static/*`, `/_next/image*`, `/api/media/file/*`, `/brand/*`. Do not cache `/admin`, `/api` (other than media files) or form posts. After changing an uploaded file in the admin, purge the Arvan cache for that path if the old picture still shows.
+
 ## Local notes
 
 - `pnpm dev` uses Payload's automatic schema push; production uses migrations only.
