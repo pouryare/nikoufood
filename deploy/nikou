@@ -1,0 +1,1128 @@
+#!/usr/bin/env bash
+# nikou: the one command for a Nikoo Etemad website server. Install, upgrade, roll back, check, back up,
+# restore, read logs. Run it with no arguments on a terminal for a menu.
+#
+#   sudo bash install.sh                       # fresh server: the same questions as "nikou install"
+#   sudo nikou install [tarball]               # asks the questions, then installs (re-run it to apply changed answers)
+#   sudo DOMAIN=example.ir ADMIN_EMAIL=me@example.ir nikou install --yes     # no questions; answers from the environment
+#   sudo nikou status | doctor | logs | first-login [--forget] | support-file
+#   sudo nikou upgrade [docker tag | release tarball]     # Docker: pull + migrate + restart; native: unpack + migrate + switch
+#   sudo nikou rollback                        # back to the version that ran before the last upgrade
+#   sudo nikou backup | restore <dump.sql.gz> [media.tar.gz]
+#   sudo nikou maintenance on|off              # a short "we are updating" page for everyone
+#   sudo nikou secrets list | set KEY | unset KEY
+#   sudo nikou reset-login <email>             # a new random password for an admin account
+#   sudo nikou cdn-ips [--open|--only]         # refresh the firewall from ArvanCloud's address list | open web ports | Arvan only
+#   sudo nikou                                 # whiptail menu
+#
+# Two ways to run the site, chosen in the install questions:
+#   docker   the site and (optionally) PostgreSQL run as Docker containers; the images come from Docker Hub.
+#   native   the site runs as a systemd service with its own Node, from a release tarball (scripts/release/pack.sh).
+# PostgreSQL is one of: a container (docker), the PostgreSQL already on this server (a separate database and
+# user are created; nothing of RouteFlow's is touched), one installed by this script (native), or any server you
+# give the address and login of.
+#
+# Answers (no passwords) live in /etc/nikou/nikou.conf, passwords in /etc/nikou/env (mode 600). Every other
+# file (compose file, Caddy site, systemd unit) is written from them, so "nikou install" again is safe.
+
+set -euo pipefail
+
+ROOT=${NIKOU_ROOT:-/opt/nikoufood}
+CONF_DIR=${NIKOU_CONF_DIR:-/etc/nikou}
+CADDY_DIR=${NIKOU_CADDY_DIR:-/etc/caddy}
+DATA=${NIKOU_DATA:-/var/lib/nikou}
+BACKUPS=${NIKOU_BACKUPS:-/var/backups/nikoufood}
+UNIT_DIR=${NIKOU_UNIT_DIR:-/etc/systemd/system}
+CONF=$CONF_DIR/nikou.conf
+ENV_FILE=$CONF_DIR/env
+SERVICE=nikoufood
+APP_USER=nikou
+LOCK=/run/lock/nikou.lock
+CDN_IPS_URL=${CDN_IPS_URL:-https://www.arvancloud.ir/en/ips.txt}
+
+say() { printf '== %s\n' "$*"; }
+warn() { printf 'nikou: %s\n' "$*" >&2; }
+die() { warn "$*"; exit 1; }
+need_root() { [ "$(id -u)" = 0 ] || die "run as root: sudo nikou $*"; }
+
+# ---------------------------------------------------------------------------------------------------------
+# Progress: "== [████░░░░░░] 4/12 name"
+STEP_TOTAL=13
+STEP_N=0
+progress_bar() { local n=$1 t=$2 w=10 f i b=""; f=$((n * w / t)); for ((i = 0; i < w; i++)); do if ((i < f)); then b+="█"; else b+="░"; fi; done; printf '%s' "$b"; }
+step() { STEP_N=$((STEP_N + 1)); printf '== [%s] %s/%s %s\n' "$(progress_bar "$STEP_N" "$STEP_TOTAL")" "$STEP_N" "$STEP_TOTAL" "$*"; }
+
+# ---------------------------------------------------------------------------------------------------------
+# Questions
+interactive() { [ "${NIKOU_YES:-0}" != 1 ] && [ -t 0 ] && [ -w /dev/tty ]; }
+
+ask() {   # ask VAR "question" [default]
+  local var=$1 question=$2 default=${3:-} value reply
+  value=${!var:-$default}
+  if interactive; then
+    printf '\n%s\n' "$question" >/dev/tty
+    read -r -p "  [${value:-empty}] > " -e reply </dev/tty || die "cancelled"
+    [ -z "$reply" ] || value=$reply
+    [ "$reply" != "-" ] || value=""   # a single dash clears the answer
+  fi
+  printf -v "$var" '%s' "$value"
+}
+
+ask_yes() {   # ask_yes VAR "question" 1|0
+  local var=$1 question=$2 default=${3:-1} reply
+  if interactive; then
+    printf '\n%s\n' "$question" >/dev/tty
+    read -r -p "  [$([ "$default" = 1 ] && echo Y/n || echo y/N)] > " reply </dev/tty || die "cancelled"
+    case "$reply" in [yY]*) default=1 ;; [nN]*) default=0 ;; esac
+  fi
+  printf -v "$var" '%s' "$default"
+}
+
+ask_secret() {   # ask_secret VAR "question"   (nothing is shown while typing; Enter keeps the current value)
+  local var=$1 question=$2 reply
+  if interactive; then
+    printf '\n%s\n' "$question" >/dev/tty
+    read -r -s -p "  > " reply </dev/tty || die "cancelled"
+    printf '\n' >/dev/tty
+    [ -z "$reply" ] || printf -v "$var" '%s' "$reply"
+  fi
+}
+
+ask_choice() {   # ask_choice VAR "question" default_value "value|Label" ...
+  local var=$1 question=$2 default=$3 current opt i=0 n reply label
+  shift 3
+  current=${!var:-$default}
+  if interactive; then
+    printf '\n%s\n' "$question" >/dev/tty
+    for opt in "$@"; do i=$((i + 1)); label=${opt#*|}; printf '  %s) %s%s\n' "$i" "$label" "$([ "${opt%%|*}" = "$current" ] && echo '   (current)')" >/dev/tty; done
+    n=$i
+    read -r -p "  [$(i=0; for opt in "$@"; do i=$((i + 1)); [ "${opt%%|*}" = "$current" ] && echo $i; done)] > " reply </dev/tty || die "cancelled"
+    if [[ $reply =~ ^[0-9]+$ ]] && [ "$reply" -ge 1 ] && [ "$reply" -le "$n" ]; then
+      i=0; for opt in "$@"; do i=$((i + 1)); [ "$i" = "$reply" ] && current=${opt%%|*}; done
+    fi
+  fi
+  printf -v "$var" '%s' "$current"
+}
+
+ask_valid() {   # ask_valid VAR "question" default validator_function "what is wrong"
+  local var=$1 question=$2 default=$3 check=$4 bad=$5
+  while :; do
+    ask "$var" "$question" "$default"
+    if "$check" "${!var}"; then return 0; fi
+    interactive || die "$var: $bad"
+    printf '  %s\n' "$bad" >/dev/tty
+    default=${!var}; unset "$var"
+  done
+}
+
+valid_domain() { [[ $1 =~ ^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$ ]]; }
+valid_port() { [[ $1 =~ ^[0-9]+$ ]] && [ "$1" -ge 1 ] && [ "$1" -le 65535 ]; }
+valid_email() { [[ $1 =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; }
+valid_ident() { [[ $1 =~ ^[a-z_][a-z0-9_]{0,40}$ ]]; }
+valid_host() { [[ $1 =~ ^[A-Za-z0-9._:-]+$ ]]; }
+valid_dockeruser() { [[ $1 =~ ^[a-z0-9][a-z0-9_.-]{3,30}$ ]]; }
+valid_tag() { [[ $1 =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; }
+valid_optional_host() { [ -z "$1" ] || valid_host "$1"; }
+# Passwords go into files that docker and systemd read as plain text, so a few characters are not allowed.
+safe_secret() { [[ $1 != *[\"\'\$\\\`]* ]] && [[ $1 != *$'\n'* ]] && [ "${#1}" -ge 1 ]; }
+valid_min8() { [ "${#1}" -ge 8 ] && safe_secret "$1"; }
+reachable() { timeout 6 bash -c "exec 3<>/dev/tcp/$1/${2:-22}" 2>/dev/null; }
+
+rand_hex() { openssl rand -hex "${1:-16}"; }
+# Percent-encodes a value for use inside a postgres:// address.
+urlenc() {
+  local s=$1 i c out=""
+  for ((i = 0; i < ${#s}; i++)); do
+    c=${s:i:1}
+    case "$c" in [A-Za-z0-9._~-]) out+=$c ;; *) out+=$(printf '%%%02X' "'$c") ;; esac
+  done
+  printf '%s' "$out"
+}
+
+# ---------------------------------------------------------------------------------------------------------
+# Answers
+CONF_KEYS=(MODE DOMAIN APP_PORT DOCKERHUB_USER IMAGE_TAG DOCKER_MIRROR DB_MODE DB_HOST DB_PORT DB_NAME DB_USER DB_SSL
+  ADMIN_EMAIL LOAD_SEED SMTP_HOST SMTP_PORT SMTP_SECURE SMTP_USER SMTP_FROM BEHIND_ARVAN CERT_MODE CDN_ONLY
+  BACKUP_ENABLED KEEP_BACKUPS OFFSITE_HOST OFFSITE_USER OFFSITE_PATH PREVIOUS_TAG)
+
+defaults() {
+  MODE=${MODE:-docker}; DOMAIN=${DOMAIN:-}; APP_PORT=${APP_PORT:-3000}
+  DOCKERHUB_USER=${DOCKERHUB_USER:-}; IMAGE_TAG=${IMAGE_TAG:-latest}; DOCKER_MIRROR=${DOCKER_MIRROR:-}
+  DB_MODE=${DB_MODE:-builtin}; DB_HOST=${DB_HOST:-127.0.0.1}; DB_PORT=${DB_PORT:-5432}; DB_NAME=${DB_NAME:-nikou}
+  DB_USER=${DB_USER:-nikou}; DB_SSL=${DB_SSL:-0}
+  ADMIN_EMAIL=${ADMIN_EMAIL:-}; LOAD_SEED=${LOAD_SEED:-1}
+  SMTP_HOST=${SMTP_HOST:-}; SMTP_PORT=${SMTP_PORT:-587}; SMTP_SECURE=${SMTP_SECURE:-false}; SMTP_USER=${SMTP_USER:-}; SMTP_FROM=${SMTP_FROM:-}
+  BEHIND_ARVAN=${BEHIND_ARVAN:-0}; CERT_MODE=${CERT_MODE:-auto}; CDN_ONLY=${CDN_ONLY:-0}
+  BACKUP_ENABLED=${BACKUP_ENABLED:-0}; KEEP_BACKUPS=${KEEP_BACKUPS:-14}
+  OFFSITE_HOST=${OFFSITE_HOST:-}; OFFSITE_USER=${OFFSITE_USER:-}; OFFSITE_PATH=${OFFSITE_PATH:-}; PREVIOUS_TAG=${PREVIOUS_TAG:-}
+}
+
+load_conf() {
+  # Values given in the environment win over the saved file (that is how "--yes" installs are driven).
+  local k
+  declare -A fromenv=()
+  for k in "${CONF_KEYS[@]}"; do if [ -n "${!k+x}" ]; then fromenv[$k]=${!k}; fi; done
+  if [ -f "$CONF" ]; then
+    # shellcheck disable=SC1090
+    . "$CONF"
+  fi
+  for k in "${!fromenv[@]}"; do printf -v "$k" '%s' "${fromenv[$k]}"; done
+  defaults
+}
+
+write_conf() {
+  local k
+  install -d -m 755 "$CONF_DIR"
+  {
+    printf '# Written by "nikou install". Edit here, then run "nikou install" again to apply. Passwords are in %s.\n' "$ENV_FILE"
+    for k in "${CONF_KEYS[@]}"; do printf '%s=%q\n' "$k" "${!k}"; done
+  } > "$CONF.tmp"
+  chmod 644 "$CONF.tmp"; mv "$CONF.tmp" "$CONF"
+}
+
+# Exports every KEY=value of the secrets file (the file is plain text, not shell syntax: values may hold spaces).
+export_env() {
+  local k v
+  while IFS='=' read -r k v; do
+    [[ $k =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] && export "$k=$v"
+  done < "$ENV_FILE"
+}
+
+# KEY=value lines in the secrets file.
+env_get() { [ -f "$ENV_FILE" ] && sed -n "s/^$1=//p" "$ENV_FILE" | tail -1 || true; }
+env_set() {   # env_set KEY value
+  install -d -m 755 "$CONF_DIR"
+  [ -f "$ENV_FILE" ] || ( umask 077; : > "$ENV_FILE" )
+  if grep -q "^$1=" "$ENV_FILE" 2>/dev/null; then
+    local tmp; tmp=$(mktemp); ( umask 077; grep -v "^$1=" "$ENV_FILE" > "$tmp" || true; printf '%s=%s\n' "$1" "$2" >> "$tmp" ); cat "$tmp" > "$ENV_FILE"; rm -f "$tmp"
+  else
+    printf '%s=%s\n' "$1" "$2" >> "$ENV_FILE"
+  fi
+  chmod 600 "$ENV_FILE"
+}
+env_unset() { [ -f "$ENV_FILE" ] && sed -i "/^$1=/d" "$ENV_FILE" || true; }
+
+database_url() {   # the address the SITE uses (from inside a container, the built-in one is called "db")
+  local pass host=$DB_HOST q=""
+  pass=$(env_get DB_PASSWORD)
+  [ "$DB_MODE" = builtin ] && host=db
+  [ "$DB_SSL" = 1 ] && q="?sslmode=require"
+  printf 'postgres://%s:%s@%s:%s/%s%s' "$(urlenc "$DB_USER")" "$(urlenc "$pass")" "$host" "$DB_PORT" "$DB_NAME" "$q"
+}
+
+# ---------------------------------------------------------------------------------------------------------
+# What else is on this server
+routeflow_conf() { [ -f /etc/routeflow/routeflow.conf ] && sed -n "s/^$1=//p" /etc/routeflow/routeflow.conf | tail -1 | tr -d "'\"" || true; }
+routeflow_present() { [ -f /etc/routeflow/routeflow.conf ] || systemctl is-active --quiet routeflow 2>/dev/null; }
+# A port is "in use" when something answers on it (no extra tools needed, unlike ss).
+port_free() { ! reachable 127.0.0.1 "$1"; }
+local_pg_listening() { reachable 127.0.0.1 5432; }
+local_pg_superuser() { command -v runuser >/dev/null && runuser -u postgres -- psql -X -tAc 'select 1' 2>/dev/null | grep -qx 1; }
+# The newest PostgreSQL client tools installed (a newer pg_dump can read an older server, not the other way round).
+pg_bindir() { ls -1d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true; }
+pg_tool() { local d; d=$(pg_bindir); if [ -n "$d" ] && [ -x "$d/$1" ]; then echo "$d/$1"; else echo "$1"; fi; }
+db_on_this_host() { [[ $DB_HOST =~ ^(127\.0\.0\.1|localhost|::1)$ ]]; }
+
+# ---------------------------------------------------------------------------------------------------------
+# The install questions, in the order a person thinks about them (answer 1..9 can be changed before it starts)
+q1() {
+  ask_choice MODE "How should the site run?" "$MODE" \
+    "docker|Docker (recommended): the ready-made images from Docker Hub, built by GitHub" \
+    "native|Native: a systemd service from a release tarball, like RouteFlow (no Docker needed)"
+}
+q2() { ask_valid DOMAIN "The website's address, without https:// (for example nikoufood.ir)" "$DOMAIN" valid_domain "that is not a valid address (example: nikoufood.ir)"; }
+q3() {
+  local suggest=$APP_PORT
+  if [ -z "${NIKOU_PORT_CHECKED:-}" ] && ! port_free "$suggest"; then
+    while ! port_free "$suggest"; do suggest=$((suggest + 1)); done
+    if interactive; then printf '\n  Port %s is already used on this server (RouteFlow uses 3003), so %s is suggested.\n' "$APP_PORT" "$suggest" >/dev/tty; fi
+  fi
+  ask_valid APP_PORT "The local port the site listens on (only this server can reach it; Caddy forwards to it)" "$suggest" valid_port "a port is a number from 1 to 65535"
+}
+q4() {
+  if [ "$MODE" = docker ]; then
+    ask_valid DOCKERHUB_USER "Your Docker Hub user name (the images are <user>/nikoufood and <user>/nikoufood-tools)" "$DOCKERHUB_USER" valid_dockeruser "that does not look like a Docker Hub user name"
+    ask_valid IMAGE_TAG "Which version to run (latest, or a tag such as v1.0.0 or sha-abc1234)" "$IMAGE_TAG" valid_tag "not a valid tag"
+    ask DOCKER_MIRROR "A Docker registry mirror if Docker Hub is hard to reach (for example https://docker.arvancloud.ir). Type - for none" "$DOCKER_MIRROR"
+    if [ -z "${DOCKERHUB_TOKEN:-}" ]; then ask_secret DOCKERHUB_TOKEN "Docker Hub access token (needed when the images are private; nothing is shown while you type; Enter = images are public)"; fi
+  else
+    if interactive; then printf '\n  Native install: the release tarball (nikoufood-<version>-linux-x64.tar.gz, made by GitHub) must be on this server.\n  Put it next to install.sh, in %s/incoming/, or give its path as: nikou install /path/to/tarball\n' "$ROOT" >/dev/tty; fi
+  fi
+}
+q5() {
+  local have=1 pick
+  # What is on this server, so the question can say it.
+  if local_pg_listening && interactive; then
+    printf '\n  A PostgreSQL is already running on this server (port 5432).%s\n  It will not be changed. You can give the site its own database and user inside it.\n' "$(routeflow_present && echo ' RouteFlow is installed, and it uses a native PostgreSQL (not Docker).')" >/dev/tty
+  fi
+  case "$DB_MODE" in builtin | apt) have=0 ;; esac
+  ask_yes DB_HAVE "Do you already have a PostgreSQL database for this site (or want to use the PostgreSQL on this server)?" "$have"
+  if [ "$DB_HAVE" = 1 ]; then
+    if local_pg_listening && local_pg_superuser; then
+      ask_choice pick "How should the site connect?" "$([ "$DB_MODE" = external ] && echo external || echo local)" \
+        "local|Use the PostgreSQL on this server: create a separate database and user for the site (recommended)" \
+        "external|I will type the host, user and password myself"
+      DB_MODE=$([ "$pick" = local ] && echo local || echo external)
+    else
+      DB_MODE=external
+    fi
+    if [ "$DB_MODE" = local ]; then
+      DB_HOST=127.0.0.1; DB_PORT=5432; DB_SSL=0
+      ask_valid DB_NAME "Name of the new database" "$DB_NAME" valid_ident "use lower-case letters, digits and _"
+      ask_valid DB_USER "Name of the new database user" "$DB_USER" valid_ident "use lower-case letters, digits and _"
+    else
+      ask_valid DB_HOST "PostgreSQL host (name or IP address)" "$DB_HOST" valid_host "not a valid host"
+      ask_valid DB_PORT "PostgreSQL port" "$DB_PORT" valid_port "a port is a number from 1 to 65535"
+      ask_valid DB_NAME "Database name" "$DB_NAME" valid_ident "use lower-case letters, digits and _"
+      ask_valid DB_USER "Database user" "$DB_USER" valid_ident "use lower-case letters, digits and _"
+      ask_secret DB_PASSWORD_IN "Password of that user (nothing is shown while you type$([ -n "$(env_get DB_PASSWORD)" ] && echo '; Enter keeps the saved one'))"
+      ask_yes DB_SSL "Require an encrypted (SSL) connection? Yes for a remote server, no for one on this machine" "$DB_SSL"
+    fi
+  else
+    DB_MODE=$([ "$MODE" = docker ] && echo builtin || echo apt)
+    DB_HOST=127.0.0.1; DB_PORT=5432; DB_SSL=0
+    if interactive; then printf '\n  OK: PostgreSQL will be installed for you (%s). It listens only on this server.\n' "$([ "$MODE" = docker ] && echo 'as a Docker container next to the site' || echo 'from the Linux package archive')" >/dev/tty; fi
+  fi
+}
+q6() {
+  ask_valid ADMIN_EMAIL "Email of the first admin account for /admin" "$ADMIN_EMAIL" valid_email "not a valid email address"
+  ask_secret ADMIN_PASSWORD "Its password (at least 8 characters; nothing is shown while you type; Enter = make a random one and show it at the end)"
+  ask_yes LOAD_SEED "Load the starter content (all pages, texts, products and pictures you saw in the demo)? Choose no for an empty database" "$LOAD_SEED"
+}
+q7() {
+  local want=0
+  [ -n "$SMTP_HOST" ] && want=1
+  ask_yes SMTP_WANT "Send form requests by email now? (You can do it later with: nikou secrets set SMTP_PASS)" "$want"
+  if [ "$SMTP_WANT" = 1 ]; then
+    ask_valid SMTP_HOST "Mail server (SMTP) host" "$SMTP_HOST" valid_host "not a valid host"
+    ask_valid SMTP_PORT "SMTP port" "$SMTP_PORT" valid_port "a port is a number from 1 to 65535"
+    ask SMTP_SECURE "Use SSL from the first byte (true for port 465, false for 587 or 25)" "$SMTP_SECURE"
+    ask SMTP_USER "SMTP user name" "$SMTP_USER"
+    local pw=""
+    ask_secret pw "SMTP password (Enter keeps the saved one)"
+    [ -z "$pw" ] || { safe_secret "$pw" || die "that password has a character not allowed here (quotes, \$, backslash); set it with: nikou secrets set SMTP_PASS"; env_set SMTP_PASS "$pw"; }
+    ask_valid SMTP_FROM "Sender address of the emails" "${SMTP_FROM:-no-reply@${DOMAIN:-example.ir}}" valid_email "not a valid email address"
+  else
+    SMTP_HOST=""
+  fi
+}
+q8() {
+  ask_yes BEHIND_ARVAN "Is the site behind the ArvanCloud CDN (the cloud proxy in front of your server)?" "$BEHIND_ARVAN"
+  if [ "$BEHIND_ARVAN" = 1 ]; then
+    ask_choice CERT_MODE "Certificate between Arvan and this server" "$CERT_MODE" \
+      "auto|Let's Encrypt, automatic (works when plain HTTP reaches this server)" \
+      "internal|Caddy's own certificate (set Arvan to 'don't verify')" \
+      "origin|I will put origin.crt and origin.key in $CONF_DIR/tls/"
+    ask_yes CDN_ONLY "Accept web traffic (ports 80 and 443) only from Arvan's addresses? Needs the ufw firewall to be on" "${CDN_ONLY:-1}"
+  else
+    CERT_MODE=auto; CDN_ONLY=0
+  fi
+}
+q9() {
+  ask_yes BACKUP_ENABLED "Make a nightly backup (database + uploaded files) on this server? Optional" "$BACKUP_ENABLED"
+  if [ "$BACKUP_ENABLED" = 1 ]; then
+    ask_valid KEEP_BACKUPS "How many days to keep them" "$KEEP_BACKUPS" valid_port "a number of days"
+    ask_valid OFFSITE_HOST "Also copy them to another machine over SSH? Its address (type - for no)" "$OFFSITE_HOST" valid_optional_host "not a valid host"
+    if [ -n "$OFFSITE_HOST" ]; then
+      ask_valid OFFSITE_USER "User on that machine" "${OFFSITE_USER:-nikoubackup}" valid_ident "use lower-case letters, digits and _"
+      ask OFFSITE_PATH "Folder on that machine" "${OFFSITE_PATH:-/srv/nikoufood-backups}"
+    fi
+  fi
+}
+
+answers_summary() {
+  local db
+  case "$DB_MODE" in
+    builtin) db="a PostgreSQL container, installed for you" ;;
+    apt) db="PostgreSQL installed on this server for you" ;;
+    local) db="the PostgreSQL on this server ($DB_NAME, user $DB_USER, created for the site)" ;;
+    *) db="$DB_USER@$DB_HOST:$DB_PORT/$DB_NAME" ;;
+  esac
+  printf '\n---- Summary ----\n'
+  printf ' 1 Run as:       %s\n 2 Address:      https://%s\n 3 Local port:    %s\n' "$MODE" "$DOMAIN" "$APP_PORT"
+  if [ "$MODE" = docker ]; then printf ' 4 Images:       %s/nikoufood:%s%s\n' "$DOCKERHUB_USER" "$IMAGE_TAG" "$([ -n "$DOCKER_MIRROR" ] && echo " via $DOCKER_MIRROR")"; else printf ' 4 Release:      from a tarball\n'; fi
+  printf ' 5 PostgreSQL:   %s\n 6 First admin:  %s  (starter content: %s)\n' "$db" "$ADMIN_EMAIL" "$([ "$LOAD_SEED" = 1 ] && echo yes || echo no)"
+  printf ' 7 Email:        %s\n 8 Arvan CDN:    %s\n' "${SMTP_HOST:-not now}" "$([ "$BEHIND_ARVAN" = 1 ] && echo "yes, certificate $CERT_MODE, Arvan only: $([ "$CDN_ONLY" = 1 ] && echo yes || echo no)" || echo no)"
+  printf ' 9 Backups:      %s\n' "$([ "$BACKUP_ENABLED" = 1 ] && echo "nightly, $KEEP_BACKUPS days${OFFSITE_HOST:+, copied to $OFFSITE_HOST}" || echo off)"
+}
+
+install_questions() {
+  local c
+  interactive || return 0
+  {
+    printf '\n==== Nikoo Etemad website: install questions ====\n'
+    printf 'Press Enter to keep the answer in [brackets]. You can change any answer before anything starts.\n'
+    if routeflow_present; then
+      printf '\nRouteFlow is installed on this server (address %s, port %s). It is left exactly as it is:\nthis site gets its own Caddy file, its own port and its own database.\n' "$(routeflow_conf DOMAIN)" "$(routeflow_conf APP_PORT)"
+    fi
+  } >/dev/tty
+  q1; q2; q3; q4; q5; q6; q7; q8; q9
+  while :; do
+    answers_summary >/dev/tty
+    printf '\nPress Enter to start (about 10 minutes), a number 1 to 9 to change that answer, or Q to quit.\n' >/dev/tty
+    read -r -p "  [start] > " c </dev/tty || die "cancelled"
+    case "$c" in
+      "") break ;;
+      [qQ]*) die "stopped, nothing was changed" ;;
+      [1-9]) "q$c" ;;
+    esac
+  done
+}
+
+check_answers() {   # the same rules for "--yes" runs, where nothing was asked
+  valid_domain "$DOMAIN" || die "DOMAIN is missing or not a valid address (example: DOMAIN=nikoufood.ir)"
+  valid_port "$APP_PORT" || die "APP_PORT is not a port"
+  valid_email "$ADMIN_EMAIL" || die "ADMIN_EMAIL is missing or not an email address"
+  case "$MODE" in docker) valid_dockeruser "$DOCKERHUB_USER" || die "DOCKERHUB_USER is missing (your Docker Hub user name)" ;; native) ;; *) die "MODE must be docker or native" ;; esac
+  case "$DB_MODE" in builtin | apt | local | external) ;; *) die "DB_MODE must be builtin, apt, local or external" ;; esac
+  [ "$MODE" = docker ] && [ "$DB_MODE" = apt ] && DB_MODE=builtin
+  [ "$MODE" = native ] && [ "$DB_MODE" = builtin ] && DB_MODE=apt
+  if [ "$DB_MODE" = external ]; then
+    [ -n "${DB_PASSWORD_IN:-}" ] || [ -n "$(env_get DB_PASSWORD)" ] || die "DB_PASSWORD_IN (the database password) is missing"
+  fi
+  [ "$LOAD_SEED" = 1 ] || [ "$LOAD_SEED" = 0 ] || die "LOAD_SEED must be 1 or 0"
+}
+
+# ---------------------------------------------------------------------------------------------------------
+# Files that are written from the answers
+write_env() {
+  install -d -m 755 "$CONF_DIR"
+  local pw=${DB_PASSWORD_IN:-}
+  if [ -n "$pw" ]; then
+    safe_secret "$pw" || die "the database password has a character that is not allowed here (quotes, \$, backslash, new line)"
+    env_set DB_PASSWORD "$pw"
+  elif [ -z "$(env_get DB_PASSWORD)" ]; then
+    env_set DB_PASSWORD "$(rand_hex 16)"
+  fi
+  [ -n "$(env_get PAYLOAD_SECRET)" ] || env_set PAYLOAD_SECRET "$(rand_hex 32)"
+  [ -n "$(env_get IP_HASH_SALT)" ] || env_set IP_HASH_SALT "$(rand_hex 16)"
+  env_set DATABASE_URL "$(database_url)"
+  env_set SITE_URL "https://$DOMAIN"
+  env_set SMTP_HOST "$SMTP_HOST"; env_set SMTP_PORT "$SMTP_PORT"; env_set SMTP_SECURE "$SMTP_SECURE"
+  env_set SMTP_USER "$SMTP_USER"; env_set SMTP_FROM "$SMTP_FROM"
+  [ -n "$(env_get SMTP_PASS)" ] || env_set SMTP_PASS ""
+}
+
+image_ref() { printf '%s/%s:%s' "$DOCKERHUB_USER" "$1" "${2:-$IMAGE_TAG}"; }
+
+render_compose() {   # to stdout
+  local hostnet=0
+  db_on_this_host && [ "$DB_MODE" != builtin ] && hostnet=1
+  printf '# Written by "nikou install" from %s. Do not edit; change the answers and run "nikou install" again.\nname: nikoufood\nservices:\n' "$CONF"
+  if [ "$DB_MODE" = builtin ]; then
+    cat <<YML
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: $DB_USER
+      POSTGRES_DB: $DB_NAME
+      POSTGRES_PASSWORD: $(env_get DB_PASSWORD)
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $DB_USER -d $DB_NAME']
+      interval: 5s
+      retries: 20
+YML
+  fi
+  for svc in app tools; do
+    if [ "$svc" = app ]; then
+      printf '  app:\n    image: %s\n    restart: unless-stopped\n' "$(image_ref nikoufood)"
+    else
+      printf '  tools:\n    image: %s\n    profiles: [tools]\n' "$(image_ref nikoufood-tools)"
+    fi
+    cat <<YML
+    env_file: [$ENV_FILE]
+    environment:
+      NODE_ENV: production
+      MEDIA_DIR: /data/media
+      FONTS_DIR: /data/media/fonts
+YML
+    if [ "$svc" = app ] && [ "$hostnet" = 1 ]; then printf '      PORT: "%s"\n      HOSTNAME: 127.0.0.1\n' "$APP_PORT"; fi
+    printf '    volumes:\n      - %s/media:/data/media\n' "$DATA"
+    if [ "$hostnet" = 1 ]; then
+      printf '    network_mode: host\n'   # the database is on this machine and listens on 127.0.0.1 only
+    elif [ "$svc" = app ]; then
+      printf '    ports:\n      - "127.0.0.1:%s:3000"\n' "$APP_PORT"
+    fi
+    if [ "$DB_MODE" = builtin ]; then printf '    depends_on:\n      db: { condition: service_healthy }\n'; fi
+  done
+  [ "$DB_MODE" = builtin ] && printf 'volumes:\n  db-data:\n'
+  true
+}
+
+render_unit() {
+  cat <<UNIT
+# Written by "nikou install".
+[Unit]
+Description=Nikoo Etemad website
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User=$APP_USER
+Group=$APP_USER
+WorkingDirectory=$ROOT/current/app
+EnvironmentFile=$ENV_FILE
+Environment=NODE_ENV=production PORT=$APP_PORT HOSTNAME=127.0.0.1 MEDIA_DIR=$DATA/media FONTS_DIR=$DATA/media/fonts NODE_OPTIONS=--no-deprecation
+ExecStart=$ROOT/current/node/bin/node server.js
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=$DATA
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+}
+
+maintenance_page() {
+  printf '%s' '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>به‌زودی برمی‌گردیم</title><body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#060a14;color:#f4efe2;font-family:Tahoma,sans-serif;text-align:center"><main><h1>در حال به‌روزرسانی هستیم</h1><p>چند لحظه دیگر دوباره سر بزنید.</p></main></body></html>'
+}
+
+caddy_tls_line() {
+  if [ -f "$CONF_DIR/tls/origin.crt" ] && [ -f "$CONF_DIR/tls/origin.key" ] && [ "$CERT_MODE" = origin ]; then
+    echo "tls $CONF_DIR/tls/origin.crt $CONF_DIR/tls/origin.key"
+  elif [ "$CERT_MODE" = internal ]; then
+    echo "tls internal"
+  fi
+}
+
+render_caddy() {
+  cat <<CADDY
+# Written by "nikou install" from $CONF. One file per site: RouteFlow's own file is not touched.
+$DOMAIN {
+	encode zstd gzip
+	# Pictures and videos uploaded in the admin panel are the largest legitimate request.
+	request_body {
+		max_size 65MB
+	}
+	# nikou maintenance on: the same short page for everyone while work is done by hand.
+	@maintenance file {
+		root $CONF_DIR
+		try_files maintenance.on
+	}
+	header @maintenance Cache-Control "no-store"
+	header @maintenance Content-Type "text/html; charset=utf-8"
+	respond @maintenance \`$(maintenance_page)\` 503
+	reverse_proxy 127.0.0.1:$APP_PORT
+	$(caddy_tls_line)
+	# While the site restarts (an upgrade) a short page instead of an error; never cached.
+	handle_errors {
+		@down expression \`{err.status_code} in [502, 503, 504]\`
+		handle @down {
+			header Cache-Control "no-store"
+			header Retry-After "20"
+			header Content-Type "text/html; charset=utf-8"
+			respond \`$(maintenance_page)\` 503
+		}
+	}
+}
+CADDY
+}
+
+# "nikou render <folder>": writes the generated files there without touching the system (used by the tests).
+cmd_render() {
+  local out=${1:?usage: nikou render <folder>}
+  load_conf
+  mkdir -p "$out"
+  render_compose > "$out/docker-compose.yml"
+  render_unit > "$out/nikoufood.service"
+  render_caddy > "$out/nikoufood.caddy"
+  say "wrote $out/docker-compose.yml, nikoufood.service, nikoufood.caddy"
+}
+
+# ---------------------------------------------------------------------------------------------------------
+# Running the site
+compose() { docker compose -f "$ROOT/docker-compose.yml" "$@"; }
+app_running() {
+  if [ "$MODE" = docker ]; then [ -n "$(compose ps -q app 2>/dev/null)" ]; else systemctl is-active --quiet "$SERVICE"; fi
+}
+
+wait_healthy() {   # wait_healthy [seconds]
+  local i max=${1:-90}
+  for ((i = 0; i < max; i += 3)); do
+    # robots.txt needs no database, so a slow or empty database cannot make a healthy site look dead.
+    if curl -fsS -o /dev/null --max-time 8 "http://127.0.0.1:$APP_PORT/robots.txt"; then return 0; fi
+    sleep 3
+  done
+  return 1
+}
+
+run_tools() {   # run_tools <pnpm-script-or-payload args>: migrate | seed | admin
+  local what=$1
+  if [ "$MODE" = docker ]; then
+    case "$what" in
+      migrate) compose run --rm tools pnpm migrate ;;
+      seed) compose run --rm tools pnpm seed ;;
+      admin) compose run --rm -e ADMIN_EMAIL -e ADMIN_PASSWORD -e ADMIN_RESET tools pnpm payload run src/seed/admin.ts ;;
+    esac
+  else
+    local dir=$ROOT/current/tools node=$ROOT/current/node/bin/node
+    case "$what" in
+      migrate) ( cd "$dir" && export_env && NODE_OPTIONS=--no-deprecation MEDIA_DIR=$DATA/media runuser -u "$APP_USER" -- env "PATH=$ROOT/current/node/bin:$PATH" "$node" node_modules/payload/bin.js migrate ) ;;
+      seed) ( cd "$dir" && export_env && NODE_OPTIONS=--no-deprecation MEDIA_DIR=$DATA/media runuser -u "$APP_USER" -- env "PATH=$ROOT/current/node/bin:$PATH" "$node" node_modules/payload/bin.js run src/seed/index.ts ) ;;
+      admin) ( cd "$dir" && export_env && NODE_OPTIONS=--no-deprecation MEDIA_DIR=$DATA/media runuser -u "$APP_USER" -- env "PATH=$ROOT/current/node/bin:$PATH" "ADMIN_EMAIL=${ADMIN_EMAIL:-}" "ADMIN_PASSWORD=${ADMIN_PASSWORD:-}" "ADMIN_RESET=${ADMIN_RESET:-}" "$node" node_modules/payload/bin.js run src/seed/admin.ts ) ;;
+    esac
+  fi
+}
+
+start_app() {
+  if [ "$MODE" = docker ]; then
+    compose up -d --remove-orphans
+  else
+    systemctl daemon-reload; systemctl enable "$SERVICE" >/dev/null 2>&1 || true; systemctl restart "$SERVICE"
+  fi
+}
+
+# ---------------------------------------------------------------------------------------------------------
+# Native releases:  $ROOT/releases/<version>/{app,tools,node}, $ROOT/current -> the live one
+machine_arch() { case "$(uname -m)" in x86_64 | amd64) echo x64 ;; aarch64 | arm64) echo arm64 ;; *) return 1 ;; esac; }
+parse_tarball_name() {
+  local base; base=$(basename "$1")
+  [[ $base =~ ^nikoufood-([0-9]+\.[0-9]+\.[0-9]+)-linux-(x64|arm64)\.tar\.gz$ ]] || return 1
+  echo "${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
+}
+verify_checksum() {
+  local t=$1 want got
+  [ -f "$t.sha256" ] || { warn "no checksum file $t.sha256 next to it: not checked"; return 0; }
+  want=$(awk '{print $1; exit}' "$t.sha256"); got=$(sha256sum "$t" | awk '{print $1}')
+  [ -n "$want" ] && [ "$want" = "$got" ] || die "checksum does not match for $(basename "$t")"
+}
+current_version() { [ -L "$ROOT/current" ] && basename "$(readlink -f "$ROOT/current")" || true; }
+# shellcheck disable=SC2010
+list_releases() { if [ -d "$ROOT/releases" ]; then ls -1t "$ROOT/releases" 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' || true; fi; }
+previous_release() { list_releases | grep -vxF "$(current_version)" | head -1 || true; }
+prune_releases() {
+  local keep=3 n=0 r live; live=$(current_version)
+  for r in $(list_releases); do
+    [ "$r" = "$live" ] && continue
+    n=$((n + 1)); [ "$n" -ge "$keep" ] && rm -rf "${ROOT:?}/releases/$r"
+  done
+}
+find_tarball() {
+  local given=${1:-} t here
+  if [ -n "$given" ]; then [ -f "$given" ] || die "no such file: $given"; echo "$given"; return; fi
+  here=$(machine_arch) || die "unsupported machine type $(uname -m)"
+  for d in "${NIKOU_HERE:-.}" "$ROOT/incoming"; do
+    t=$(ls -1 "$d"/nikoufood-*-linux-"$here".tar.gz 2>/dev/null | sort -V | tail -1 || true)
+    [ -z "$t" ] || { echo "$t"; return; }
+  done
+  die "no nikoufood-<version>-linux-$here.tar.gz found next to install.sh or in $ROOT/incoming/ (download it from the GitHub release or the Actions run)"
+}
+unpack_release() {   # unpack_release tarball -> prints the version
+  local t=$1 version arch tmp
+  read -r version arch < <(parse_tarball_name "$t") || die "not a release tarball name: $(basename "$t")"
+  [ "$arch" = "$(machine_arch)" ] || die "this tarball is for $arch, this server is $(machine_arch)"
+  verify_checksum "$t"
+  mkdir -p "$ROOT/releases"
+  if [ ! -d "$ROOT/releases/$version" ]; then
+    tmp=$(mktemp -d "$ROOT/releases/.unpack.XXXXXX")
+    tar -xzf "$t" -C "$tmp" --strip-components=1
+    [ -x "$tmp/node/bin/node" ] && [ -f "$tmp/app/server.js" ] || { rm -rf "$tmp"; die "the tarball is not a complete release"; }
+    mv "$tmp" "$ROOT/releases/$version"
+  fi
+  chown -R root:root "$ROOT/releases/$version"
+  # Next.js keeps its image and data cache here while the site runs.
+  mkdir -p "$ROOT/releases/$version/app/.next/cache"; chown -R "$APP_USER:$APP_USER" "$ROOT/releases/$version/app/.next/cache" 2>/dev/null || true
+  echo "$version"
+}
+switch_to() { ln -sfn "$ROOT/releases/$1" "$ROOT/current.new" && mv -Tf "$ROOT/current.new" "$ROOT/current"; }
+
+# ---------------------------------------------------------------------------------------------------------
+# PostgreSQL
+sql_literal() { printf "%s" "${1//\'/\'\'}"; }
+create_local_db() {   # a separate role and database inside the PostgreSQL on this machine
+  local pass; pass=$(env_get DB_PASSWORD)
+  local_pg_superuser || die "cannot reach the local PostgreSQL as its superuser (runuser -u postgres psql failed)"
+  runuser -u postgres -- psql -v ON_ERROR_STOP=1 -X -q -d postgres <<SQL
+DO \$\$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$(sql_literal "$DB_USER")') THEN
+    CREATE ROLE "$DB_USER" LOGIN PASSWORD '$(sql_literal "$pass")';
+  ELSE
+    ALTER ROLE "$DB_USER" PASSWORD '$(sql_literal "$pass")';
+  END IF;
+END \$\$;
+SQL
+  if ! runuser -u postgres -- psql -X -tAc "SELECT 1 FROM pg_database WHERE datname = '$(sql_literal "$DB_NAME")'" | grep -qx 1; then
+    runuser -u postgres -- createdb -O "$DB_USER" "$DB_NAME"
+  fi
+  say "database $DB_NAME and user $DB_USER are ready in the PostgreSQL on this server (nothing else in it was touched)"
+}
+test_db() {
+  local psql; psql=$(pg_tool psql)
+  PGCONNECT_TIMEOUT=8 "$psql" "$(database_url)" -X -tAc 'select 1' 2>/dev/null | grep -qx 1
+}
+db_dump() {   # db_dump > file.sql  (plain SQL on stdout)
+  if [ "$DB_MODE" = builtin ]; then compose exec -T db pg_dump -U "$DB_USER" --no-owner --clean --if-exists "$DB_NAME"
+  else "$(pg_tool pg_dump)" "$(database_url)" --no-owner --clean --if-exists; fi
+}
+db_sql() {   # db_sql < file.sql
+  if [ "$DB_MODE" = builtin ]; then compose exec -T db psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -X -q
+  else "$(pg_tool psql)" "$(database_url)" -v ON_ERROR_STOP=1 -X -q; fi
+}
+
+# ---------------------------------------------------------------------------------------------------------
+# The install, one numbered step at a time
+s_checks() {
+  step "Checks"
+  [ -r /etc/os-release ] && . /etc/os-release || die "cannot read /etc/os-release"
+  case "${ID:-}" in debian | ubuntu) ;; *) die "this installer supports Debian and Ubuntu (this is ${PRETTY_NAME:-unknown})" ;; esac
+  command -v systemctl >/dev/null || die "systemd is required"
+  [ "$(df -Pk / | awk 'NR==2 {print int($4/1048576)}')" -ge 3 ] || die "less than 3 GB free on /"
+  if [ "$MODE" = native ]; then machine_arch >/dev/null || die "unsupported machine type $(uname -m)"; fi
+  # On a re-run the site itself holds its port, so only a first install checks it.
+  if [ ! -f "$ENV_FILE" ] || [ ! -f "$CONF" ]; then
+    port_free "$APP_PORT" || die "port $APP_PORT is already in use; choose another with APP_PORT or the questions"
+  fi
+  if routeflow_present && [ "$(routeflow_conf DOMAIN)" = "$DOMAIN" ]; then die "RouteFlow already serves $DOMAIN; use a different address for this site"; fi
+  say "OK: ${PRETTY_NAME:-$ID}, $(uname -m), $(df -Pk / | awk 'NR==2 {print int($4/1048576)}') GB free$(routeflow_present && echo ', RouteFlow found (left alone)')"
+}
+
+s_packages() {
+  step "Packages"
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq
+  apt-get install -y -qq ca-certificates curl gnupg openssl whiptail rsync caddy postgresql-client >/dev/null
+  if [ "$DB_MODE" = apt ] && ! local_pg_listening; then apt-get install -y -qq postgresql >/dev/null; fi
+  say "packages are in place"
+}
+
+s_runtime() {
+  step "Runtime ($MODE)"
+  if [ "$MODE" = docker ]; then
+    if ! docker compose version >/dev/null 2>&1; then
+      say "installing Docker from the Linux package archive"
+      apt-get install -y -qq docker.io >/dev/null
+      apt-get install -y -qq docker-compose-v2 >/dev/null 2>&1 || apt-get install -y -qq docker-compose-plugin >/dev/null 2>&1 \
+        || die "Docker is installed but the 'docker compose' plugin is not available from this archive. Install Docker with its compose plugin (https://docs.docker.com/engine/install/), then run this again."
+    fi
+    systemctl enable --now docker >/dev/null 2>&1 || true
+    if [ -n "$DOCKER_MIRROR" ] && [ "$DOCKER_MIRROR" != "-" ]; then
+      if [ ! -f /etc/docker/daemon.json ]; then
+        install -d /etc/docker
+        printf '{\n  "registry-mirrors": ["%s"]\n}\n' "$DOCKER_MIRROR" > /etc/docker/daemon.json
+        systemctl restart docker
+        say "Docker will use the mirror $DOCKER_MIRROR"
+      else
+        grep -q "$DOCKER_MIRROR" /etc/docker/daemon.json || warn "/etc/docker/daemon.json already exists; add \"registry-mirrors\": [\"$DOCKER_MIRROR\"] to it yourself (it was not changed)"
+      fi
+    fi
+    if [ -n "${DOCKERHUB_TOKEN:-}" ]; then
+      printf '%s' "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USER" --password-stdin >/dev/null || die "Docker Hub refused the user name and token"
+      say "logged in to Docker Hub as $DOCKERHUB_USER"
+    fi
+    install -d -m 755 "$ROOT"
+    install -d -m 755 "$DATA/media"; chown -R 1001:1001 "$DATA/media"
+  else
+    id "$APP_USER" >/dev/null 2>&1 || useradd --system --home-dir "$DATA" --shell /usr/sbin/nologin "$APP_USER"
+    install -d -m 755 "$ROOT" "$DATA"; install -d -m 755 -o "$APP_USER" -g "$APP_USER" "$DATA/media"
+    say "service user $APP_USER is ready"
+  fi
+}
+
+s_database() {
+  step "PostgreSQL ($DB_MODE)"
+  case "$DB_MODE" in
+    builtin) say "a PostgreSQL container starts with the site (data kept in the Docker volume nikoufood_db-data)" ;;
+    apt)
+      systemctl enable --now postgresql >/dev/null 2>&1 || true
+      for _ in 1 2 3 4 5 6 7 8 9 10; do local_pg_superuser && break; sleep 2; done
+      create_local_db ;;
+    local) create_local_db; test_db || die "created the database, but logging in as $DB_USER over 127.0.0.1 failed (check pg_hba.conf allows password logins from 127.0.0.1; nothing of the existing setup was changed)" ;;
+    external)
+      test_db || die "cannot log in to $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME with that password. Check the address, the user, the password and that this server may connect." ;;
+  esac
+  if [ "$DB_MODE" = apt ] || [ "$DB_MODE" = local ]; then test_db || die "the database does not answer on 127.0.0.1:5432 with the new user"; fi
+}
+
+s_config() {
+  step "Settings"
+  write_env
+  write_conf
+  if [ "$MODE" = docker ]; then render_compose > "$ROOT/docker-compose.yml"; chmod 600 "$ROOT/docker-compose.yml"; else render_unit > "$UNIT_DIR/$SERVICE.service"; fi
+  say "settings written to $CONF_DIR (passwords in $ENV_FILE, readable by root only)"
+}
+
+s_software() {
+  step "The site itself"
+  if [ "$MODE" = docker ]; then
+    compose pull app tools || die "could not pull the images $(image_ref nikoufood) and $(image_ref nikoufood-tools). Check the Docker Hub user, the token (private images) and the tag."
+  else
+    local t v; t=$(find_tarball "${TARBALL:-}"); v=$(unpack_release "$t"); switch_to "$v"; prune_releases
+    say "release $v unpacked"
+  fi
+}
+
+s_migrate() {
+  step "Database tables"
+  if [ "$MODE" = docker ] && [ "$DB_MODE" = builtin ]; then compose up -d db; sleep 3; fi
+  run_tools migrate
+}
+
+s_start() {
+  step "Starting the site"
+  start_app
+  wait_healthy 120 || { warn "the site did not answer in 2 minutes; last log lines:"; app_logs 40 >&2 || true; die "start failed (nikou logs, nikou doctor)"; }
+  say "the site answers on http://127.0.0.1:$APP_PORT"
+}
+
+s_caddy() {
+  step "Caddy (HTTPS)"
+  local site=$CADDY_DIR/sites/nikoufood.caddy old=""
+  mkdir -p "$CADDY_DIR/sites" "$CONF_DIR/tls"
+  [ -f "$CADDY_DIR/Caddyfile" ] || printf '{\n}\n' > "$CADDY_DIR/Caddyfile"
+  [ ! -f "$site" ] || old=$(cat "$site")
+  render_caddy > "$site"
+  grep -qxF 'import sites/*.caddy' "$CADDY_DIR/Caddyfile" || printf '\nimport sites/*.caddy\n' >> "$CADDY_DIR/Caddyfile"
+  if ! caddy validate --config "$CADDY_DIR/Caddyfile" >/dev/null 2>&1; then
+    if [ -n "$old" ]; then printf '%s\n' "$old" > "$site"; else rm -f "$site"; fi
+    die "Caddy does not accept the generated file ($site); the previous setup was restored. Run: caddy validate --config $CADDY_DIR/Caddyfile"
+  fi
+  systemctl enable caddy >/dev/null 2>&1 || true
+  systemctl reload caddy 2>/dev/null || systemctl restart caddy
+  say "Caddy serves https://$DOMAIN (certificate: ${CERT_MODE}); point the DNS record of $DOMAIN at this server"
+}
+
+# ---- firewall for Arvan only
+parse_cdn_ips() { grep -Eo '^[0-9a-fA-F:.]+/[0-9]{1,3}' | sort -u; }
+cmd_cdn_ips() {
+  need_root cdn-ips
+  load_conf
+  command -v ufw >/dev/null && ufw status 2>/dev/null | grep -q "Status: active" || { warn "ufw is not active here, so no firewall rule was changed"; return 0; }
+  if [ "${1:-}" = --open ]; then ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null; sed -i 's/^CDN_ONLY=.*/CDN_ONLY=0/' "$CONF"; say "web ports are open to everyone"; return 0; fi
+  if [ "${1:-}" = --only ]; then sed -i 's/^CDN_ONLY=.*/CDN_ONLY=1/' "$CONF"; CDN_ONLY=1; fi
+  [ "${CDN_ONLY:-0}" = 1 ] || { say "CDN_ONLY is 0: nothing to do (nikou cdn-ips --only to restrict)"; return 0; }
+  local list n net
+  list=$(curl -fsS --max-time 20 "$CDN_IPS_URL" 2>/dev/null | parse_cdn_ips || true); n=$(grep -c . <<<"$list" || true)
+  [ "$n" -ge 5 ] || { warn "could not read Arvan's address list ($CDN_IPS_URL); the firewall was left as it was"; return 0; }
+  # ufw skips a rule that already exists, so ranges RouteFlow opened are shared, not duplicated.
+  while read -r net; do ufw allow proto tcp from "$net" to any port 80,443 comment nikou-cdn >/dev/null; done <<<"$list"
+  # Only a rule that opens the web ports to everybody is removed; RouteFlow's own ranges are never deleted.
+  ufw status numbered | sed -nE 's/^\[ *([0-9]+)\] +(80|443)(\/tcp)? .*ALLOW IN +Anywhere.*/\1/p' | sort -rn | while read -r r; do ufw --force delete "$r" >/dev/null; done
+  say "web ports are open to Arvan's $n address ranges only"
+}
+s_firewall() {
+  step "Firewall"
+  if [ "$BEHIND_ARVAN" = 1 ] && [ "$CDN_ONLY" = 1 ]; then
+    cmd_cdn_ips
+    if [ ! -f "$UNIT_DIR/nikou-cdn-ips.timer" ] && ! routeflow_present; then
+      cat > "$UNIT_DIR/nikou-cdn-ips.service" <<UNIT
+[Unit]
+Description=Nikoo Etemad: refresh the firewall from Arvan's address list
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nikou cdn-ips
+UNIT
+      cat > "$UNIT_DIR/nikou-cdn-ips.timer" <<UNIT
+[Unit]
+Description=Nikoo Etemad: refresh Arvan's address list weekly
+[Timer]
+OnCalendar=Sun *-*-* 05:10:00 Asia/Tehran
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+      systemctl daemon-reload; systemctl enable --now nikou-cdn-ips.timer >/dev/null 2>&1 || true
+    fi
+  else
+    say "no firewall change (the firewall stays as it is)"
+  fi
+}
+
+# ---- backups (optional)
+cmd_backup() {
+  need_root backup
+  load_conf
+  local quiet=0 stamp dump media
+  [ "${1:-}" = --quiet ] && quiet=1
+  install -d -m 700 "$BACKUPS"
+  stamp=$(date +%Y%m%d-%H%M%S)
+  dump=$BACKUPS/nikou-db-$stamp.sql.gz; media=$BACKUPS/nikou-media-$stamp.tar.gz
+  ( set -o pipefail; db_dump | gzip > "$dump.part" ) || { rm -f "$dump.part"; die "the database dump failed"; }
+  mv "$dump.part" "$dump"
+  tar -czf "$media" -C "$DATA" media
+  chmod 600 "$dump" "$media"
+  find "$BACKUPS" -maxdepth 1 -name 'nikou-*' -type f -mtime +"${KEEP_BACKUPS:-14}" -delete
+  if [ -n "$OFFSITE_HOST" ] && [ -f "$CONF_DIR/offsite_ed25519" ]; then
+    rsync -az --delete -e "ssh -i $CONF_DIR/offsite_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=accept-new" "$BACKUPS/" "$OFFSITE_USER@$OFFSITE_HOST:$OFFSITE_PATH/" \
+      && say "copied to $OFFSITE_HOST" || warn "the copy to $OFFSITE_HOST failed (nikou doctor)"
+  fi
+  [ "$quiet" = 1 ] || say "backup done: $dump ($(du -h "$dump" | cut -f1)) and $media ($(du -h "$media" | cut -f1))"
+}
+s_backups() {
+  step "Backups"
+  if [ "$BACKUP_ENABLED" != 1 ]; then say "backups are off (turn them on by running nikou install again)"; systemctl disable --now nikou-backup.timer >/dev/null 2>&1 || true; return 0; fi
+  install -d -m 700 "$BACKUPS"
+  if [ -n "$OFFSITE_HOST" ] && [ ! -f "$CONF_DIR/offsite_ed25519" ]; then
+    ssh-keygen -q -t ed25519 -N "" -C "nikou-backup@$(hostname)" -f "$CONF_DIR/offsite_ed25519"
+    printf '\nAdd this public key to %s@%s (~/.ssh/authorized_keys) so the nightly copy can log in:\n\n%s\n\n' "$OFFSITE_USER" "$OFFSITE_HOST" "$(cat "$CONF_DIR/offsite_ed25519.pub")"
+  fi
+  cat > "$UNIT_DIR/nikou-backup.service" <<UNIT
+[Unit]
+Description=Nikoo Etemad: nightly backup
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nikou backup --quiet
+UNIT
+  cat > "$UNIT_DIR/nikou-backup.timer" <<UNIT
+[Unit]
+Description=Nikoo Etemad: nightly backup
+[Timer]
+OnCalendar=*-*-* 03:15:00 Asia/Tehran
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+  systemctl daemon-reload; systemctl enable --now nikou-backup.timer >/dev/null 2>&1
+  say "nightly backup at 03:15 Tehran time, kept $KEEP_BACKUPS days in $BACKUPS"
+}
+
+s_content() {
+  step "Starter content and first admin"
+  if [ "$LOAD_SEED" = 1 ]; then run_tools seed; else say "no starter content (empty database)"; fi
+  local pw=${ADMIN_PASSWORD:-} shown=0
+  if [ -z "$pw" ]; then pw=$(rand_hex 8); shown=1; fi
+  safe_secret "$pw" && [ "${#pw}" -ge 8 ] || die "the admin password must be at least 8 characters without quotes, \$ or backslash"
+  ADMIN_PASSWORD=$pw run_tools admin
+  ( umask 077; printf 'Address:  https://%s/admin\nEmail:    %s\nPassword: %s\n(Only valid for a first login of a new account. Delete this file with: nikou first-login --forget)\n' "$DOMAIN" "$ADMIN_EMAIL" "$pw" > "$CONF_DIR/first-login" )
+  [ "$shown" = 1 ] || : > "$CONF_DIR/.first-login-own-password"
+}
+
+s_final() {
+  step "Final check"
+  local ok=1
+  curl -fsS -o /dev/null --max-time 10 "http://127.0.0.1:$APP_PORT/robots.txt" || { warn "the site does not answer locally"; ok=0; }
+  curl -fsS -o /dev/null --max-time 10 --resolve "$DOMAIN:443:127.0.0.1" -k "https://$DOMAIN/robots.txt" || { warn "HTTPS on this server does not answer yet (the certificate may still be requested; check the DNS record)"; ok=0; }
+  printf '\n==================================================\n Nikoo Etemad website is installed\n==================================================\n'
+  printf ' Site:   https://%s\n Admin:  https://%s/admin\n' "$DOMAIN" "$DOMAIN"
+  if [ -f "$CONF_DIR/.first-login-own-password" ]; then printf ' Login:  %s (the password you chose)\n' "$ADMIN_EMAIL"; else printf ' Login:  %s\n Password (shown once, also in %s/first-login): %s\n' "$ADMIN_EMAIL" "$CONF_DIR" "$(sed -n 's/^Password: //p' "$CONF_DIR/first-login")"; fi
+  printf '\n Useful commands:  nikou status | doctor | logs | upgrade | rollback | backup | maintenance on\n'
+  [ "$ok" = 1 ] || printf '\n Some checks did not pass: run  sudo nikou doctor\n'
+}
+
+cmd_install() {
+  need_root install
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --yes) export NIKOU_YES=1 ;;
+      --fresh) : ;;
+      *) TARBALL=$arg ;;
+    esac
+  done
+  exec 9>"$LOCK"; flock -n 9 || die "another nikou command is running"
+  load_conf
+  install_questions
+  check_answers
+  install -m 755 "$(readlink -f "$0")" /usr/local/bin/nikou 2>/dev/null || true
+  s_checks; s_packages; s_runtime; s_database; s_config; s_software; s_migrate; s_content; s_start; s_caddy; s_firewall; s_backups
+  s_final
+}
+
+# ---------------------------------------------------------------------------------------------------------
+# Day-to-day commands
+app_logs() {
+  if [ "$MODE" = docker ]; then compose logs --tail "${1:-200}" app; else journalctl -u "$SERVICE" -n "${1:-200}" --no-pager; fi
+}
+cmd_logs() { need_root logs; load_conf; if [ "$MODE" = docker ]; then compose logs -f --tail 200 app; else journalctl -u "$SERVICE" -f -n 200; fi; }
+
+cmd_status() {
+  need_root status; load_conf
+  local v
+  if [ "$MODE" = docker ]; then v=$(image_ref nikoufood); else v=$(current_version); fi
+  printf 'Site:        https://%s\nRun as:      %s (%s)\nVersion:     %s\nDatabase:    %s\n' "$DOMAIN" "$MODE" "$(app_running && echo running || echo STOPPED)" "${v:-unknown}" "$DB_MODE"
+  curl -fsS -o /dev/null --max-time 8 "http://127.0.0.1:$APP_PORT/robots.txt" && echo "Answers:     yes (port $APP_PORT)" || echo "Answers:     NO"
+  [ ! -f "$CONF_DIR/maintenance.on" ] || echo "Maintenance: ON (nikou maintenance off)"
+  local last; last=$(ls -1t "$BACKUPS"/nikou-db-*.sql.gz 2>/dev/null | head -1 || true)
+  printf 'Last backup: %s\nDisk free:   %s GB\n' "${last:-none}" "$(df -Pk / | awk 'NR==2 {print int($4/1048576)}')"
+}
+
+cmd_doctor() {
+  need_root doctor; load_conf
+  local bad=0
+  ok() { printf '  ok    %s\n' "$*"; }
+  no() { printf '  FAIL  %s\n' "$*"; bad=1; }
+  wn() { printf '  warn  %s\n' "$*"; }
+  printf 'Checking this server:\n'
+  app_running && ok "the site is running ($MODE)" || no "the site is not running (nikou logs)"
+  curl -fsS -o /dev/null --max-time 8 "http://127.0.0.1:$APP_PORT/robots.txt" && ok "answers on port $APP_PORT" || no "does not answer on port $APP_PORT"
+  if curl -fsS -o /dev/null --max-time 15 "http://127.0.0.1:$APP_PORT/"; then ok "the home page renders"; elif [ "$LOAD_SEED" = 1 ]; then no "the home page does not render (nikou logs)"; else wn "the home page does not render yet (normal for an empty database: fill it in /admin)"; fi
+  curl -fsS -o /dev/null --max-time 10 --resolve "$DOMAIN:443:127.0.0.1" -k "https://$DOMAIN/robots.txt" && ok "HTTPS through Caddy works on this server" || no "HTTPS through Caddy does not answer"
+  if [ "$DB_MODE" = builtin ]; then compose exec -T db pg_isready -U "$DB_USER" >/dev/null 2>&1 && ok "PostgreSQL container is ready" || no "PostgreSQL container is not ready"
+  else test_db && ok "PostgreSQL login works ($DB_USER@$DB_HOST:$DB_PORT/$DB_NAME)" || no "cannot log in to PostgreSQL"; fi
+  caddy validate --config "$CADDY_DIR/Caddyfile" >/dev/null 2>&1 && ok "Caddy configuration is valid" || no "Caddy configuration is not valid"
+  [ "$(df -Pk / | awk 'NR==2 {print int($4/1048576)}')" -ge 2 ] && ok "disk space" || wn "less than 2 GB free"
+  [ -n "$(env_get SMTP_HOST)" ] && [ -n "$(env_get SMTP_PASS)" ] && ok "email is set up" || wn "email is not set up: form requests are saved in /admin but not emailed (nikou secrets set SMTP_PASS)"
+  [ "$BACKUP_ENABLED" = 1 ] && { [ -n "$(find "$BACKUPS" -name 'nikou-db-*' -mtime -2 2>/dev/null | head -1)" ] && ok "a backup from the last 2 days exists" || wn "no backup from the last 2 days"; } || wn "backups are off"
+  [ "$BEHIND_ARVAN" = 1 ] && [ "$CDN_ONLY" != 1 ] && wn "behind Arvan but the web ports are open to everyone (nikou cdn-ips --only)" || true
+  routeflow_present && { systemctl is-active --quiet routeflow && ok "RouteFlow is running next to this site" || wn "RouteFlow is installed but not running"; } || true
+  return "$bad"
+}
+
+cmd_upgrade() {
+  need_root upgrade; load_conf
+  exec 9>"$LOCK"; flock -n 9 || die "another nikou command is running"
+  if [ "$MODE" = docker ]; then
+    local new=${1:-$IMAGE_TAG} old=$IMAGE_TAG
+    valid_tag "$new" || die "not a valid tag: $new"
+    docker tag "$(image_ref nikoufood "$old")" "$(image_ref nikoufood nikou-rollback)" 2>/dev/null || true
+    docker tag "$(image_ref nikoufood-tools "$old")" "$(image_ref nikoufood-tools nikou-rollback)" 2>/dev/null || true
+    IMAGE_TAG=$new; PREVIOUS_TAG=$old; write_conf; render_compose > "$ROOT/docker-compose.yml"
+    compose pull app tools || { IMAGE_TAG=$old; write_conf; render_compose > "$ROOT/docker-compose.yml"; die "could not pull $new; nothing changed"; }
+    run_tools migrate || { IMAGE_TAG=$old; write_conf; render_compose > "$ROOT/docker-compose.yml"; die "the database migration failed; the site was not restarted"; }
+    compose up -d --remove-orphans
+    if ! wait_healthy 120; then
+      warn "the new version did not answer; going back to $old"
+      IMAGE_TAG=nikou-rollback; render_compose > "$ROOT/docker-compose.yml"; compose up -d --remove-orphans
+      IMAGE_TAG=$old; write_conf
+      die "upgrade failed and was rolled back (database changes are not undone)"
+    fi
+    say "now running $new (before: $old)"
+  else
+    local t v prev; prev=$(current_version)
+    t=$(find_tarball "${1:-}"); v=$(unpack_release "$t")
+    [ "$v" != "$prev" ] || { say "version $v is already live"; return 0; }
+    switch_to "$v"
+    if ! run_tools migrate; then [ -z "$prev" ] || switch_to "$prev"; die "the database migration failed; still on ${prev:-nothing}"; fi
+    systemctl restart "$SERVICE"
+    if ! wait_healthy 120; then
+      warn "version $v did not answer; going back to $prev"
+      [ -z "$prev" ] || { switch_to "$prev"; systemctl restart "$SERVICE"; }
+      die "upgrade failed and was rolled back (database changes are not undone)"
+    fi
+    prune_releases
+    say "now running $v (before: ${prev:-none})"
+  fi
+}
+
+cmd_rollback() {
+  need_root rollback; load_conf
+  if [ "$MODE" = docker ]; then
+    docker image inspect "$(image_ref nikoufood nikou-rollback)" >/dev/null 2>&1 || die "no previous version is kept on this server"
+    local cur=$IMAGE_TAG
+    IMAGE_TAG=nikou-rollback; render_compose > "$ROOT/docker-compose.yml"; compose up -d --remove-orphans
+    wait_healthy 120 || die "the previous version does not answer either (nikou logs)"
+    PREVIOUS_TAG=$cur; write_conf
+    say "running the previous version again. Run 'nikou upgrade <tag>' to move to a version by name."
+  else
+    local prev; prev=$(previous_release); [ -n "$prev" ] || die "no previous release is kept on this server"
+    switch_to "$prev"; systemctl restart "$SERVICE"
+    wait_healthy 120 || die "the previous release does not answer either (nikou logs)"
+    say "back on release $prev (database changes are not undone)"
+  fi
+}
+
+cmd_restore() {
+  need_root restore; load_conf
+  local dump=${1:-} media=${2:-} word
+  [ -f "$dump" ] || die "usage: nikou restore <nikou-db-….sql.gz> [nikou-media-….tar.gz]"
+  printf 'This REPLACES the whole database%s with the backup. A safety backup is made first.\nType RESTORE to go on: ' "${media:+ and the uploaded files}"
+  read -r word </dev/tty || die "cancelled"; [ "$word" = RESTORE ] || die "stopped, nothing was changed"
+  BACKUP_ENABLED=1 cmd_backup --quiet
+  if [ "$MODE" = docker ]; then compose stop app; else systemctl stop "$SERVICE"; fi
+  printf 'DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;\n' | db_sql
+  gunzip -c "$dump" | db_sql
+  if [ -n "$media" ]; then [ -f "$media" ] || die "no such file: $media"; rm -rf "${DATA:?}/media"; tar -xzf "$media" -C "$DATA"; if [ "$MODE" = docker ]; then chown -R 1001:1001 "$DATA/media"; else chown -R "$APP_USER:$APP_USER" "$DATA/media"; fi; fi
+  start_app
+  wait_healthy 120 && say "restored and running" || die "restored, but the site does not answer (nikou logs)"
+}
+
+cmd_maintenance() {
+  need_root maintenance
+  case "${1:-}" in
+    on) install -d "$CONF_DIR"; : > "$CONF_DIR/maintenance.on"; say "maintenance page is ON for everyone" ;;
+    off) rm -f "$CONF_DIR/maintenance.on"; say "maintenance page is OFF" ;;
+    *) die "usage: nikou maintenance on|off" ;;
+  esac
+}
+
+cmd_secrets() {
+  need_root secrets
+  local sub=${1:-list} key=${2:-} val=""
+  case "$sub" in
+    list) [ -f "$ENV_FILE" ] || die "no secrets file yet"; sed -E 's/^([A-Za-z_]+)=(.{0,3}).*/\1=\2***/' "$ENV_FILE" ;;
+    set)
+      [[ $key =~ ^[A-Z][A-Z0-9_]*$ ]] || die "usage: nikou secrets set KEY (upper-case name)"
+      read -r -s -p "Value for $key (nothing is shown): " val </dev/tty; printf '\n'
+      safe_secret "$val" || die "the value must not contain quotes, \$ or backslash, and must not be empty"
+      env_set "$key" "$val"; load_conf; if app_running; then start_app; fi; say "$key saved and the site restarted" ;;
+    unset) [[ $key =~ ^[A-Z][A-Z0-9_]*$ ]] || die "usage: nikou secrets unset KEY"; env_unset "$key"; load_conf; if app_running; then start_app; fi; say "$key removed" ;;
+    *) die "usage: nikou secrets list | set KEY | unset KEY" ;;
+  esac
+}
+
+cmd_reset_login() {
+  need_root reset-login; load_conf
+  local email=${1:-}; valid_email "$email" || die "usage: nikou reset-login <email>"
+  local pw; pw=$(rand_hex 8)
+  ADMIN_EMAIL=$email ADMIN_PASSWORD=$pw ADMIN_RESET=1 run_tools admin
+  printf '\nNew password for %s (shown once): %s\n' "$email" "$pw"
+}
+
+cmd_first_login() {
+  need_root first-login
+  [ -f "$CONF_DIR/first-login" ] || die "no first-login note on this server"
+  if [ "${1:-}" = --forget ]; then shred -u "$CONF_DIR/first-login" 2>/dev/null || rm -f "$CONF_DIR/first-login"; say "removed"; else cat "$CONF_DIR/first-login"; fi
+}
+
+redact() { sed -E 's/((PASS|PASSWORD|SECRET|TOKEN|KEY|SALT)[A-Z_]*=)[^[:space:]]*/\1***/gI; s#(postgres(ql)?://[^:/@]+:)[^@]+@#\1***@#g'; }
+cmd_support_file() {
+  need_root support-file; load_conf
+  local out=${1:-/root/nikou-support-$(hostname)-$(date +%Y%m%d-%H%M).tar.gz} d; d=$(mktemp -d)
+  { date -Is; uname -a; . /etc/os-release 2>/dev/null && echo "$PRETTY_NAME"; echo; redact < "$CONF"; } > "$d/info.txt"
+  cmd_doctor > "$d/doctor.txt" 2>&1 || true
+  app_logs 300 2>&1 | redact > "$d/app.log" || true
+  tar -czf "$out" -C "$d" . && rm -rf "$d"
+  say "no passwords inside; send this file for help: $out"
+}
+
+menu() {
+  command -v whiptail >/dev/null || die "whiptail is not installed; run a command instead (nikou help)"
+  local choice arg
+  choice=$(whiptail --title "Nikoo Etemad" --menu "What do you want to do?" 20 70 11 \
+    status "Show the state of the site" doctor "Check everything" logs "Follow the site's log" \
+    upgrade "Upgrade to a new version" rollback "Go back to the previous version" backup "Make a backup now" \
+    maintenance-on "Show the maintenance page" maintenance-off "Hide the maintenance page" \
+    first-login "Show the first login again" support-file "Make a file to send for help" 3>&1 1>&2 2>&3) || exit 0
+  case "$choice" in
+    upgrade) arg=$(whiptail --inputbox "Docker tag (latest, v1.0.0…) or path of the release tarball. Empty = same tag / newest tarball:" 10 70 "" 3>&1 1>&2 2>&3) || exit 0; exec "$0" upgrade $arg ;;
+    maintenance-on) exec "$0" maintenance on ;;
+    maintenance-off) exec "$0" maintenance off ;;
+    *) exec "$0" "$choice" ;;
+  esac
+}
+
+usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; }
+
+main() {
+  local cmd=${1:-}
+  [ $# -eq 0 ] || shift
+  case "$cmd" in
+    "") if [ -t 0 ] && [ -w /dev/tty ]; then need_root; menu; else usage; fi ;;
+    install) cmd_install "$@" ;;
+    upgrade) cmd_upgrade "$@" ;;
+    rollback) cmd_rollback "$@" ;;
+    status) cmd_status "$@" ;;
+    doctor) cmd_doctor "$@" ;;
+    logs) cmd_logs "$@" ;;
+    backup) cmd_backup "$@" ;;
+    restore) cmd_restore "$@" ;;
+    maintenance) cmd_maintenance "$@" ;;
+    secrets) cmd_secrets "$@" ;;
+    reset-login) cmd_reset_login "$@" ;;
+    first-login) cmd_first_login "$@" ;;
+    cdn-ips) cmd_cdn_ips "$@" ;;
+    support-file) cmd_support_file "$@" ;;
+    render) cmd_render "$@" ;;
+    help | -h | --help) usage ;;
+    *) warn "unknown command: $cmd"; usage >&2; exit 2 ;;
+  esac
+}
+
+# Sourced by the tests: only run when executed.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then main "$@"; fi

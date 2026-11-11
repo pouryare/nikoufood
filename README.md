@@ -49,6 +49,26 @@ Put nginx in front (`deploy/nginx.conf.sample`) and add a certificate with certb
 
 **After a change to CMS fields** (developers): `pnpm payload generate:types`, then `pnpm migrate:create <name>` and commit `src/migrations`. The `migrate` service applies it on the next `docker compose up -d --build`.
 
+## One-command server install (`install.sh`)
+
+`deploy/install.sh` sets the site up on a Debian or Ubuntu server, the same way RouteFlow is installed. It asks questions in plain English and does the rest.
+
+Get the files onto the server (example: a server kit made by GitHub):
+
+1. In GitHub, open Actions, then the **release** workflow, and download `nikoufood-server-kit.tar.gz` (for a native install also download `nikoufood-<version>-linux-x64.tar.gz`).
+2. Copy them to the server, for example `scp nikoufood-server-kit.tar.gz root@SERVER:/root/`.
+3. On the server: `tar xzf nikoufood-server-kit.tar.gz && cd nikoufood-server-kit && sudo bash install.sh`.
+
+The installer asks:
+
+- **Docker or native.** Docker pulls the images from Docker Hub. Native unpacks the release tarball and runs it with systemd (no Docker needed).
+- **Do you already have PostgreSQL?** Yes: connect with host, user and password, or let the installer make a separate database and user inside the PostgreSQL already on the server (for example RouteFlow's). No: the installer installs one for you (a container for Docker, the Debian package for native).
+- Website address, port (default 3000), first admin, starter content, mail, ArvanCloud CDN, and optional backups.
+
+It never touches RouteFlow's PostgreSQL settings or its Caddy file. The site gets its own `/etc/caddy/sites/nikoufood.caddy`.
+
+Afterwards use `nikou` (or just `nikou` for a menu): `status`, `upgrade`, `rollback`, `backup`, `restore`, `logs`, `doctor`, `secrets`. Example: `nikou upgrade` pulls the newest version and rolls back by itself if it does not start.
+
 ## Local notes
 
 - `pnpm dev` uses Payload's automatic schema push; production uses migrations only.
