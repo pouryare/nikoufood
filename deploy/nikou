@@ -625,9 +625,96 @@ gh_get() {
   local -a auth=(); [ -z "$tok" ] || auth=(-H "Authorization: Bearer $tok")
   curl -fsSL --retry 3 --connect-timeout 15 -H "Accept: $accept" -H "X-GitHub-Api-Version: 2022-11-28" "${auth[@]}" -o "$out" "$url"
 }
-# download_release [tag] -> downloads the native tarball (+ its checksum) into incoming/ and prints the path of the tarball
+# download_asset URL NAME BYTES [DIR] -> DIR/NAME.part (DIR defaults to $ROOT/incoming).
+# The line into Iran is slow and drops, and one connection is often the capped part of it, so a big file is cut into
+# DOWNLOAD_SEGMENTS pieces (8) fetched side by side, each carrying on from the bytes it already has if it breaks
+# (12 tries; under 1 KB/s for a minute counts as stalled). A small file goes in one stream with the same resume.
+# The caller checks the sum. Run again after a failure: the pieces that arrived are kept.
+download_asset() {
+  local u=$1 name=$2 size=$3 dir=${4:-$ROOT/incoming}
+  local dest="$dir/$name.part" n=${DOWNLOAD_SEGMENTS:-8} i try chunk pids=() printer="" fail=0 got
+  local -a auth=(); [ -z "$(gh_token)" ] || auth=(-H "Authorization: Bearer $(gh_token)")
+  mkdir -p "$dir"
+  if [ "$size" -lt 4194304 ] || [ "$n" -lt 2 ]; then
+    for try in 1 2 3 4 5 6 7 8 9 10 11 12; do
+      curl -fL -C - --connect-timeout 15 --speed-limit 1024 --speed-time 60 "${auth[@]}" -H "Accept: application/octet-stream" -o "$dest" "$u" && return 0
+      [ "$try" = 12 ] || { warn "the download of $name stopped; trying again from where it stopped ($try of 12)"; sleep "${DOWNLOAD_RETRY_WAIT:-5}"; }
+    done
+    return 1
+  fi
+  chunk=$(( (size + n - 1) / n ))
+  rm -f "$dest"   # a single-stream part of an older run: the pieces below are what resumes now
+  for ((i = 0; i < n; i++)); do
+    (
+      a=$((i * chunk)); b=$(( (i + 1) * chunk - 1 )); [ "$b" -lt "$size" ] || b=$((size - 1))
+      seg="$dest.$i"
+      for try in 1 2 3 4 5 6 7 8 9 10 11 12; do
+        have=0; [ ! -f "$seg" ] || have=$(stat -c %s "$seg")
+        [ $((a + have)) -le "$b" ] || exit 0
+        # The signed link GitHub redirects to expires in minutes: ask for a fresh one on every try, and send the token only to GitHub.
+        loc=$(curl -fsS --connect-timeout 15 "${auth[@]}" -H "Accept: application/octet-stream" -o /dev/null -w '%{redirect_url}' "$u" 2>/dev/null || true)
+        if [ -n "$loc" ]; then curl -fsS --connect-timeout 15 --speed-limit 1024 --speed-time 60 -r "$((a + have))-$b" "$loc" >> "$seg" && exit 0
+        else curl -fsS --connect-timeout 15 --speed-limit 1024 --speed-time 60 "${auth[@]}" -H "Accept: application/octet-stream" -r "$((a + have))-$b" "$u" >> "$seg" && exit 0; fi
+        sleep "${DOWNLOAD_RETRY_WAIT:-5}"
+      done
+      exit 1
+    ) &
+    pids+=($!)
+  done
+  if [ -t 2 ]; then
+    ( while :; do got=$(cat "$dest".* 2>/dev/null | wc -c); printf '\r  %s: %d of %d MB ' "$name" $((got / 1048576)) $((size / 1048576)) >&2; sleep 2; done ) &
+    printer=$!
+  fi
+  for i in "${pids[@]}"; do wait "$i" || fail=1; done
+  [ -z "$printer" ] || { kill "$printer" 2>/dev/null; wait "$printer" 2>/dev/null; printf '\r%60s\r' '' >&2; }
+  [ "$fail" = 0 ] || return 1
+  for ((i = 0; i < n; i++)); do cat "$dest.$i"; done > "$dest"
+  [ "$(stat -c %s "$dest")" = "$size" ] || { rm -f "$dest" "$dest".[0-9]*; warn "the pieces of $name do not add up to $size bytes; start the update again"; return 1; }
+  rm -f "$dest".[0-9]*
+}
+
+# The small update. A release also comes as <name>.app.tar.gz (+ .sha256): everything except node/, tools/node_modules
+# and app/node_modules (Node itself and the libraries, most of the size), which change only when a dependency does.
+# When the live release carries the very same BASE_ID, only that part is downloaded and the full tarball is put together
+# here from the live release's own copy of those folders. Any doubt (no BASE_ID on the live release, a different one, a
+# failed or damaged download) returns 1 and the caller downloads the whole release as before.
+BASE_DIRS=(node tools/node_modules app/node_modules)
+fetch_app_update() {   # fetch_app_update "<url name bytes> lines of the app files" full-tarball-path version arch
+  local lines=$1 file=$2 want=$3 arch=$4 live tmp u name size top new appf="" d
+  live=$(readlink -f "$ROOT/current" 2>/dev/null) || return 1
+  [ -f "$live/BASE_ID" ] || return 1
+  for d in "${BASE_DIRS[@]}"; do [ -d "$live/$d" ] || return 1; done
+  [ "$(grep -c . <<<"$lines")" = 2 ] || return 1
+  tmp=$(mktemp -d "$ROOT/.update.XXXXXX") || return 1
+  top=nikoufood-$want-linux-$arch
+  say "Only the code part has to be downloaded (Node and the libraries are the same as on the live version)" >&2
+  while read -r u name size; do
+    download_asset "$u" "$name" "${size:-0}" "$tmp" || { warn "the small download failed; fetching the whole release"; rm -rf "$tmp"; return 1; }
+    mv "$tmp/$name.part" "$tmp/$name"
+    case $name in *.sha256) ;; *) appf=$name ;; esac
+  done <<<"$lines"
+  [ -n "$appf" ] && [ -f "$tmp/$appf.sha256" ] || { rm -rf "$tmp"; return 1; }
+  ( verify_checksum "$tmp/$appf" ) || { warn "the small download is damaged; fetching the whole release"; rm -rf "$tmp"; return 1; }
+  new=$(tar -xzOf "$tmp/$appf" "$top/BASE_ID" 2>/dev/null || true)
+  if [ -z "$new" ] || [ "$new" != "$(cat "$live/BASE_ID")" ]; then
+    say "Node or a library changed in $want; fetching the whole release" >&2; rm -rf "$tmp"; return 1
+  fi
+  tar -xzf "$tmp/$appf" -C "$tmp" || { rm -rf "$tmp"; return 1; }
+  for d in "${BASE_DIRS[@]}"; do mkdir -p "$tmp/$top/$(dirname "$d")"; cp -a "$live/$d" "$tmp/$top/$d" || { warn "could not put the release together; fetching the whole release"; rm -rf "$tmp"; return 1; }; done
+  # the library folders were not inside the small file, so the live copy is the one of this release
+  mkdir -p "$(dirname "$file")"
+  tar -czf "$file.part" -C "$tmp" "$top" \
+    && (cd "$(dirname "$file")" && sha256sum "$(basename "$file").part" | sed 's/\.part$//' > "$file.sha256") \
+    || { warn "could not put the release together; fetching the whole release"; rm -rf "$tmp" "$file.part" "$file.sha256"; return 1; }
+  rm -rf "$tmp"
+  mv "$file.part" "$file"
+  ( verify_checksum "$file" ) || { rm -f "$file" "$file.sha256"; return 1; }
+}
+
+# download_release [tag] -> downloads the native tarball (+ its checksum) into incoming/ and prints the path of the tarball.
+# With a live version that has a BASE_ID, tries the small code-only download first.
 download_release() {
-  local tag=${1:-latest} api json arch name id dest="$ROOT/incoming" f
+  local tag=${1:-latest} api json arch name id dest="$ROOT/incoming" f size app appsum lines version
   arch=$(machine_arch) || die "unsupported machine type $(uname -m)"
   command -v jq >/dev/null || { apt-get install -y -qq jq >/dev/null 2>&1 || die "jq is needed to read the GitHub release (apt-get install jq)"; }
   api="${GH_API:-https://api.github.com}/repos/${GITHUB_REPO:-pouryare/nikoufood}/releases"
@@ -636,12 +723,19 @@ download_release() {
   name=$(jq -r --arg a "$arch" '[.assets[].name | select(test("^nikoufood-[0-9]+\\.[0-9]+\\.[0-9]+-linux-" + $a + "\\.tar\\.gz$"))] | first // empty' <<<"$json")
   [ -n "$name" ] || die "the latest GitHub release has no nikoufood-<version>-linux-$arch.tar.gz file"
   mkdir -p "$dest"
+  if [ ! -f "$dest/$name" ] || [ ! -f "$dest/$name.sha256" ]; then
+    app=${name%.tar.gz}.app.tar.gz; appsum=$app.sha256
+    lines=$(jq -r --arg a "$app" --arg s "$appsum" '.assets[] | select(.name == $a or .name == $s) | "\(.url) \(.name) \(.size)"' <<<"$json")
+    version=$(parse_tarball_name "$name" | cut -d' ' -f1)
+    if [ -n "$lines" ] && fetch_app_update "$lines" "$dest/$name" "$version" "$arch"; then echo "$dest/$name"; return; fi
+  fi
   for f in "$name" "$name.sha256"; do
     id=$(jq -r --arg n "$f" '[.assets[] | select(.name == $n) | .id] | first // empty' <<<"$json")
+    size=$(jq -r --arg n "$f" '[.assets[] | select(.name == $n) | .size] | first // 0' <<<"$json")
     if [ -z "$id" ]; then [ "$f" = "$name" ] && die "asset $f not found"; continue; fi
     if [ ! -f "$dest/$f" ] || [ "$f" != "$name" ]; then
       printf '== downloading %s\n' "$f" >&2
-      gh_get "${GH_API:-https://api.github.com}/repos/${GITHUB_REPO:-pouryare/nikoufood}/releases/assets/$id" "$dest/$f.part" application/octet-stream || die "download of $f failed"
+      download_asset "${GH_API:-https://api.github.com}/repos/${GITHUB_REPO:-pouryare/nikoufood}/releases/assets/$id" "$f" "$size" || die "the download of $f did not finish. What arrived is kept: run the update again to carry on."
       mv "$dest/$f.part" "$dest/$f"
     fi
   done
@@ -871,8 +965,8 @@ arvan_root_and_name() {   # arvan_root_and_name host -> "root name" (name is @ f
   if [ "$n" -gt "$keep" ]; then name=$(IFS=.; echo "${labels[*]:0:n-keep}"); else name=@; fi
   echo "$root $name"
 }
-arvan_point_domain() {   # arvan_point_domain <ip>
-  local ip=$1 root name rec id
+arvan_point_domain() {   # arvan_point_domain <ip> [cloud: true|false, default true]
+  local ip=$1 cloud=${2:-true} root name rec id
   command -v jq >/dev/null || apt-get install -y -qq jq >/dev/null 2>&1 || { warn "jq is needed for the Arvan step"; return 1; }
   read -r root name < <(arvan_root_and_name "$DOMAIN")
   arvan_call GET "/domains/$root"
@@ -882,13 +976,31 @@ arvan_point_domain() {   # arvan_point_domain <ip>
     404) warn "$root is not in your Arvan account yet. Add the domain there first, then run: sudo nikou arvan-dns"; return 1 ;;
     *) warn "could not reach the Arvan API (HTTP $ARVAN_CODE)"; return 1 ;;
   esac
-  rec=$(jq -nc --arg n "$name" --arg ip "$ip" '{type:"a",name:$n,value:[{ip:$ip,port:null,weight:null,country:""}],ttl:120,cloud:true,upstream_https:"default",ip_filter_mode:{count:"single",order:"none",geo_filter:"none"}}')
+  rec=$(jq -nc --arg n "$name" --arg ip "$ip" --arg c "$cloud" '{type:"a",name:$n,value:[{ip:$ip,port:null,weight:null,country:""}],ttl:120,cloud:($c == "true"),upstream_https:"default",ip_filter_mode:{count:"single",order:"none",geo_filter:"none"}}')
   arvan_call GET "/domains/$root/dns-records?search=$name"
   id=$(jq -r --arg n "$name" '[(.data // [])[] | select((.type | ascii_downcase) == "a" and .name == $n) | .id] | first // empty' <<<"$ARVAN_BODY" 2>/dev/null || true)
   if [ -n "$id" ]; then arvan_call PUT "/domains/$root/dns-records/$id" "$rec"; else arvan_call POST "/domains/$root/dns-records" "$rec"; fi
   case "$ARVAN_CODE" in 2??) ;; *) warn "Arvan did not accept the DNS record (HTTP $ARVAN_CODE): $(jq -r '.message // empty' <<<"$ARVAN_BODY" 2>/dev/null)"; return 1 ;; esac
   arvan_call PATCH "/domains/$root/ssl" '{"ssl_status":true,"certificate":"managed"}' || true
-  say "Arvan: $DOMAIN now points at $ip with the cloud switched on"
+  if [ "$cloud" = true ]; then say "Arvan: $DOMAIN now points at $ip with the cloud switched on"
+  else say "Arvan: $DOMAIN now points at $ip with the cloud switched off for now (it is switched on once the server has its certificate)"; fi
+}
+# Let's Encrypt must reach this server directly: with Arvan's cloud on, Arvan answers the check itself and the
+# certificate is never issued (502). So the record starts grey, and the cloud is switched on after the certificate exists.
+cert_ready() { curl -sS -o /dev/null --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/" 2>/dev/null; }
+wait_for_cert() {
+  local i tries=${CERT_WAIT_TRIES:-36}
+  for ((i = 0; i < tries; i++)); do cert_ready && return 0; [ "$i" = 0 ] || sleep "${CERT_WAIT_SLEEP:-5}"; done
+  return 1
+}
+arvan_cloud_on() {   # after Caddy: wait for the certificate, then switch the cloud on
+  local ip=${SERVER_IP:-}; [ -n "$ip" ] || ip=$(public_ip)
+  say "waiting for the HTTPS certificate of $DOMAIN (up to 3 minutes)"
+  if wait_for_cert; then
+    arvan_point_domain "$ip" true || warn "could not switch the Arvan cloud on; switch it on in the Arvan panel or run: sudo nikou arvan-dns"
+  else
+    warn "no certificate yet, so the Arvan cloud stays switched off for now. See: journalctl -u caddy -n 50. When it works run: sudo nikou arvan-dns"
+  fi
 }
 # The server's public IPv4: the first address that is not private, loopback or carrier-grade NAT.
 public_ip() {
@@ -904,8 +1016,15 @@ s_arvan() {
   arvan_key_load || { say "no Arvan API key: add the DNS record of $DOMAIN in the Arvan panel by hand (A record to this server's address, cloud switched on), or run: sudo nikou arvan-dns"; return 0; }
   local ip=${SERVER_IP:-}; [ -n "$ip" ] || ip=$(public_ip)
   [ -n "$ip" ] || { warn "could not find this server's public address; run: sudo SERVER_IP=<address> nikou arvan-dns"; return 0; }
-  arvan_point_domain "$ip" || warn "the DNS record was not made; add it by hand in the Arvan panel (A record $DOMAIN -> $ip, cloud on) or fix the cause above and run: sudo nikou arvan-dns"
+  local cloud=true; [ "$CERT_MODE" != auto ] || cloud=false
+  if arvan_point_domain "$ip" "$cloud"; then [ "$cloud" = true ] || ARVAN_GREY=1
+  else warn "the DNS record was not made; add it by hand in the Arvan panel (A record $DOMAIN -> $ip, cloud off until the certificate exists) or fix the cause above and run: sudo nikou arvan-dns"; fi
   return 0
+}
+s_arvan_cloud() {
+  [ "${ARVAN_GREY:-0}" = 1 ] || return 0
+  step "Arvan cloud"
+  arvan_cloud_on
 }
 cmd_arvan_dns() {
   need_root arvan-dns; load_conf
@@ -913,7 +1032,11 @@ cmd_arvan_dns() {
   arvan_key_load || { ask_secret ARVAN_API_KEY "Arvan API key (nothing is shown while you type)"; arvan_key_load || die "no key given"; }
   local ip=${SERVER_IP:-}; [ -n "$ip" ] || ip=$(public_ip)
   [ -n "$ip" ] || die "could not find this server's public address; run: sudo SERVER_IP=<address> nikou arvan-dns"
-  arvan_point_domain "$ip" || exit 1
+  if [ "$CERT_MODE" = auto ]; then
+    arvan_point_domain "$ip" false || exit 1
+    systemctl reload caddy 2>/dev/null || true
+    arvan_cloud_on
+  else arvan_point_domain "$ip" true || exit 1; fi
 }
 
 s_caddy() {
@@ -1111,7 +1234,7 @@ cmd_install() {
   install_questions
   check_answers
   install -m 755 "$(readlink -f "$0")" /usr/local/bin/nikou 2>/dev/null || true
-  s_checks; s_packages; s_runtime; write_env; s_database; s_config; s_software; s_migrate; s_content; s_start; s_arvan; s_caddy; s_firewall; s_backups; s_timers
+  s_checks; s_packages; s_runtime; write_env; s_database; s_config; s_software; s_migrate; s_content; s_start; s_arvan; s_caddy; s_arvan_cloud; s_firewall; s_backups; s_timers
   s_final
   offer_github_deploy
 }
@@ -1303,6 +1426,17 @@ s_timers() {
 }
 
 # ---------------------------------------------------------------------------------------------------------
+# The newest complete release (tarball with its .sha256) waiting in incoming/ for this machine, or nothing.
+newest_incoming() {
+  local t best="" arch; arch=$(machine_arch) || return 0
+  for t in $(ls -1 "$ROOT"/incoming/nikoufood-*-linux-"$arch".tar.gz 2>/dev/null | sort -V || true); do
+    [ -f "$t.sha256" ] && best=$t
+  done
+  [ -z "$best" ] || echo "$best"
+}
+# Is version $1 newer than the live one (or is nothing live)?
+newer_than_live() { local live; live=$(current_version); [ -z "$live" ] || [ "$(printf '%s\n%s\n' "$live" "$1" | sort -V | tail -1)" != "$live" ]; }
+
 # nikou update: get the newest version, then ask: now, or tonight
 cmd_update() {
   need_root update; load_conf
@@ -1325,9 +1459,16 @@ cmd_update() {
   else
     local file want live
     live=$(current_version)
-    file=$(NIKOU_WANT_LATEST=1 find_tarball "") || exit 1
+    # A release GitHub already sent (github-deploy) is used as it is; with none waiting, the newest is downloaded.
+    file=$(newest_incoming); want=""
+    [ -z "$file" ] || want=$(parse_tarball_name "$file" | cut -d' ' -f1)
+    if [ -n "$file" ] && newer_than_live "$want"; then
+      say "Version $want is already waiting in $ROOT/incoming (sent by GitHub)"
+    else
+      file=$(NIKOU_WANT_LATEST=1 find_tarball "") || exit 1
+      want=$(parse_tarball_name "$file" | cut -d' ' -f1)
+    fi
     verify_checksum "$file" || exit 1
-    want=$(parse_tarball_name "$file" | cut -d' ' -f1)
     if [ -n "$live" ] && [ "$(printf '%s\n%s\n' "$live" "$want" | sort -V | tail -1)" = "$live" ]; then
       say "Already on $live; the newest release is $want. Nothing to do."
       return 0
@@ -1350,11 +1491,9 @@ cmd_upgrade_scheduled() {
     rm -f "$m"
     notify "upgraded" "The site now runs the Docker tag $tag."
   else
-    local t v best="" bestv="" live; live=$(current_version)
-    for t in $(ls -1 "$inc"/nikoufood-*-linux-"$(machine_arch)".tar.gz 2>/dev/null | sort -V || true); do
-      [ -f "$t.sha256" ] || continue   # a tarball without its sum file is still being copied
-      best=$t; bestv=$(parse_tarball_name "$t" | cut -d' ' -f1)
-    done
+    local t best bestv live; live=$(current_version)
+    best=$(newest_incoming); bestv=""
+    [ -z "$best" ] || bestv=$(parse_tarball_name "$best" | cut -d' ' -f1)
     [ -n "$best" ] || { say "nothing is waiting"; return 0; }
     if [ -n "$live" ] && [ "$(printf '%s\n%s\n' "$live" "$bestv" | sort -V | tail -1)" = "$live" ]; then say "the waiting version $bestv is not newer than $live"; return 0; fi
     cmd_upgrade "$best"
