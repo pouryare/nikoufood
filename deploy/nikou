@@ -8,6 +8,7 @@
 #   sudo nikou status | doctor | logs | first-login [--forget] | support-file
 #   sudo nikou upgrade [docker tag | release tarball]     # Docker: pull + migrate + restart; native: unpack + migrate + switch
 #   sudo nikou update [--now|--tonight]        # fetch the newest version, then ask: upgrade now, or tonight at UPGRADE_AT
+#   sudo nikou self-update                     # replace this command with the newest one (nikou update does it first, by itself)
 #   sudo nikou upgrade-scheduled               # what the nightly timer runs: applies a waiting version
 #   sudo nikou github-deploy                   # let GitHub send each new version here by itself (guided; 4 secrets to paste)
 #   sudo nikou rollback                        # back to the version that ran before the last upgrade
@@ -565,8 +566,15 @@ wait_healthy() {   # wait_healthy [seconds]
   return 1
 }
 
+# Payload marks a database as "changed in dev mode" (a row with batch -1 in payload_migrations) when a tool ran without
+# NODE_ENV=production; "payload migrate" then stops to ask whether to lose data. Older installs have that row. It is
+# removed when the real migrations are recorded (a row with batch above 0 exists), so the question never comes up.
+heal_dev_push() {
+  printf '%s\n' "DO \$\$ BEGIN IF to_regclass('payload_migrations') IS NOT NULL THEN DELETE FROM payload_migrations WHERE batch = -1 AND EXISTS (SELECT 1 FROM payload_migrations WHERE batch > 0); END IF; END \$\$;" | db_sql >/dev/null 2>&1 || true
+}
 run_tools() {   # run_tools <pnpm-script-or-payload args>: migrate | seed | admin
   local what=$1
+  [ "$what" != migrate ] || heal_dev_push
   if [ "$MODE" = docker ]; then
     case "$what" in
       migrate) compose run --rm tools pnpm migrate ;;
@@ -576,9 +584,9 @@ run_tools() {   # run_tools <pnpm-script-or-payload args>: migrate | seed | admi
   else
     local dir=$ROOT/current/tools node=$ROOT/current/node/bin/node
     case "$what" in
-      migrate) ( cd "$dir" && export_env && NODE_OPTIONS=--no-deprecation MEDIA_DIR=$DATA/media runuser -u "$APP_USER" -- env "PATH=$ROOT/current/node/bin:$PATH" "$node" node_modules/payload/bin.js migrate ) ;;
-      seed) ( cd "$dir" && export_env && NODE_OPTIONS=--no-deprecation MEDIA_DIR=$DATA/media runuser -u "$APP_USER" -- env "PATH=$ROOT/current/node/bin:$PATH" "$node" node_modules/payload/bin.js run src/seed/index.ts ) ;;
-      admin) ( cd "$dir" && export_env && NODE_OPTIONS=--no-deprecation MEDIA_DIR=$DATA/media runuser -u "$APP_USER" -- env "PATH=$ROOT/current/node/bin:$PATH" "ADMIN_EMAIL=${ADMIN_EMAIL:-}" "ADMIN_PASSWORD=${ADMIN_PASSWORD:-}" "ADMIN_RESET=${ADMIN_RESET:-}" "$node" node_modules/payload/bin.js run src/seed/admin.ts ) ;;
+      migrate) ( cd "$dir" && export_env && NODE_OPTIONS=--no-deprecation MEDIA_DIR=$DATA/media runuser -u "$APP_USER" -- env NODE_ENV=production "PATH=$ROOT/current/node/bin:$PATH" "$node" node_modules/payload/bin.js migrate ) ;;
+      seed) ( cd "$dir" && export_env && NODE_OPTIONS=--no-deprecation MEDIA_DIR=$DATA/media runuser -u "$APP_USER" -- env NODE_ENV=production "PATH=$ROOT/current/node/bin:$PATH" "$node" node_modules/payload/bin.js run src/seed/index.ts ) ;;
+      admin) ( cd "$dir" && export_env && NODE_OPTIONS=--no-deprecation MEDIA_DIR=$DATA/media runuser -u "$APP_USER" -- env NODE_ENV=production "PATH=$ROOT/current/node/bin:$PATH" "ADMIN_EMAIL=${ADMIN_EMAIL:-}" "ADMIN_PASSWORD=${ADMIN_PASSWORD:-}" "ADMIN_RESET=${ADMIN_RESET:-}" "$node" node_modules/payload/bin.js run src/seed/admin.ts ) ;;
     esac
   fi
 }
@@ -1438,9 +1446,38 @@ newest_incoming() {
 newer_than_live() { local live; live=$(current_version); [ -z "$live" ] || [ "$(printf '%s\n%s\n' "$live" "$1" | sort -V | tail -1)" != "$live" ]; }
 
 # nikou update: get the newest version, then ask: now, or tonight
+NIKOU_BIN=${NIKOU_BIN:-/usr/local/bin/nikou}
+# Replaces /usr/local/bin/nikou with the copy in the newest release's server kit. 0 = replaced, 2 = already the newest,
+# 1 = could not (the old command stays). The kit is small (about 35 KB).
+self_update() {
+  local api tmp json id new rc=2
+  api="${GH_API:-https://api.github.com}/repos/${GITHUB_REPO:-pouryare/nikoufood}"
+  tmp=$(mktemp -d)
+  json=$(gh_get "$api/releases/latest" 2>/dev/null) || { rm -rf "$tmp"; return 1; }
+  id=$(jq -r '[.assets[] | select(.name == "nikoufood-server-kit.tar.gz") | .id] | first // empty' <<<"$json" 2>/dev/null || true)
+  [ -n "$id" ] || { rm -rf "$tmp"; return 1; }
+  if gh_get "$api/releases/assets/$id" "$tmp/kit.tar.gz" application/octet-stream 2>/dev/null && tar -xzf "$tmp/kit.tar.gz" -C "$tmp" 2>/dev/null; then
+    new=$(find "$tmp" -name nikou -type f | head -1)
+    if [ -n "$new" ] && bash -n "$new" 2>/dev/null; then
+      if cmp -s "$new" "$NIKOU_BIN"; then rc=2; else install -m 755 "$new" "$NIKOU_BIN" && rc=0 || rc=1; fi
+    else rc=1; fi
+  else rc=1; fi
+  rm -rf "$tmp"
+  return "$rc"
+}
+cmd_self_update() {
+  need_root self-update; load_conf
+  local rc=0; self_update || rc=$?
+  case "$rc" in 0) say "nikou is now the newest version" ;; 2) say "nikou is already the newest version" ;; *) die "could not get the newest nikou (is GitHub reachable? private repository: nikou github token is kept in $GH_TOKEN_FILE)" ;; esac
+}
 cmd_update() {
   need_root update; load_conf
   local when=ask arg now
+  # First get the newest nikou itself (it knows the newest download and update tricks), then carry on with it.
+  if [ -z "${NIKOU_NO_SELF_UPDATE:-}" ] && [ -z "${NIKOU_SELF_UPDATED:-}" ]; then
+    local src=0; self_update || src=$?
+    if [ "$src" = 0 ]; then say "nikou itself was updated; carrying on with the new one"; NIKOU_SELF_UPDATED=1 exec "$NIKOU_BIN" update "$@"; fi
+  fi
   for arg in "$@"; do
     case "$arg" in --now) when=now ;; --tonight | --schedule) when=tonight ;; *) die "usage: nikou update [--now|--tonight]" ;; esac
   done
@@ -1716,6 +1753,7 @@ main() {
     secrets) cmd_secrets "$@" ;;
     reset-login) cmd_reset_login "$@" ;;
     first-login) cmd_first_login "$@" ;;
+    self-update) cmd_self_update "$@" ;;
     cdn-ips) cmd_cdn_ips "$@" ;;
     arvan-dns) cmd_arvan_dns "$@" ;;
     support-file) cmd_support_file "$@" ;;
