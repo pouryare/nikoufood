@@ -6,13 +6,24 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(__filename)
 
+const securityHeaders = [
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+]
+
 const nextConfig: NextConfig = {
+  // One self-contained server folder: what the Docker image runs on the VPS.
+  output: 'standalone',
+  poweredByHeader: false,
+  agentRules: false,
   images: {
-    localPatterns: [
-      {
-        pathname: '/api/media/file/**',
-      },
-    ],
+    formats: ['image/avif', 'image/webp'],
+    localPatterns: [{ pathname: '/api/media/file/**' }, { pathname: '/brand/**' }],
+  },
+  async headers() {
+    return [{ source: '/:path*', headers: securityHeaders }]
   },
   webpack: (webpackConfig) => {
     webpackConfig.resolve.extensionAlias = {

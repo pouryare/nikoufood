@@ -31,6 +31,7 @@ import {
 } from './globals/Pages'
 import { SiteSettings } from './globals/SiteSettings'
 import { Theme } from './globals/Theme'
+import { UiTextsGlobal } from './globals/UiTexts'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -61,6 +62,7 @@ export default buildConfig({
     SiteSettings,
     Theme,
     Navigation,
+    UiTextsGlobal,
     HomePage,
     AboutPage,
     NetworkPage,

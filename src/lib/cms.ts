@@ -3,6 +3,7 @@ import { getPayload, type Payload } from 'payload'
 import config from '@payload-config'
 import { CMS_CACHE_TAG } from '@/hooks/revalidate'
 import type { Brand, Product } from '@/payload-types'
+import { mergeUi, type UiTexts } from './ui-defaults'
 
 export const getCMS = () => getPayload({ config })
 
@@ -129,3 +130,8 @@ export function mediaOf(value: unknown): { url: string; alt: string; width?: num
   if (!m.url) return null
   return { url: m.url, alt: m.alt ?? '', width: m.width ?? undefined, height: m.height ?? undefined, mimeType: m.mimeType ?? undefined }
 }
+
+/* ---------- interface texts ---------- */
+
+export const getUi = async (): Promise<UiTexts> =>
+  mergeUi(await cached(['ui-texts'], (p) => p.findGlobal({ slug: 'ui-texts' })))

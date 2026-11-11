@@ -111,6 +111,7 @@ export interface Config {
     'site-settings': SiteSetting;
     theme: Theme;
     navigation: Navigation;
+    'ui-texts': UiText;
     'home-page': HomePage;
     'about-page': AboutPage;
     'network-page': NetworkPage;
@@ -123,6 +124,7 @@ export interface Config {
     'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
     theme: ThemeSelect<false> | ThemeSelect<true>;
     navigation: NavigationSelect<false> | NavigationSelect<true>;
+    'ui-texts': UiTextsSelect<false> | UiTextsSelect<true>;
     'home-page': HomePageSelect<false> | HomePageSelect<true>;
     'about-page': AboutPageSelect<false> | AboutPageSelect<true>;
     'network-page': NetworkPageSelect<false> | NetworkPageSelect<true>;
@@ -1035,7 +1037,23 @@ export interface SiteSetting {
    * PNG یا SVG با پس‌زمینه شفاف
    */
   logoMark?: (number | null) | Media;
+  /**
+   * به‌صورت پیش‌فرض، نماد N به‌صورت برداری و با انیمیشن «رسم شدن» نمایش داده می‌شود. اگر لوگو تغییر کرد، این گزینه را فعال کنید.
+   */
+  useUploadedLogo?: boolean | null;
+  /**
+   * فایل SVG باید «outline» شده باشد (بدون وابستگی به فونت). اگر خالی باشد، متن با فونت جایگزین نمایش داده می‌شود.
+   */
   logoWordmark?: (number | null) | Media;
+  latinTagline?: string | null;
+  /**
+   * تا زمانی که محصولی تصویر اختصاصی ندارد، این تصویر به‌همراه نام برند نمایش داده می‌شود.
+   */
+  defaultProductImage?: (number | null) | Media;
+  /**
+   * وقتی نشانی سایت در پیام‌رسان‌ها یا شبکه‌های اجتماعی فرستاده می‌شود، این تصویر نمایش داده می‌شود.
+   */
+  defaultShareImage?: (number | null) | Media;
   yearsOfExperience?: number | null;
   rebrandYear?: string | null;
   /**
@@ -1202,6 +1220,108 @@ export interface Navigation {
   createdAt?: string | null;
 }
 /**
+ * متن دکمه‌ها، برچسب فرم‌ها و پیام‌های کوتاه سایت. هر فیلد خالی، متن پیش‌فرض را نشان می‌دهد.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ui-texts".
+ */
+export interface UiText {
+  id: number;
+  common?: {
+    home?: string | null;
+    skipToContent?: string | null;
+    menu?: string | null;
+    close?: string | null;
+    all?: string | null;
+    viewAll?: string | null;
+    learnMore?: string | null;
+    scrollHint?: string | null;
+    comingSoon?: string | null;
+  };
+  products?: {
+    view?: string | null;
+    brand?: string | null;
+    category?: string | null;
+    type?: string | null;
+    weight?: string | null;
+    packaging?: string | null;
+    variants?: string | null;
+    features?: string | null;
+    specs?: string | null;
+    applications?: string | null;
+    markets?: string | null;
+    related?: string | null;
+    empty?: string | null;
+    clearFilters?: string | null;
+    imageSoon?: string | null;
+    brandProducts?: string | null;
+    viewBrand?: string | null;
+    filtersLabel?: string | null;
+  };
+  network?: {
+    direct?: string | null;
+    covered?: string | null;
+    open?: string | null;
+    soon?: string | null;
+    selectProvince?: string | null;
+    applyForProvince?: string | null;
+    provinceList?: string | null;
+    representatives?: string | null;
+    hub?: string | null;
+    mapHint?: string | null;
+    mapLabel?: string | null;
+    directBy?: string | null;
+    sisterCompany?: string | null;
+    visitWebsite?: string | null;
+  };
+  forms?: {
+    fullName?: string | null;
+    mobile?: string | null;
+    phone?: string | null;
+    province?: string | null;
+    provincePlaceholder?: string | null;
+    company?: string | null;
+    businessType?: string | null;
+    businessTypePlaceholder?: string | null;
+    email?: string | null;
+    message?: string | null;
+    optional?: string | null;
+    sending?: string | null;
+    sendAnother?: string | null;
+    fixErrors?: string | null;
+  };
+  contact?: {
+    phone?: string | null;
+    whatsapp?: string | null;
+    telegram?: string | null;
+    bale?: string | null;
+    eitaa?: string | null;
+    instagram?: string | null;
+    email?: string | null;
+    address?: string | null;
+    hours?: string | null;
+    messengers?: string | null;
+    dockLabel?: string | null;
+    showOnMap?: string | null;
+    headOffice?: string | null;
+  };
+  articles?: {
+    readMore?: string | null;
+    empty?: string | null;
+    backToList?: string | null;
+  };
+  errors?: {
+    notFoundTitle?: string | null;
+    notFoundText?: string | null;
+    backHome?: string | null;
+    errorTitle?: string | null;
+    errorText?: string | null;
+    retry?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "home-page".
  */
@@ -1237,9 +1357,13 @@ export interface HomePage {
     title?: string | null;
     intro?: string | null;
     /**
-     * ویدیو mp4 یا webm. برای روان‌ترین اسکرول، با کلید فریم متراکم (ffmpeg -g 1) خروجی بگیرید. اگر خالی باشد، صحنه سه‌بعدی نمونه نمایش داده می‌شود.
+     * ویدیوی mp4 یا webm (افقی ۱۶:۹، حدود ۶ تا ۱۲ ثانیه، بدون صدا). پس از ذخیره، سرور خودکار آن را به فریم تبدیل می‌کند تا با اسکرول روان پخش شود.
      */
     video?: (number | null) | Media;
+    /**
+     * نسخهٔ عمودی (۹:۱۶) همان ویدیو. اگر خالی باشد، وسط ویدیوی اصلی در موبایل نمایش داده می‌شود.
+     */
+    videoMobile?: (number | null) | Media;
     poster?: (number | null) | Media;
     chapters?:
       | {
@@ -1651,7 +1775,11 @@ export interface SiteSettingsSelect<T extends boolean = true> {
   tagline?: T;
   description?: T;
   logoMark?: T;
+  useUploadedLogo?: T;
   logoWordmark?: T;
+  latinTagline?: T;
+  defaultProductImage?: T;
+  defaultShareImage?: T;
   yearsOfExperience?: T;
   rebrandYear?: T;
   phone?: T;
@@ -1754,6 +1882,120 @@ export interface NavigationSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ui-texts_select".
+ */
+export interface UiTextsSelect<T extends boolean = true> {
+  common?:
+    | T
+    | {
+        home?: T;
+        skipToContent?: T;
+        menu?: T;
+        close?: T;
+        all?: T;
+        viewAll?: T;
+        learnMore?: T;
+        scrollHint?: T;
+        comingSoon?: T;
+      };
+  products?:
+    | T
+    | {
+        view?: T;
+        brand?: T;
+        category?: T;
+        type?: T;
+        weight?: T;
+        packaging?: T;
+        variants?: T;
+        features?: T;
+        specs?: T;
+        applications?: T;
+        markets?: T;
+        related?: T;
+        empty?: T;
+        clearFilters?: T;
+        imageSoon?: T;
+        brandProducts?: T;
+        viewBrand?: T;
+        filtersLabel?: T;
+      };
+  network?:
+    | T
+    | {
+        direct?: T;
+        covered?: T;
+        open?: T;
+        soon?: T;
+        selectProvince?: T;
+        applyForProvince?: T;
+        provinceList?: T;
+        representatives?: T;
+        hub?: T;
+        mapHint?: T;
+        mapLabel?: T;
+        directBy?: T;
+        sisterCompany?: T;
+        visitWebsite?: T;
+      };
+  forms?:
+    | T
+    | {
+        fullName?: T;
+        mobile?: T;
+        phone?: T;
+        province?: T;
+        provincePlaceholder?: T;
+        company?: T;
+        businessType?: T;
+        businessTypePlaceholder?: T;
+        email?: T;
+        message?: T;
+        optional?: T;
+        sending?: T;
+        sendAnother?: T;
+        fixErrors?: T;
+      };
+  contact?:
+    | T
+    | {
+        phone?: T;
+        whatsapp?: T;
+        telegram?: T;
+        bale?: T;
+        eitaa?: T;
+        instagram?: T;
+        email?: T;
+        address?: T;
+        hours?: T;
+        messengers?: T;
+        dockLabel?: T;
+        showOnMap?: T;
+        headOffice?: T;
+      };
+  articles?:
+    | T
+    | {
+        readMore?: T;
+        empty?: T;
+        backToList?: T;
+      };
+  errors?:
+    | T
+    | {
+        notFoundTitle?: T;
+        notFoundText?: T;
+        backHome?: T;
+        errorTitle?: T;
+        errorText?: T;
+        retry?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "home-page_select".
  */
 export interface HomePageSelect<T extends boolean = true> {
@@ -1786,6 +2028,7 @@ export interface HomePageSelect<T extends boolean = true> {
         title?: T;
         intro?: T;
         video?: T;
+        videoMobile?: T;
         poster?: T;
         chapters?:
           | T

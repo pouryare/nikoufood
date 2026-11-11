@@ -59,7 +59,17 @@ export const HomePage = page('home-page', 'صفحه اصلی', [
         label: 'ویدیو',
         type: 'upload',
         relationTo: 'media',
-        admin: { description: 'ویدیو mp4 یا webm. برای روان‌ترین اسکرول، با کلید فریم متراکم (ffmpeg -g 1) خروجی بگیرید. اگر خالی باشد، صحنه سه‌بعدی نمونه نمایش داده می‌شود.' },
+        admin: {
+          description:
+            'ویدیوی mp4 یا webm (افقی ۱۶:۹، حدود ۶ تا ۱۲ ثانیه، بدون صدا). پس از ذخیره، سرور خودکار آن را به فریم تبدیل می‌کند تا با اسکرول روان پخش شود.',
+        },
+      },
+      {
+        name: 'videoMobile',
+        label: 'ویدیوی عمودی برای موبایل (اختیاری)',
+        type: 'upload',
+        relationTo: 'media',
+        admin: { description: 'نسخهٔ عمودی (۹:۱۶) همان ویدیو. اگر خالی باشد، وسط ویدیوی اصلی در موبایل نمایش داده می‌شود.' },
       },
       image('poster', 'تصویر پیش‌نمایش ویدیو'),
       itemsField('chapters', 'فصل‌های داستان', [

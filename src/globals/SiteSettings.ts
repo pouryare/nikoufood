@@ -22,7 +22,19 @@ export const SiteSettings: GlobalConfig = {
             text('tagline', 'شعار کوتاه'),
             textarea('description', 'توضیح کوتاه شرکت (برای گوگل و فوتر)'),
             image('logoMark', 'نماد لوگو (N)', { admin: { description: 'PNG یا SVG با پس‌زمینه شفاف' } }),
-            image('logoWordmark', 'لوگوی متنی (NIKOU | Trading & Manufacturing)'),
+            checkbox('useUploadedLogo', 'نمایش تصویر آپلودشده به‌جای نماد متحرک داخلی', false, {
+              admin: { description: 'به‌صورت پیش‌فرض، نماد N به‌صورت برداری و با انیمیشن «رسم شدن» نمایش داده می‌شود. اگر لوگو تغییر کرد، این گزینه را فعال کنید.' },
+            }),
+            image('logoWordmark', 'لوگوی متنی (NIKOU | Trading & Manufacturing)', {
+              admin: { description: 'فایل SVG باید «outline» شده باشد (بدون وابستگی به فونت). اگر خالی باشد، متن با فونت جایگزین نمایش داده می‌شود.' },
+            }),
+            text('latinTagline', 'زیرنویس لاتین لوگو', { defaultValue: 'Trading & Manufacturing' }),
+            image('defaultProductImage', 'تصویر پیش‌فرض محصول (کره بدون بسته‌بندی)', {
+              admin: { description: 'تا زمانی که محصولی تصویر اختصاصی ندارد، این تصویر به‌همراه نام برند نمایش داده می‌شود.' },
+            }),
+            image('defaultShareImage', 'تصویر پیش‌فرض اشتراک‌گذاری (۱۲۰۰×۶۳۰)', {
+              admin: { description: 'وقتی نشانی سایت در پیام‌رسان‌ها یا شبکه‌های اجتماعی فرستاده می‌شود، این تصویر نمایش داده می‌شود.' },
+            }),
             {
               type: 'row',
               fields: [
