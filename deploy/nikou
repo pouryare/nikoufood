@@ -143,11 +143,11 @@ urlenc() {
 # Answers
 CONF_KEYS=(MODE DOMAIN APP_PORT DOCKERHUB_USER IMAGE_TAG DOCKER_MIRROR DB_MODE DB_HOST DB_PORT DB_NAME DB_USER DB_SSL
   ADMIN_EMAIL LOAD_SEED SMTP_HOST SMTP_PORT SMTP_SECURE SMTP_USER SMTP_FROM BEHIND_ARVAN CERT_MODE CDN_ONLY
-  BACKUP_ENABLED KEEP_BACKUPS OFFSITE_HOST OFFSITE_USER OFFSITE_PATH PREVIOUS_TAG)
+  BACKUP_ENABLED KEEP_BACKUPS OFFSITE_HOST OFFSITE_USER OFFSITE_PATH PREVIOUS_TAG GITHUB_REPO)
 
 defaults() {
   MODE=${MODE:-docker}; DOMAIN=${DOMAIN:-}; APP_PORT=${APP_PORT:-3000}
-  DOCKERHUB_USER=${DOCKERHUB_USER:-}; IMAGE_TAG=${IMAGE_TAG:-latest}; DOCKER_MIRROR=${DOCKER_MIRROR:-}
+  GITHUB_REPO=${GITHUB_REPO:-pouryare/nikoufood}; DOCKERHUB_USER=${DOCKERHUB_USER:-}; IMAGE_TAG=${IMAGE_TAG:-latest}; DOCKER_MIRROR=${DOCKER_MIRROR:-}
   DB_MODE=${DB_MODE:-builtin}; DB_HOST=${DB_HOST:-127.0.0.1}; DB_PORT=${DB_PORT:-5432}; DB_NAME=${DB_NAME:-nikou}
   DB_USER=${DB_USER:-nikou}; DB_SSL=${DB_SSL:-0}
   ADMIN_EMAIL=${ADMIN_EMAIL:-}; LOAD_SEED=${LOAD_SEED:-1}
@@ -246,7 +246,8 @@ q4() {
     ask DOCKER_MIRROR "A Docker registry mirror if Docker Hub is hard to reach (for example https://docker.arvancloud.ir). Type - for none" "$DOCKER_MIRROR"
     if [ -z "${DOCKERHUB_TOKEN:-}" ]; then ask_secret DOCKERHUB_TOKEN "Docker Hub access token (needed when the images are private; nothing is shown while you type; Enter = images are public)"; fi
   else
-    if interactive; then printf '\n  Native install: the release tarball (nikoufood-<version>-linux-x64.tar.gz, made by GitHub) must be on this server.\n  Put it next to install.sh, in %s/incoming/, or give its path as: nikou install /path/to/tarball\n' "$ROOT" >/dev/tty; fi
+    if interactive; then printf '\n  Native install: the newest release file (nikoufood-<version>-linux-x64.tar.gz) is downloaded from GitHub (%s).\n  A file already next to install.sh or in %s/incoming/ is used instead, or give its path: nikou install /path/to/tarball\n' "$GITHUB_REPO" "$ROOT" >/dev/tty; fi
+    if [ -z "$(gh_token)" ]; then ask_secret GITHUB_TOKEN "GitHub access token to download from the private repository (read access to Contents; nothing is shown while you type; Enter = the repository is public or the file is already here)"; fi
   fi
 }
 q5() {
@@ -604,15 +605,52 @@ prune_releases() {
     n=$((n + 1)); [ "$n" -ge "$keep" ] && rm -rf "${ROOT:?}/releases/$r"
   done
 }
-find_tarball() {
-  local given=${1:-} t here
-  if [ -n "$given" ]; then [ -f "$given" ] || die "no such file: $given"; echo "$given"; return; fi
-  here=$(machine_arch) || die "unsupported machine type $(uname -m)"
-  for d in "${NIKOU_HERE:-.}" "$ROOT/incoming"; do
-    t=$(ls -1 "$d"/nikoufood-*-linux-"$here".tar.gz 2>/dev/null | sort -V | tail -1 || true)
-    [ -z "$t" ] || { echo "$t"; return; }
+GH_TOKEN_FILE=${GH_TOKEN_FILE:-$CONF_DIR/github-token}
+gh_token() { if [ -n "${GITHUB_TOKEN:-}" ]; then printf '%s' "$GITHUB_TOKEN"; elif [ -f "$GH_TOKEN_FILE" ]; then head -1 "$GH_TOKEN_FILE"; fi; }
+gh_save_token() { [ -n "${GITHUB_TOKEN:-}" ] || return 0; install -d -m 755 "$CONF_DIR"; ( umask 077; printf '%s\n' "$GITHUB_TOKEN" > "$GH_TOKEN_FILE" ); }
+# gh_get URL [output-file [accept]]   (sends the token when there is one; the repository may be private)
+gh_get() {
+  local url=$1 out=${2:--} accept=${3:-application/vnd.github+json} tok; tok=$(gh_token)
+  local -a auth=(); [ -z "$tok" ] || auth=(-H "Authorization: Bearer $tok")
+  curl -fsSL --retry 3 -H "Accept: $accept" -H "X-GitHub-Api-Version: 2022-11-28" "${auth[@]}" -o "$out" "$url"
+}
+# download_release [tag] -> downloads the native tarball (+ its checksum) into incoming/ and prints the path of the tarball
+download_release() {
+  local tag=${1:-latest} api json arch name id dest="$ROOT/incoming" f
+  arch=$(machine_arch) || die "unsupported machine type $(uname -m)"
+  command -v jq >/dev/null || { apt-get install -y -qq jq >/dev/null 2>&1 || die "jq is needed to read the GitHub release (apt-get install jq)"; }
+  api="${GH_API:-https://api.github.com}/repos/${GITHUB_REPO:-pouryare/nikoufood}/releases"
+  if [ "$tag" = latest ]; then api="$api/latest"; else api="$api/tags/$tag"; fi
+  json=$(gh_get "$api") || die "could not read the release list from GitHub ($api). Is the repository private? Then give a token: GITHUB_TOKEN=<token> nikou upgrade (it is remembered in $GH_TOKEN_FILE). Is there a release yet? (GitHub Actions: 'Release files')"
+  name=$(jq -r --arg a "$arch" '[.assets[].name | select(test("^nikoufood-[0-9]+\\.[0-9]+\\.[0-9]+-linux-" + $a + "\\.tar\\.gz$"))] | first // empty' <<<"$json")
+  [ -n "$name" ] || die "the latest GitHub release has no nikoufood-<version>-linux-$arch.tar.gz file"
+  mkdir -p "$dest"
+  for f in "$name" "$name.sha256"; do
+    id=$(jq -r --arg n "$f" '[.assets[] | select(.name == $n) | .id] | first // empty' <<<"$json")
+    if [ -z "$id" ]; then [ "$f" = "$name" ] && die "asset $f not found"; continue; fi
+    if [ ! -f "$dest/$f" ] || [ "$f" != "$name" ]; then
+      printf '== downloading %s\n' "$f" >&2
+      gh_get "${GH_API:-https://api.github.com}/repos/${GITHUB_REPO:-pouryare/nikoufood}/releases/assets/$id" "$dest/$f.part" application/octet-stream || die "download of $f failed"
+      mv "$dest/$f.part" "$dest/$f"
+    fi
   done
-  die "no nikoufood-<version>-linux-$here.tar.gz found next to install.sh or in $ROOT/incoming/ (download it from the GitHub release or the Actions run)"
+  echo "$dest/$name"
+}
+find_tarball() {
+  local given=${1:-} t here d
+  if [ -n "$given" ]; then
+    if [ -f "$given" ]; then echo "$given"; return; fi
+    case "$given" in v[0-9]*) download_release "$given"; return ;; esac
+    die "no such file: $given"
+  fi
+  here=$(machine_arch) || die "unsupported machine type $(uname -m)"
+  if [ "${NIKOU_WANT_LATEST:-0}" != 1 ]; then
+    for d in "${NIKOU_HERE:-.}" "$ROOT/incoming"; do
+      t=$(ls -1 "$d"/nikoufood-*-linux-"$here".tar.gz 2>/dev/null | sort -V | tail -1 || true)
+      [ -z "$t" ] || { echo "$t"; return; }
+    done
+  fi
+  download_release latest
 }
 unpack_release() {   # unpack_release tarball -> prints the version
   local t=$1 version arch tmp
@@ -744,6 +782,7 @@ s_config() {
   step "Settings"
   write_env
   write_conf
+  gh_save_token
   if [ "$MODE" = docker ]; then render_compose > "$ROOT/docker-compose.yml"; chmod 600 "$ROOT/docker-compose.yml"; else render_unit > "$UNIT_DIR/$SERVICE.service"; fi
   say "settings written to $CONF_DIR (passwords in $ENV_FILE, readable by root only)"
 }
@@ -985,7 +1024,7 @@ cmd_upgrade() {
     say "now running $new (before: $old)"
   else
     local t v prev; prev=$(current_version)
-    t=$(find_tarball "${1:-}"); v=$(unpack_release "$t")
+    t=$(NIKOU_WANT_LATEST=1 find_tarball "${1:-}"); v=$(unpack_release "$t")
     [ "$v" != "$prev" ] || { say "version $v is already live"; return 0; }
     switch_to "$v"
     if ! run_tools migrate; then [ -z "$prev" ] || switch_to "$prev"; die "the database migration failed; still on ${prev:-nothing}"; fi

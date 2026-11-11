@@ -53,21 +53,21 @@ Put nginx in front (`deploy/nginx.conf.sample`) and add a certificate with certb
 
 `deploy/install.sh` sets the site up on a Debian or Ubuntu server, the same way RouteFlow is installed. It asks questions in plain English and does the rest.
 
-Get the files onto the server (example: a server kit made by GitHub):
+You only need `install.sh` on the server. It downloads the newest server kit (and, for a native install, the newest site files) from the GitHub release by itself:
 
-1. In GitHub, open Actions, then the **release** workflow, and download `nikoufood-server-kit.tar.gz` (for a native install also download `nikoufood-<version>-linux-x64.tar.gz`).
-2. Copy them to the server, for example `scp nikoufood-server-kit.tar.gz root@SERVER:/root/`.
-3. On the server: `tar xzf nikoufood-server-kit.tar.gz && cd nikoufood-server-kit && sudo bash install.sh`.
+1. In GitHub, open Actions, run the **Release files** workflow once (or push a tag such as `v1.0.0`). It publishes a release.
+2. Copy `deploy/install.sh` to the server and run `sudo bash install.sh`. The repository is private, so it asks for a GitHub token with read access to Contents (create one at GitHub, Settings, Developer settings, Fine-grained tokens). It is kept in `/etc/nikou/github-token` for later upgrades. For no questions about it: `sudo GITHUB_TOKEN=<token> bash install.sh`.
+3. If you would rather copy files by hand, put `nikoufood-<version>-linux-x64.tar.gz` next to `install.sh` and it is used instead of downloading.
 
 The installer asks:
 
 - **Docker or native.** Docker pulls the images from Docker Hub. Native unpacks the release tarball and runs it with systemd (no Docker needed).
-- **Do you already have PostgreSQL?** Yes: connect with host, user and password, or let the installer make a separate database and user inside the PostgreSQL already on the server (for example RouteFlow's). No: the installer installs one for you (a container for Docker, the Debian package for native).
+- **Do you already have PostgreSQL?** Yes: connect with host, user and password, or let the installer make a separate database and user inside the PostgreSQL already on the server (for example RouteFlow's) and connect to it by itself. The second choice is offered when PostgreSQL is running on the server and the installer can use the `postgres` superuser. No: the installer installs one for you (a container for Docker, the Debian package for native).
 - Website address, port (default 3000), first admin, starter content, mail, ArvanCloud CDN, and optional backups.
 
 It never touches RouteFlow's PostgreSQL settings or its Caddy file. The site gets its own `/etc/caddy/sites/nikoufood.caddy`.
 
-Afterwards use `nikou` (or just `nikou` for a menu): `status`, `upgrade`, `rollback`, `backup`, `restore`, `logs`, `doctor`, `secrets`. Example: `nikou upgrade` pulls the newest version and rolls back by itself if it does not start.
+Afterwards use `nikou` (or just `nikou` for a menu): `status`, `upgrade`, `rollback`, `backup`, `restore`, `logs`, `doctor`, `secrets`. Example: `nikou upgrade` downloads the newest version and rolls back by itself if it does not start.
 
 ## Local notes
 
