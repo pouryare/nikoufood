@@ -23,6 +23,41 @@ const page = (slug: string, label: string, fields: GlobalConfig['fields']): Glob
   fields,
 })
 
+
+/** One picture area of a film scene: its text, picture(s), optional video and a gold drawing used until media exists. */
+function filmSideFields(): GlobalConfig['fields'] {
+  return [
+    text('title', 'عنوان'),
+    textarea('text', 'متن'),
+    image('image', 'تصویر (افقی برای تک‌تصویر، عمودی/مربعی برای دو‌نیمه)'),
+    image('imageMobile', 'تصویر عمودی برای موبایل (اختیاری)'),
+    {
+      name: 'video',
+      label: 'ویدیو (اختیاری)',
+      type: 'upload',
+      relationTo: 'media',
+      admin: { description: 'ویدیوی کوتاه mp4 یا webm بدون صدا؛ با اسکرول جلو و عقب می‌رود.' },
+    },
+    {
+      name: 'art',
+      label: 'طرح خطی جایگزین',
+      type: 'select',
+      defaultValue: 'none',
+      admin: { description: 'تا وقتی تصویر یا ویدیو نیست، این طرح طلایی نمایش داده می‌شود.' },
+      options: [
+        { label: 'بدون طرح', value: 'none' },
+        { label: 'مزرعه و گاو', value: 'farm' },
+        { label: 'دانه (آفتابگردان)', value: 'seed' },
+        { label: 'شیر', value: 'milk' },
+        { label: 'روغن', value: 'oil' },
+        { label: 'خامه', value: 'cream' },
+        { label: 'کره', value: 'butter' },
+        { label: 'سفره', value: 'table' },
+      ],
+    },
+  ] as GlobalConfig['fields']
+}
+
 export const HomePage = page('home-page', 'صفحه اصلی', [
   {
     name: 'hero',
@@ -48,35 +83,59 @@ export const HomePage = page('home-page', 'صفحه اصلی', [
   },
   {
     name: 'film',
-    label: 'فیلم اسکرولی (کره روی برنج)',
+    label: 'فیلم اسکرولی (از مزرعه تا سفره)',
     type: 'group',
+    admin: {
+      description:
+        'یک فیلم با چند صحنه که با اسکرول جلو می‌رود. جایی که مراحل تولید کرهٔ گیاهی و حیوانی یکی است، صحنه «تک‌تصویر» است؛ جایی که فرق دارند، «دو‌نیمه» است (گیاهی سمت راست، حیوانی سمت چپ؛ در موبایل بالا و پایین).',
+    },
     fields: [
       checkbox('enabled', 'نمایش داده شود', true),
+      text('eyebrow', 'عنوان کوچک'),
       text('title', 'عنوان بخش'),
       textarea('intro', 'متن کوتاه'),
       {
+        type: 'row',
+        fields: [
+          text('plantLabel', 'برچسب سمت گیاهی', { admin: { width: '50%' } }),
+          text('animalLabel', 'برچسب سمت حیوانی', { admin: { width: '50%' } }),
+        ],
+      },
+      {
         name: 'video',
-        label: 'ویدیو',
+        label: 'ویدیوی کامل فیلم (اختیاری)',
         type: 'upload',
         relationTo: 'media',
-        admin: {
-          description:
-            'ویدیوی mp4 یا webm (افقی ۱۶:۹، حدود ۶ تا ۱۲ ثانیه، بدون صدا). پس از ذخیره، سرور خودکار آن را به فریم تبدیل می‌کند تا با اسکرول روان پخش شود.',
-        },
+        admin: { description: 'اگر یک ویدیوی آماده (حتی با تقسیم صفحه در خود ویدیو) آپلود شود، همین ویدیو با اسکرول جلو و عقب می‌رود و متن صحنه‌ها روی آن می‌نشیند.' },
       },
       {
         name: 'videoMobile',
         label: 'ویدیوی عمودی برای موبایل (اختیاری)',
         type: 'upload',
         relationTo: 'media',
-        admin: { description: 'نسخهٔ عمودی (۹:۱۶) همان ویدیو. اگر خالی باشد، وسط ویدیوی اصلی در موبایل نمایش داده می‌شود.' },
       },
-      image('poster', 'تصویر پیش‌نمایش ویدیو'),
-      itemsField('chapters', 'فصل‌های داستان', [
-        text('kicker', 'عنوان کوچک', { required: true }),
-        text('title', 'عنوان', { required: true }),
-        textarea('text', 'متن'),
-      ]),
+      itemsField(
+        'scenes',
+        'صحنه‌ها',
+        [
+          {
+            name: 'layout',
+            label: 'نوع صحنه',
+            type: 'select',
+            defaultValue: 'single',
+            required: true,
+            options: [
+              { label: 'تک‌تصویر (مرحلهٔ مشترک)', value: 'single' },
+              { label: 'دو‌نیمه (گیاهی | حیوانی)', value: 'split' },
+            ],
+          },
+          text('kicker', 'عنوان کوتاه صحنه (در نوار پیشرفت)', { required: true }),
+          { name: 'single', label: 'تک‌تصویر', type: 'group', admin: { condition: (_d: unknown, sibling: { layout?: string }) => sibling?.layout !== 'split' }, fields: filmSideFields() },
+          { name: 'plant', label: 'سمت گیاهی', type: 'group', admin: { condition: (_d: unknown, sibling: { layout?: string }) => sibling?.layout === 'split' }, fields: filmSideFields() },
+          { name: 'animal', label: 'سمت حیوانی', type: 'group', admin: { condition: (_d: unknown, sibling: { layout?: string }) => sibling?.layout === 'split' }, fields: filmSideFields() },
+        ],
+        { admin: { initCollapsed: true } },
+      ),
     ],
   },
   sectionHeadField('intro', 'معرفی شرکت', [

@@ -531,3 +531,471 @@
     padding-inline-start: 31%;
   }
 }
+
+/* ------------------------------------------------------------------
+   Origin film (از مزرعه تا سفره)
+   Default = a plain list of scenes (no JavaScript, or reduced motion).
+   [data-mode='pinned'] = the stage sticks to the screen and scrolling moves through the scenes.
+   Per scene the script sets: --in (arriving 0…1) · --out (leaving 0…1) · --k (progress inside the scene)
+   ------------------------------------------------------------------ */
+.film {
+  position: relative;
+  --plant: var(--nk-gold);
+  --animal: var(--nk-cream);
+}
+.film-scenes {
+  display: grid;
+  gap: clamp(2.5rem, 6vw, 5rem);
+  padding: 0 clamp(1.25rem, 5vw, 4rem) clamp(4rem, 9vw, 8rem);
+}
+.film-scene {
+  position: relative;
+  display: grid;
+  gap: 1.5rem;
+}
+.film-scene[data-layout='split'] {
+  gap: 2rem;
+}
+@media (min-width: 768px) {
+  .film-scene[data-layout='split'] {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.film-half-in {
+  display: grid;
+  gap: 1.25rem;
+}
+.film-media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--nk-line);
+  background: radial-gradient(90% 90% at 50% 40%, color-mix(in oklab, var(--nk-gold) 12%, var(--nk-surface)), var(--nk-surface) 70%);
+  display: grid;
+  place-items: center;
+}
+.film-half .film-media {
+  aspect-ratio: 4 / 3;
+}
+.film-media video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.film-art {
+  height: 62%;
+  width: auto;
+  max-width: 86%;
+  color: var(--plant);
+}
+.film-half-animal .film-art {
+  color: var(--animal);
+}
+.film-shade,
+.film-divider {
+  display: none;
+}
+.film-baked {
+  display: block;
+  width: calc(100% - 2 * clamp(1.25rem, 5vw, 4rem));
+  margin: 0 auto 2.5rem;
+  border-radius: var(--radius-xl);
+}
+.film-number {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(3.5rem, 9vw, 7.5rem);
+  line-height: 1;
+  margin-bottom: 1rem;
+  background: linear-gradient(180deg, var(--nk-gold), transparent 92%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  opacity: 0.55;
+}
+.film-title {
+  margin-top: 1rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1.25;
+  font-size: clamp(1.9rem, 4.2vw, 3.5rem);
+  text-wrap: balance;
+}
+.film-text {
+  margin-top: 1rem;
+  max-width: 36rem;
+  font-size: var(--text-lead);
+  line-height: 1.9;
+  color: color-mix(in oklab, var(--nk-text) 84%, transparent);
+}
+.film-half .film-title {
+  font-size: clamp(1.35rem, 2.3vw, 2.1rem);
+  margin-top: 0.85rem;
+}
+.film-half .film-text {
+  font-size: var(--text-body);
+  max-width: 26rem;
+  margin-top: 0.6rem;
+}
+.film-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--plant) 45%, transparent);
+  background: color-mix(in oklab, var(--nk-bg) 70%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--plant);
+  font-size: var(--text-small);
+  font-weight: 700;
+}
+.film-tag::before {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+.film-half-animal .film-tag {
+  color: var(--animal);
+  border-color: color-mix(in oklab, var(--animal) 40%, transparent);
+}
+
+/* ---- pinned mode ---- */
+.film[data-mode='pinned'] .film-stage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  background: var(--nk-bg);
+}
+.film[data-mode='pinned'] .film-scenes {
+  display: block;
+  position: absolute;
+  inset: 0;
+  padding: 0;
+}
+.film[data-mode='pinned'] .film-scene {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background: var(--nk-bg);
+  /* slide amounts: only scenes that slide read the script's values */
+  --si: 1;
+  --so: 0;
+}
+.film[data-mode='pinned'] .film-scene[data-covered] {
+  opacity: 0 !important;
+}
+.film[data-mode='pinned'] .film-scene[data-enter='fade'] {
+  opacity: var(--in, 0);
+}
+/* a split opens from the middle line outwards */
+.film[data-mode='pinned'] .film-scene[data-enter='open'] {
+  clip-path: inset(0 calc((1 - var(--in, 0)) * 50%));
+}
+/* a whole view closes in from both edges until the two sides meet */
+.film[data-mode='pinned'] .film-scene[data-enter='close'] {
+  --d: calc(var(--in, 0) * 50%);
+  clip-path: polygon(0 0, var(--d) 0, var(--d) 100%, 0 100%, 0 0, 100% 0, 100% 100%, calc(100% - var(--d)) 100%, calc(100% - var(--d)) 0);
+}
+.film[data-mode='pinned'] .film-scene[data-enter='slide'] {
+  background: none;
+  --si: var(--in, 0);
+}
+.film[data-mode='pinned'] .film-scene[data-enter='slide'] .film-divider {
+  opacity: var(--in, 0);
+}
+.film[data-mode='pinned'] .film-scene[data-exit='slide'] {
+  --so: var(--out, 0);
+}
+.film[data-mode='pinned'] .film-media {
+  position: absolute;
+  inset: 0;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.film[data-mode='pinned'] .film-media img,
+.film[data-mode='pinned'] .film-media video {
+  transform: scale(calc(1.12 - var(--k, 0) * 0.12));
+  will-change: transform;
+}
+.film[data-mode='pinned'] .film-shade {
+  display: block;
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, color-mix(in oklab, var(--nk-bg) 96%, transparent) 6%, color-mix(in oklab, var(--nk-bg) 58%, transparent) 40%, transparent 72%),
+    linear-gradient(to bottom, color-mix(in oklab, var(--nk-bg) 78%, transparent), transparent 24%);
+}
+/* whole scene without a photo: the drawing sits on the free side over a soft glow */
+.film[data-mode='pinned'] .film-scene[data-layout='single'] > .film-media[data-media='art'] {
+  background: radial-gradient(50% 56% at 27% 44%, color-mix(in oklab, var(--nk-gold) 16%, transparent), transparent 72%);
+  place-items: center end;
+  padding-inline-end: 7vw;
+  padding-bottom: 8svh;
+}
+.film[data-mode='pinned'] .film-scene[data-layout='single'] .film-art {
+  height: min(50svh, 30vw);
+  max-width: 50vw;
+  transform: translateY(calc((0.5 - var(--k, 0)) * 4svh)) scale(calc(0.94 + var(--in, 1) * 0.06));
+}
+.film[data-mode='pinned'] .film-copy {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: clamp(6.5rem, 15svh, 9rem);
+  pointer-events: none;
+}
+.film[data-mode='pinned'] .film-copy-in {
+  max-width: 40rem;
+  transform: translate3d(0, calc((1 - var(--in, 1)) * 2rem), 0);
+}
+/* halves */
+.film[data-mode='pinned'] .film-half {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  overflow: hidden;
+}
+.film[data-mode='pinned'] .film-half-plant {
+  right: 0;
+}
+.film[data-mode='pinned'] .film-half-animal {
+  left: 0;
+}
+.film[data-mode='pinned'] .film-half-in {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background: var(--nk-bg);
+  transform: translate3d(0, calc((1 - var(--si) - var(--so)) * 100%), 0);
+}
+.film[data-mode='pinned'] .film-half-animal .film-half-in {
+  transform: translate3d(0, calc((var(--si) - 1 + var(--so)) * 100%), 0);
+}
+.film[data-mode='pinned'] .film-half .film-media[data-media='art'] {
+  place-items: center;
+  padding-bottom: 30svh;
+  padding-top: var(--header-h);
+  background: radial-gradient(62% 46% at 50% 38%, color-mix(in oklab, var(--plant) 13%, transparent), transparent 74%);
+}
+.film[data-mode='pinned'] .film-half-animal .film-media[data-media='art'] {
+  background: radial-gradient(62% 46% at 50% 38%, color-mix(in oklab, var(--nk-accent) 16%, transparent), transparent 74%);
+}
+.film[data-mode='pinned'] .film-half .film-art {
+  height: min(34svh, 21vw);
+  transform: translateY(calc((0.5 - var(--k, 0)) * 3svh));
+}
+.film[data-mode='pinned'] .film-half-copy {
+  position: absolute;
+  inset-inline: clamp(1.5rem, 4.5vw, 4.5rem);
+  bottom: clamp(6.5rem, 15svh, 9rem);
+}
+.film[data-mode='pinned'] .film-divider {
+  display: block;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(to bottom, transparent, var(--nk-logo-from) 22%, var(--nk-accent) 50%, var(--nk-logo-to) 78%, transparent);
+  box-shadow: 0 0 18px color-mix(in oklab, var(--nk-accent) 55%, transparent);
+}
+/* one finished film behind the texts */
+.film[data-mode='pinned'] .film-baked {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border-radius: 0;
+  object-fit: cover;
+}
+.film[data-mode='pinned'][data-baked] .film-scene,
+.film[data-mode='pinned'][data-baked] .film-half-in {
+  background: linear-gradient(to top, color-mix(in oklab, var(--nk-bg) 92%, transparent) 8%, transparent 62%);
+}
+.film[data-mode='pinned'][data-baked] .film-divider {
+  display: none;
+}
+
+/* progress line */
+.film-path {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  bottom: clamp(1.9rem, 5svh, 2.8rem);
+  width: min(44rem, 62vw);
+  height: 2.5rem;
+  transform: translateX(-50%);
+  direction: ltr;
+}
+.film-path svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.film-path-base {
+  color: color-mix(in oklab, var(--nk-text) 20%, transparent);
+}
+.film-path-fill {
+  color: var(--nk-gold);
+  clip-path: inset(-4px -4px -4px calc((1 - var(--path, 0)) * 100%));
+}
+.film-path-stop {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+}
+.film-path-dot {
+  position: absolute;
+  left: 0;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--nk-bg);
+  border: 2px solid color-mix(in oklab, var(--nk-text) 32%, var(--nk-bg));
+  transition:
+    transform 0.4s var(--ease-out-expo),
+    border-color 0.3s var(--ease-out-quart),
+    background-color 0.3s var(--ease-out-quart);
+}
+.film-path-stop.is-done .film-path-dot,
+.film-path-stop.is-current .film-path-dot {
+  border-color: var(--plant);
+}
+.film-path-stop.is-done .film-path-dot-b,
+.film-path-stop.is-current .film-path-dot-b {
+  border-color: var(--animal);
+}
+.film-path-stop.is-current .film-path-dot {
+  transform: translate(-50%, -50%) scale(1.45);
+  background: var(--plant);
+}
+.film-path-stop.is-current .film-path-dot-b {
+  background: var(--animal);
+}
+.film-path-label {
+  position: absolute;
+  top: calc(100% + 0.1rem);
+  left: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  direction: rtl;
+  font-size: var(--text-micro);
+  font-weight: 700;
+  color: var(--nk-muted);
+  transition: color 0.3s var(--ease-out-quart);
+}
+.film-path-label-top {
+  top: auto;
+  bottom: calc(100% + 0.1rem);
+}
+.film-path-stop.is-current .film-path-label {
+  color: var(--nk-gold);
+}
+
+@media (max-width: 767px) {
+  /* phones: the split is top and bottom */
+  .film[data-mode='pinned'] .film-scene[data-enter='open'] {
+    clip-path: inset(calc((1 - var(--in, 0)) * 50%) 0);
+  }
+  .film[data-mode='pinned'] .film-scene[data-enter='close'] {
+    clip-path: polygon(0 0, 100% 0, 100% var(--d), 0 var(--d), 0 0, 0 100%, 100% 100%, 100% calc(100% - var(--d)), 0 calc(100% - var(--d)));
+  }
+  .film[data-mode='pinned'] .film-half {
+    width: 100%;
+    height: 50%;
+  }
+  .film[data-mode='pinned'] .film-half-plant {
+    bottom: auto;
+  }
+  .film[data-mode='pinned'] .film-half-animal {
+    top: auto;
+  }
+  .film[data-mode='pinned'] .film-half-in {
+    transform: translate3d(calc((1 - var(--si) - var(--so)) * 100%), 0, 0);
+  }
+  .film[data-mode='pinned'] .film-half-animal .film-half-in {
+    transform: translate3d(calc((var(--si) - 1 + var(--so)) * 100%), 0, 0);
+  }
+  .film[data-mode='pinned'] .film-divider {
+    top: 50%;
+    bottom: auto;
+    left: 0;
+    right: 0;
+    width: auto;
+    height: 1px;
+    background: linear-gradient(to left, transparent, var(--nk-logo-from) 22%, var(--nk-accent) 50%, var(--nk-logo-to) 78%, transparent);
+  }
+  .film[data-mode='pinned'] .film-half .film-media[data-media='art'] {
+    place-items: center end;
+    padding: 0 7vw 0 0;
+    background: radial-gradient(46% 70% at 24% 50%, color-mix(in oklab, var(--plant) 13%, transparent), transparent 74%);
+  }
+  .film[data-mode='pinned'] .film-half-plant .film-media[data-media='art'] {
+    padding-top: calc(var(--header-h) * 0.6);
+  }
+  .film[data-mode='pinned'] .film-half-animal .film-media[data-media='art'] {
+    padding-bottom: 2.5rem;
+    background: radial-gradient(46% 70% at 24% 50%, color-mix(in oklab, var(--nk-accent) 16%, transparent), transparent 74%);
+  }
+  .film[data-mode='pinned'] .film-half .film-art {
+    height: min(20svh, 30vw);
+  }
+  .film[data-mode='pinned'] .film-half-copy {
+    inset-inline: 1.25rem 36vw;
+    bottom: 1.1rem;
+  }
+  .film[data-mode='pinned'] .film-half-animal .film-half-copy {
+    bottom: 4.1rem;
+  }
+  .film[data-mode='pinned'] .film-half .film-title {
+    font-size: 1.2rem;
+    margin-top: 0.6rem;
+  }
+  .film[data-mode='pinned'] .film-half .film-text {
+    font-size: var(--text-small);
+    line-height: 1.75;
+    margin-top: 0.35rem;
+  }
+  .film[data-mode='pinned'] .film-scene[data-layout='single'] > .film-media[data-media='art'] {
+    place-items: start center;
+    padding: calc(var(--header-h) + 2.5rem) 0 0;
+    background: radial-gradient(70% 40% at 50% 28%, color-mix(in oklab, var(--nk-gold) 16%, transparent), transparent 72%);
+  }
+  .film[data-mode='pinned'] .film-scene[data-layout='single'] .film-art {
+    height: auto;
+    width: min(78vw, 30svh * 1.8);
+    max-width: none;
+    max-height: 30svh;
+  }
+  .film[data-mode='pinned'] .film-copy {
+    padding-bottom: 5.25rem;
+  }
+  .film-number {
+    font-size: 3.25rem;
+    margin-bottom: 0.5rem;
+  }
+  .film-path {
+    width: 72vw;
+    bottom: 1.4rem;
+    height: 1.75rem;
+  }
+  .film-path-label {
+    display: none;
+  }
+}

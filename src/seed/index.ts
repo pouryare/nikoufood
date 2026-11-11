@@ -26,7 +26,8 @@ async function main() {
     return doc.id
   }
   const logoMark = await upload('public/brand/nikou-mark.png', 'نماد لوگوی نیکو اعتماد')
-  const logoWordmark = await upload('public/brand/nikou-wordmark.svg', 'لوگوی متنی NIKOU | Trading & Manufacturing')
+  // The butter still doubles as the picture of every product until real product photos are uploaded.
+  const defaultProductImage = await upload('public/brand/butter-curl.webp', 'کرهٔ طلایی بدون بسته‌بندی')
 
   /* simple upsert by slug */
   const upsert = async (collection: 'brands' | 'product-categories' | 'fat-types' | 'markets' | 'products' | 'provinces', slug: string, data: Record<string, unknown>) => {
@@ -70,8 +71,9 @@ async function main() {
   }
 
   /* globals */
-  await payload.updateGlobal({ slug: 'site-settings', data: { ...c.siteSettings, logoMark, logoWordmark } })
+  await payload.updateGlobal({ slug: 'site-settings', data: { ...c.siteSettings, logoMark, defaultProductImage } })
   await payload.updateGlobal({ slug: 'navigation', data: c.navigation })
+
   await payload.updateGlobal({ slug: 'home-page', data: c.homePage as never })
   await payload.updateGlobal({ slug: 'about-page', data: c.aboutPage as never })
   await payload.updateGlobal({ slug: 'network-page', data: c.networkPage as never })

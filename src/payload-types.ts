@@ -1352,24 +1352,67 @@ export interface HomePage {
      */
     image?: (number | null) | Media;
   };
+  /**
+   * یک فیلم با چند صحنه که با اسکرول جلو می‌رود. جایی که مراحل تولید کرهٔ گیاهی و حیوانی یکی است، صحنه «تک‌تصویر» است؛ جایی که فرق دارند، «دو‌نیمه» است (گیاهی سمت راست، حیوانی سمت چپ؛ در موبایل بالا و پایین).
+   */
   film?: {
     enabled?: boolean | null;
+    eyebrow?: string | null;
     title?: string | null;
     intro?: string | null;
+    plantLabel?: string | null;
+    animalLabel?: string | null;
     /**
-     * ویدیوی mp4 یا webm (افقی ۱۶:۹، حدود ۶ تا ۱۲ ثانیه، بدون صدا). پس از ذخیره، سرور خودکار آن را به فریم تبدیل می‌کند تا با اسکرول روان پخش شود.
+     * اگر یک ویدیوی آماده (حتی با تقسیم صفحه در خود ویدیو) آپلود شود، همین ویدیو با اسکرول جلو و عقب می‌رود و متن صحنه‌ها روی آن می‌نشیند.
      */
     video?: (number | null) | Media;
-    /**
-     * نسخهٔ عمودی (۹:۱۶) همان ویدیو. اگر خالی باشد، وسط ویدیوی اصلی در موبایل نمایش داده می‌شود.
-     */
     videoMobile?: (number | null) | Media;
-    poster?: (number | null) | Media;
-    chapters?:
+    scenes?:
       | {
+          layout: 'single' | 'split';
           kicker: string;
-          title: string;
-          text?: string | null;
+          single?: {
+            title?: string | null;
+            text?: string | null;
+            image?: (number | null) | Media;
+            imageMobile?: (number | null) | Media;
+            /**
+             * ویدیوی کوتاه mp4 یا webm بدون صدا؛ با اسکرول جلو و عقب می‌رود.
+             */
+            video?: (number | null) | Media;
+            /**
+             * تا وقتی تصویر یا ویدیو نیست، این طرح طلایی نمایش داده می‌شود.
+             */
+            art?: ('none' | 'farm' | 'seed' | 'milk' | 'oil' | 'cream' | 'butter' | 'table') | null;
+          };
+          plant?: {
+            title?: string | null;
+            text?: string | null;
+            image?: (number | null) | Media;
+            imageMobile?: (number | null) | Media;
+            /**
+             * ویدیوی کوتاه mp4 یا webm بدون صدا؛ با اسکرول جلو و عقب می‌رود.
+             */
+            video?: (number | null) | Media;
+            /**
+             * تا وقتی تصویر یا ویدیو نیست، این طرح طلایی نمایش داده می‌شود.
+             */
+            art?: ('none' | 'farm' | 'seed' | 'milk' | 'oil' | 'cream' | 'butter' | 'table') | null;
+          };
+          animal?: {
+            title?: string | null;
+            text?: string | null;
+            image?: (number | null) | Media;
+            imageMobile?: (number | null) | Media;
+            /**
+             * ویدیوی کوتاه mp4 یا webm بدون صدا؛ با اسکرول جلو و عقب می‌رود.
+             */
+            video?: (number | null) | Media;
+            /**
+             * تا وقتی تصویر یا ویدیو نیست، این طرح طلایی نمایش داده می‌شود.
+             */
+            art?: ('none' | 'farm' | 'seed' | 'milk' | 'oil' | 'cream' | 'butter' | 'table') | null;
+          };
           id?: string | null;
         }[]
       | null;
@@ -2025,17 +2068,48 @@ export interface HomePageSelect<T extends boolean = true> {
     | T
     | {
         enabled?: T;
+        eyebrow?: T;
         title?: T;
         intro?: T;
+        plantLabel?: T;
+        animalLabel?: T;
         video?: T;
         videoMobile?: T;
-        poster?: T;
-        chapters?:
+        scenes?:
           | T
           | {
+              layout?: T;
               kicker?: T;
-              title?: T;
-              text?: T;
+              single?:
+                | T
+                | {
+                    title?: T;
+                    text?: T;
+                    image?: T;
+                    imageMobile?: T;
+                    video?: T;
+                    art?: T;
+                  };
+              plant?:
+                | T
+                | {
+                    title?: T;
+                    text?: T;
+                    image?: T;
+                    imageMobile?: T;
+                    video?: T;
+                    art?: T;
+                  };
+              animal?:
+                | T
+                | {
+                    title?: T;
+                    text?: T;
+                    image?: T;
+                    imageMobile?: T;
+                    video?: T;
+                    art?: T;
+                  };
               id?: T;
             };
       };
