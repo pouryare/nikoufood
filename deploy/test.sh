@@ -12,7 +12,7 @@ hasnt() { ! grep -qF -- "$2" "$1"; }
 
 # The question tests below type answers in a fixed order. A GitHub token in the environment (this machine, a CI
 # runner) removes one question from the native flow, so set one on purpose: the order is then the same everywhere.
-export GITHUB_TOKEN=test-token-never-used; unset GH_TOKEN
+export GITHUB_TOKEN=test-token-never-used NIKOU_NO_SELF_UPDATE=1; unset GH_TOKEN
 
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 export NIKOU_CONF_DIR=$TMP/etc NIKOU_ROOT=$TMP/opt NIKOU_DATA=$TMP/var NIKOU_CADDY_DIR=$TMP/caddy
@@ -254,6 +254,33 @@ rm -f "$CURL_LOG"; FAKE_RECORDS='[{"id":"r1","type":"A","name":"shop"}]' arvan >
 t "an existing record is changed, not duplicated" has "$CURL_LOG" "PUT /domains/nikoufood.ir/dns-records/r1"
 rm -f "$CURL_LOG"; out=$(DOM=x.missing.ir arvan) || true
 t "a domain not in the account is explained" bash -c "echo '$out' | grep -q 'missing.ir is not in your Arvan account'"
+
+echo "Tools in production mode, dev-mode record, self-update"
+t "native tools run with NODE_ENV=production" test "$(declare -f run_tools | grep -c 'env NODE_ENV=production')" = 3
+( db_sql() { cat > "$TMP/heal.sql"; }; heal_dev_push )
+t "the dev-mode record is removed only after real migrations exist" bash -c "grep -q 'batch = -1 AND EXISTS (SELECT 1 FROM payload_migrations WHERE batch > 0)' '$TMP/heal.sql'"
+t "migrate cleans the record first"          bash -c "declare -f run_tools >/dev/null; grep -q 'heal_dev_push' <<<\"$(declare -f run_tools)\""
+mkdir -p "$TMP/kit" "$TMP/selfbin"; cp ./nikou "$TMP/kit/nikou"; tar -czf "$TMP/kit.tar.gz" -C "$TMP/kit" nikou
+cat > "$TMP/bin/curl" <<'SH'
+#!/usr/bin/env bash
+out=""; url=""
+while [ $# -gt 0 ]; do case "$1" in -o) out=$2; shift ;; http*) url=$1 ;; esac; shift; done
+case "$url" in
+  */releases/latest) printf '{"assets":[{"name":"nikoufood-server-kit.tar.gz","id":77}]}' ;;
+  */releases/assets/77) cp "$SELF_KIT" "$out" ;;
+  *) exit 22 ;;
+esac
+SH
+chmod +x "$TMP/bin/curl"
+self() { ( PATH=$TMP/bin:$PATH; SELF_KIT=$TMP/kit.tar.gz; export SELF_KIT; NIKOU_BIN=$TMP/selfbin/nikou; self_update ); }
+r=0; self || r=$?;  t "an old nikou is replaced (exit 0)"  test "$r" = 0
+t "the new nikou is the kit's copy"        cmp -s ./nikou "$TMP/selfbin/nikou"
+r=0; self || r=$?;  t "the same nikou: already newest (exit 2)" test "$r" = 2
+echo "# changed" >> "$TMP/kit/nikou"; tar -czf "$TMP/kit.tar.gz" -C "$TMP/kit" nikou
+echo 'if then' > "$TMP/kit/nikou"; tar -czf "$TMP/kit.tar.gz" -C "$TMP/kit" nikou
+r=0; self || r=$?;  t "a broken kit file is never installed (exit 1)" test "$r" = 1
+t "and the old nikou stays"                cmp -s ./nikou "$TMP/selfbin/nikou"
+rm -f "$TMP/bin/curl"
 
 echo "Parallel resumable download, small update"
 cat > "$TMP/range-server.py" <<'PY'
