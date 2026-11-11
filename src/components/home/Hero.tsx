@@ -42,8 +42,10 @@ export function Hero({ brandName, eyebrow, words, subtitle, primaryCta, secondar
   useEffect(() => {
     if (!enable3D || image) return
     if (prefersReducedMotion() || wantsLessData() || !hasWebGL()) return
-    setLowPower(isLowPower())
-    return whenIdle(() => setMount3D(true))
+    return whenIdle(() => {
+      setLowPower(isLowPower())
+      setMount3D(true)
+    })
   }, [enable3D, image])
 
   // Mouse and scroll feed both the 3D scene (through refs) and the words (through CSS variables).

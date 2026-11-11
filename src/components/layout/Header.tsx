@@ -56,8 +56,12 @@ export function Header({ brandName, latinName, logo, links, cta, labels, phone }
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  // Close the mobile menu after navigating.
-  useEffect(() => setOpen(false), [pathname])
+  // Close the mobile menu after navigating (state is adjusted while rendering, the pattern React recommends for this).
+  const [menuPath, setMenuPath] = useState(pathname)
+  if (menuPath !== pathname) {
+    setMenuPath(pathname)
+    setOpen(false)
+  }
 
   // While the menu is open: lock page scroll, close on Escape, keep keyboard focus inside.
   useEffect(() => {

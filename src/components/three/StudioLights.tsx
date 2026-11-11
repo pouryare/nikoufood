@@ -2,7 +2,13 @@
 
 import { useThree } from '@react-three/fiber'
 import { useLayoutEffect } from 'react'
+import type { Scene, Texture } from 'three'
 import { createStudioEnvironment, STUDIO_LIGHTS } from '@/three/studio'
+
+/** R3F hands out the live three.js scene; the studio lighting is attached to it here. */
+const setEnvironment = (scene: Scene, texture: Texture | null) => {
+  scene.environment = texture
+}
 
 type Props = { accentFrom?: string; accentTo?: string; intensity?: number }
 
@@ -14,10 +20,10 @@ export function StudioLights({ accentFrom, accentTo, intensity = 1 }: Props) {
 
   useLayoutEffect(() => {
     const studio = createStudioEnvironment(gl, { accentFrom, accentTo, intensity })
-    scene.environment = studio.texture
+    setEnvironment(scene, studio.texture)
     invalidate()
     return () => {
-      scene.environment = null
+      setEnvironment(scene, null)
       studio.dispose()
     }
   }, [gl, scene, invalidate, accentFrom, accentTo, intensity])

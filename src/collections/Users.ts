@@ -14,7 +14,7 @@ export const Users: CollectionConfig = {
     create: isAdmin,
     delete: isAdmin,
     read: isStaff,
-    update: ({ req: { user }, id }) => {
+    update: ({ req: { user } }) => {
       const u = user as { id?: string | number; role?: string } | null
       if (!u) return false
       if (u.role === 'admin') return true

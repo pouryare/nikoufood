@@ -4,7 +4,7 @@ import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Image from 'next/image'
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { cn } from '@/lib/cn'
 import { toFa } from '@/lib/format'
 import { prefersReducedMotion } from '@/lib/webgl'
@@ -137,6 +137,20 @@ function FilmPath({ scenes, current }: { scenes: FilmScene[]; current: number })
   )
 }
 
+const subscribeMotion = (notify: () => void) => {
+  const query = window.matchMedia('(prefers-reduced-motion: reduce)')
+  query.addEventListener('change', notify)
+  return () => query.removeEventListener('change', notify)
+}
+
+/** False on the server and during hydration (so the page starts as a plain list), then true wherever motion is welcome. */
+const useMotionAllowed = () =>
+  useSyncExternalStore(
+    subscribeMotion,
+    () => !prefersReducedMotion(),
+    () => false,
+  )
+
 /**
  * «از مزرعه تا سفره»: one pinned stage; scrolling moves through the scenes.
  * A scene is a whole view (a step both butters share) or split in two (plant | animal).
@@ -147,14 +161,10 @@ export function OriginFilm({ eyebrow, title, intro, plantLabel, animalLabel, fil
   const trackRef = useRef<HTMLDivElement>(null)
   const bakedRef = useRef<HTMLVideoElement>(null)
   const sceneRefs = useRef<(HTMLLIElement | null)[]>([])
-  const [pinned, setPinned] = useState(false)
+  const pinned = useMotionAllowed()
   const [current, setCurrent] = useState(0)
   const count = scenes.length
   const baked = Boolean(film || filmMobile)
-
-  useEffect(() => {
-    if (!prefersReducedMotion()) setPinned(true)
-  }, [])
 
   // One finished film: pick the upright version on phones when there is one.
   useEffect(() => {
