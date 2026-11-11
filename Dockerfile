@@ -4,8 +4,10 @@
 
 FROM node:26-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH NEXT_TELEMETRY_DISABLED=1
-# The version comes from "packageManager" in package.json (a newer pnpm reads build-script permissions from a different file).
-RUN corepack enable
+# Node 25 and newer no longer ship corepack, so pnpm is installed with npm. Keep the version equal to "packageManager" in
+# package.json (a newer pnpm reads build-script permissions from a different file).
+ARG PNPM_VERSION=10.28.0
+RUN npm install -g pnpm@${PNPM_VERSION}
 WORKDIR /app
 
 FROM base AS deps
