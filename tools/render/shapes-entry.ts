@@ -97,9 +97,9 @@ window.renderShape = (shape, size) => {
   }
   scene.add(group)
 
-  const camera = new PerspectiveCamera(26, 1, 0.1, 60)
+  const camera = new PerspectiveCamera(shape === 'block' ? 34 : 26, 1, 0.1, 60)
   camera.position.set(0.8, 3.5, 9)
-  camera.lookAt(shape === 'pats' ? 0.2 : 0.3, shape === 'pats' ? 0.5 : 0.66, 0.1)
+  camera.lookAt(shape === 'pats' ? 0.2 : 0.9, shape === 'pats' ? 0.5 : 0.66, 0.1)
   renderer.render(scene, camera)
   return canvas.toDataURL('image/png')
 }
