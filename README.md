@@ -43,6 +43,10 @@ docker compose run --rm tools pnpm seed         # first time only: starter conte
 
 Put nginx in front (`deploy/nginx.conf.sample`) and add a certificate with certbot. Uploaded pictures and fonts live in the `media` volume; back up that volume and the `db-data` volume.
 
+### Docker Hub (built by GitHub)
+
+`.github/workflows/docker.yml` builds two images, `<user>/nikoufood` (the site) and `<user>/nikoufood-tools` (migrations and seed), and pushes them to Docker Hub on every push to `main`, every `v*` tag and the manual **Run workflow** button. Pull requests only build. Add two repository secrets first: `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`. **Keep the Docker Hub repositories private**: the images contain the paid fonts. On the server use `docker-compose.prod.yml` (it only pulls images; see the comments at its top).
+
 **After a change to CMS fields** (developers): `pnpm payload generate:types`, then `pnpm migrate:create <name>` and commit `src/migrations`. The `migrate` service applies it on the next `docker compose up -d --build`.
 
 ## Local notes
