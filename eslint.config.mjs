@@ -30,5 +30,5 @@ export default defineConfig([
     files: ['tools/**'],
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
-  globalIgnores(['.next/', 'src/payload-types.ts', 'src/payload-generated-schema.ts', 'src/app/(payload)/admin/importMap.js', 'media/', 'node_modules/']),
+  globalIgnores(['.next/', 'src/payload-types.ts', 'src/payload-generated-schema.ts', 'src/migrations/', 'src/app/(payload)/admin/importMap.js', 'media/', 'node_modules/']),
 ])

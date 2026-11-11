@@ -17,6 +17,8 @@ const nextConfig: NextConfig = {
   // One self-contained server folder: what the Docker image runs on the VPS.
   output: 'standalone',
   poweredByHeader: false,
+  // Lets addresses that match no page show the site's own 404 (there is no single root layout because of the admin).
+  experimental: { globalNotFound: true },
   agentRules: false,
   images: {
     formats: ['image/avif', 'image/webp'],

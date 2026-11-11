@@ -30,8 +30,9 @@ export function pageMetadata({ title, description, path, meta, image, type = 'we
   const images = shareImage ? [{ url: absoluteUrl(shareImage.url), width: shareImage.width, height: shareImage.height, alt: shareImage.alt || finalTitle }] : undefined
 
   return {
-    title: finalTitle,
-    description: finalDescription,
+    // Left out (not set to undefined) when empty, so the site-wide title and description still apply.
+    ...(finalTitle ? { title: finalTitle } : {}),
+    ...(finalDescription ? { description: finalDescription } : {}),
     alternates: { canonical: path },
     openGraph: { type, title: finalTitle, description: finalDescription, url: path, ...(images ? { images } : {}) },
     twitter: { card: 'summary_large_image', title: finalTitle, description: finalDescription, ...(images ? { images: images.map((i) => i.url) } : {}) },
