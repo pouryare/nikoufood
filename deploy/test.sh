@@ -119,8 +119,8 @@ t "port saved"                    has "$NIKOU_CONF_DIR/nikou.conf" "APP_PORT=305
 t "no password in the answers"    hasnt "$NIKOU_CONF_DIR/nikou.conf" "PASSWORD"
 
 rm -f "$NIKOU_CONF_DIR/nikou.conf" "$NIKOU_CONF_DIR/env"
-# native, domain, port, DB: yes -> typed (no local PostgreSQL here) host port db user password ssl-no, admin email, random password, no seed, no mail, Arvan yes + certificate 2 + not Arvan-only, backups yes 7 days no copy
-python3 "$TMP/drive.py" "$SRC" 2 nikoufood.ir 3000 y 10.0.0.5 5432 nikou nikou 'secret-pass' n admin@nikoufood.ir "" n n y 2 n y 7 - "" > "$TMP/q2.txt" 2>&1
+# native, domain, port, DB: yes -> typed (no local PostgreSQL here) host port db user password ssl-no, admin email, random password, no seed, no mail, Arvan yes + certificate 2 + not Arvan-only + no API key, backups yes 7 days no copy
+python3 "$TMP/drive.py" "$SRC" 2 nikoufood.ir 3000 y 10.0.0.5 5432 nikou nikou 'secret-pass' n admin@nikoufood.ir "" n n y 2 n "" y 7 - "" > "$TMP/q2.txt" 2>&1
 t "native chosen"                 has "$NIKOU_CONF_DIR/nikou.conf" "MODE=native"
 t "external database saved"       has "$NIKOU_CONF_DIR/nikou.conf" "DB_MODE=external"
 t "database host saved"           has "$NIKOU_CONF_DIR/nikou.conf" "DB_HOST=10.0.0.5"
@@ -213,6 +213,41 @@ t "dry run names the Caddy file"          has "$TMP/dry.txt" "nikoufood.caddy"
 t "dry run mentions the timers"           has "$TMP/dry.txt" "upgrade at 03:30 Tehran time"
 t "dry run wrote no answers"              test -z "$(ls -A "$TMP/dry")"
 t "dry run created no folders"            test ! -e "$TMP/dryopt" -a ! -e "$TMP/dryvar" -a ! -e "$TMP/drycaddy"
+
+echo "Database password order, Arvan DNS"
+t "secrets (and the database password) are written before the database step" bash -c "grep -q 's_runtime; write_env; s_database; s_config' ./nikou"
+t "root domain and name"                  test "$(arvan_root_and_name shop.nikoufood.ir)" = "nikoufood.ir shop"
+t "root domain itself"                    test "$(arvan_root_and_name nikoufood.ir)" = "nikoufood.ir @"
+t "co.ir style domain"                    test "$(arvan_root_and_name www.firm.co.ir)" = "firm.co.ir www"
+t "key gets the Apikey prefix"            test "$(arvan_auth abc)" = "Apikey abc"
+t "a key that has the prefix stays"       test "$(arvan_auth 'Apikey abc')" = "Apikey abc"
+# A fake Arvan API: records each call; the domain exists, no record yet.
+cat > "$TMP/bin/curl" <<'SH'
+#!/usr/bin/env bash
+method=GET; url=""; data=""
+while [ $# -gt 0 ]; do case "$1" in -X) method=$2; shift ;; --data) data=$2; shift ;; http*) url=$1 ;; esac; shift; done
+path=${url#*/cdn/4.0}
+echo "$method $path $data" >> "$CURL_LOG"
+case "$method $path" in
+  "GET /domains/nikoufood.ir") printf '{"data":{"name":"nikoufood.ir"}}\n200' ;;
+  "GET /domains/missing.ir") printf '{"message":"not found"}\n404' ;;
+  "GET /domains/nikoufood.ir/dns-records?search=shop") printf '{"data":%s}\n200' "${FAKE_RECORDS:-[]}" ;;
+  *) printf '{"data":{}}\n200' ;;
+esac
+SH
+chmod +x "$TMP/bin/curl"
+export ARVAN_API_BASE=http://arvan.test/cdn/4.0
+arvan() { ( PATH=$TMP/bin:$PATH; DOMAIN=${DOM:-shop.nikoufood.ir}; ARVAN_API_KEY=k123; say() { echo "$*"; }; arvan_point_domain 203.0.113.9 ) 2>&1; }
+rm -f "$CURL_LOG"; out=$(arvan)
+t "new record is created"                 has "$CURL_LOG" "POST /domains/nikoufood.ir/dns-records"
+t "record points at the server, cloud on" has "$CURL_LOG" '"ip":"203.0.113.9"'
+t "record has the cloud switched on"      has "$CURL_LOG" '"cloud":true'
+t "managed HTTPS is asked for"            has "$CURL_LOG" "PATCH /domains/nikoufood.ir/ssl"
+t "success is reported"                   test "$out" = "Arvan: shop.nikoufood.ir now points at 203.0.113.9 with the cloud switched on"
+rm -f "$CURL_LOG"; FAKE_RECORDS='[{"id":"r1","type":"A","name":"shop"}]' arvan >/dev/null
+t "an existing record is changed, not duplicated" has "$CURL_LOG" "PUT /domains/nikoufood.ir/dns-records/r1"
+rm -f "$CURL_LOG"; out=$(DOM=x.missing.ir arvan) || true
+t "a domain not in the account is explained" bash -c "echo '$out' | grep -q 'missing.ir is not in your Arvan account'"
 
 echo
 [ "$FAIL" = 0 ] && echo "All installer checks passed." || { echo "Some installer checks FAILED."; exit 1; }

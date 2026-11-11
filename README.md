@@ -64,6 +64,7 @@ The installer asks:
 - **Docker or native.** Docker pulls the images from Docker Hub. Native unpacks the release tarball and runs it with systemd (no Docker needed).
 - **Do you already have PostgreSQL?** Yes: connect with host, user and password, or let the installer make a separate database and user inside the PostgreSQL already on the server and connect to it by itself. The second choice is offered when PostgreSQL is running on the server and the installer can use the `postgres` superuser. No: the installer installs one for you (a container for Docker, the Debian package for native).
 - Website address, port (default 3000), first admin, starter content, mail, ArvanCloud CDN, and optional backups.
+- **Arvan API key (optional, asked when the site is behind Arvan).** With it the installer adds the A record of the address in Arvan by itself, with the cloud switched on, and asks Arvan for managed HTTPS. The domain must already be in your Arvan account. Without a key it tells you what record to add by hand. `sudo nikou arvan-dns` does just this step later. The key is kept in `/etc/nikou/arvan-key`, readable by root only, and is never given to the site.
 
 It never touches another app's PostgreSQL settings or Caddy file. The site gets its own `/etc/caddy/sites/nikoufood.caddy`.
 

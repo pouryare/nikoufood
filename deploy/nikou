@@ -18,6 +18,7 @@
 #   sudo nikou reset-login <email>             # a new random password for an admin account
 #   sudo nikou cdn-ips [--open|--only]         # refresh the firewall from ArvanCloud's address list | open web ports | Arvan only
 #   sudo nikou install --dry-run               # ask the questions and list what would be done; nothing is changed
+#   sudo nikou arvan-dns                       # make the Arvan DNS record of the address (needs the Arvan API key)
 #   sudo nikou                                 # whiptail menu
 #
 # Two ways to run the site, chosen in the install questions:
@@ -322,6 +323,9 @@ q8() {
       "internal|Caddy's own certificate (set Arvan to 'don't verify')" \
       "origin|I will put origin.crt and origin.key in $CONF_DIR/tls/"
     ask_yes CDN_ONLY "Accept web traffic (ports 80 and 443) only from Arvan's addresses? Needs the ufw firewall to be on" "${CDN_ONLY:-1}"
+    if [ ! -s "$CONF_DIR/arvan-key" ]; then
+      ask_secret ARVAN_API_KEY "Arvan API key (optional). With it the installer adds the DNS record of the address in Arvan by itself, with the cloud switched on. Nothing is shown while you type; Enter = skip and add the record by hand"
+    fi
   else
     CERT_MODE=auto; CDN_ONLY=0
   fi
@@ -725,7 +729,11 @@ SQL
 }
 test_db() {
   local psql; psql=$(pg_tool psql)
-  PGCONNECT_TIMEOUT=8 "$psql" "$(database_url)" -X -tAc 'select 1' 2>/dev/null | grep -qx 1
+  PGCONNECT_TIMEOUT=8 "$psql" "$(database_url)" -w -X -tAc 'select 1' 2>/dev/null | grep -qx 1
+}
+db_login_error() {   # the reason test_db failed, in PostgreSQL's own words
+  local psql; psql=$(pg_tool psql)
+  PGCONNECT_TIMEOUT=8 "$psql" "$(database_url)" -w -X -tAc 'select 1' 2>&1 >/dev/null | head -n 3 | tr '\n' ' ' || true
 }
 db_dump() {   # db_dump > file.sql  (plain SQL on stdout)
   if [ "$DB_MODE" = builtin ]; then compose exec -T db pg_dump -U "$DB_USER" --no-owner --clean --if-exists "$DB_NAME"
@@ -803,11 +811,11 @@ s_database() {
       systemctl enable --now postgresql >/dev/null 2>&1 || true
       for _ in 1 2 3 4 5 6 7 8 9 10; do local_pg_superuser && break; sleep 2; done
       create_local_db ;;
-    local) create_local_db; test_db || die "created the database, but logging in as $DB_USER over 127.0.0.1 failed (check pg_hba.conf allows password logins from 127.0.0.1; nothing of the existing setup was changed)" ;;
+    local) create_local_db; test_db || die "created the database, but logging in as $DB_USER over 127.0.0.1 failed: $(db_login_error)(if it says pg_hba.conf, that file does not allow password logins for this user from 127.0.0.1; nothing of the existing setup was changed)" ;;
     external)
       test_db || die "cannot log in to $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME with that password. Check the address, the user, the password and that this server may connect." ;;
   esac
-  if [ "$DB_MODE" = apt ] || [ "$DB_MODE" = local ]; then test_db || die "the database does not answer on 127.0.0.1:5432 with the new user"; fi
+  if [ "$DB_MODE" = apt ] || [ "$DB_MODE" = local ]; then test_db || die "the database does not answer on 127.0.0.1:5432 with the new user: $(db_login_error)"; fi
 }
 
 s_config() {
@@ -840,6 +848,72 @@ s_start() {
   start_app
   wait_healthy 120 || { warn "the site did not answer in 2 minutes; last log lines:"; app_logs 40 >&2 || true; die "start failed (nikou logs, nikou doctor)"; }
   say "the site answers on http://127.0.0.1:$APP_PORT"
+}
+
+# ---- Arvan: the DNS record of the address, made through the API key
+# Needs the key in ARVAN_API_KEY (or saved in $CONF_DIR/arvan-key). Makes the A record of $DOMAIN point at this server
+# with the cloud switched on (changes the record if it exists) and turns on Arvan's managed HTTPS, best effort.
+# ARVAN_API_BASE exists for the tests.
+arvan_auth() { local k=$1; case "$k" in [Aa]pi[Kk]ey\ *) printf '%s' "$k" ;; *) printf 'Apikey %s' "$k" ;; esac; }
+arvan_call() {   # arvan_call METHOD PATH [json] -> sets ARVAN_CODE and ARVAN_BODY
+  local out
+  out=$(curl -sS --max-time 25 -X "$1" -H "Authorization: $(arvan_auth "$ARVAN_API_KEY")" -H "Content-Type: application/json" -H "Accept: application/json" \
+    ${3:+--data "$3"} -w '\n%{http_code}' "${ARVAN_API_BASE:-https://napi.arvancloud.ir/cdn/4.0}$2" 2>/dev/null) || { ARVAN_CODE=000; ARVAN_BODY=""; return 0; }
+  ARVAN_CODE=$(tail -n 1 <<<"$out"); ARVAN_BODY=$(sed '$d' <<<"$out")
+}
+arvan_root_and_name() {   # arvan_root_and_name host -> "root name" (name is @ for the root itself)
+  local host=${1,,} keep labels
+  IFS=. read -ra labels <<<"$host"
+  keep=2
+  if [ "${#labels[@]}" -gt 2 ] && [[ ${labels[-2]} =~ ^(co|ac|gov|org|net|sch|id)$ ]] && [ "${#labels[-1]}" = 2 ]; then keep=3; fi
+  local root name n=${#labels[@]}
+  root=$(IFS=.; echo "${labels[*]: n-keep}")
+  if [ "$n" -gt "$keep" ]; then name=$(IFS=.; echo "${labels[*]:0:n-keep}"); else name=@; fi
+  echo "$root $name"
+}
+arvan_point_domain() {   # arvan_point_domain <ip>
+  local ip=$1 root name rec id
+  command -v jq >/dev/null || apt-get install -y -qq jq >/dev/null 2>&1 || { warn "jq is needed for the Arvan step"; return 1; }
+  read -r root name < <(arvan_root_and_name "$DOMAIN")
+  arvan_call GET "/domains/$root"
+  case "$ARVAN_CODE" in
+    2??) ;;
+    401 | 403) warn "Arvan refused the API key (HTTP $ARVAN_CODE). Check the key and that it may manage domains."; return 1 ;;
+    404) warn "$root is not in your Arvan account yet. Add the domain there first, then run: sudo nikou arvan-dns"; return 1 ;;
+    *) warn "could not reach the Arvan API (HTTP $ARVAN_CODE)"; return 1 ;;
+  esac
+  rec=$(jq -nc --arg n "$name" --arg ip "$ip" '{type:"a",name:$n,value:[{ip:$ip,port:null,weight:null,country:""}],ttl:120,cloud:true,upstream_https:"default",ip_filter_mode:{count:"single",order:"none",geo_filter:"none"}}')
+  arvan_call GET "/domains/$root/dns-records?search=$name"
+  id=$(jq -r --arg n "$name" '[(.data // [])[] | select((.type | ascii_downcase) == "a" and .name == $n) | .id] | first // empty' <<<"$ARVAN_BODY" 2>/dev/null || true)
+  if [ -n "$id" ]; then arvan_call PUT "/domains/$root/dns-records/$id" "$rec"; else arvan_call POST "/domains/$root/dns-records" "$rec"; fi
+  case "$ARVAN_CODE" in 2??) ;; *) warn "Arvan did not accept the DNS record (HTTP $ARVAN_CODE): $(jq -r '.message // empty' <<<"$ARVAN_BODY" 2>/dev/null)"; return 1 ;; esac
+  arvan_call PATCH "/domains/$root/ssl" '{"ssl_status":true,"certificate":"managed"}' || true
+  say "Arvan: $DOMAIN now points at $ip with the cloud switched on"
+}
+# The server's public IPv4: the first address that is not private, loopback or carrier-grade NAT.
+public_ip() {
+  hostname -I 2>/dev/null | tr ' ' '\n' | awk -F. 'NF==4 && !($1==10 || $1==127 || ($1==172 && $2>=16 && $2<=31) || ($1==192 && $2==168) || ($1==169 && $2==254) || ($1==100 && $2>=64 && $2<=127)) {print; exit}'
+}
+arvan_key_load() {   # the key from the answers, or the saved one
+  if [ -z "${ARVAN_API_KEY:-}" ] && [ -s "$CONF_DIR/arvan-key" ]; then ARVAN_API_KEY=$(head -1 "$CONF_DIR/arvan-key"); fi
+  if [ -n "${ARVAN_API_KEY:-}" ] && [ ! -s "$CONF_DIR/arvan-key" ]; then install -d -m 755 "$CONF_DIR"; ( umask 077; printf '%s\n' "$ARVAN_API_KEY" > "$CONF_DIR/arvan-key" ); fi
+  [ -n "${ARVAN_API_KEY:-}" ]
+}
+s_arvan() {
+  [ "$BEHIND_ARVAN" = 1 ] || return 0
+  arvan_key_load || { say "no Arvan API key: add the DNS record of $DOMAIN in the Arvan panel by hand (A record to this server's address, cloud switched on), or run: sudo nikou arvan-dns"; return 0; }
+  local ip=${SERVER_IP:-}; [ -n "$ip" ] || ip=$(public_ip)
+  [ -n "$ip" ] || { warn "could not find this server's public address; run: sudo SERVER_IP=<address> nikou arvan-dns"; return 0; }
+  arvan_point_domain "$ip" || warn "the DNS record was not made; add it by hand in the Arvan panel (A record $DOMAIN -> $ip, cloud on) or fix the cause above and run: sudo nikou arvan-dns"
+  return 0
+}
+cmd_arvan_dns() {
+  need_root arvan-dns; load_conf
+  [ "$BEHIND_ARVAN" = 1 ] || die "this site is not set up behind Arvan (sudo nikou install, question 8)"
+  arvan_key_load || { ask_secret ARVAN_API_KEY "Arvan API key (nothing is shown while you type)"; arvan_key_load || die "no key given"; }
+  local ip=${SERVER_IP:-}; [ -n "$ip" ] || ip=$(public_ip)
+  [ -n "$ip" ] || die "could not find this server's public address; run: sudo SERVER_IP=<address> nikou arvan-dns"
+  arvan_point_domain "$ip" || exit 1
 }
 
 s_caddy() {
@@ -997,6 +1071,7 @@ print_plan() {
   printf '%s write the answers to %s and the passwords to %s (readable by root only)\n' "$line" "$CONF" "$ENV_FILE"
   printf '%s create the tables, %s, and the first admin %s\n' "$line" "$([ "$LOAD_SEED" = 1 ] && echo 'load the starter content' || echo 'no starter content')" "$ADMIN_EMAIL"
   printf '%s write the Caddy site %s/sites/nikoufood.caddy for %s (certificate: %s), add the line "import sites/*.caddy" to %s/Caddyfile if it is missing, reload Caddy\n' "$line" "$CADDY_DIR" "$DOMAIN" "$CERT_MODE" "$CADDY_DIR"
+  if [ "$BEHIND_ARVAN" = 1 ]; then printf '%s %s\n' "$line" "$([ -n "${ARVAN_API_KEY:-}" ] || [ -s "$CONF_DIR/arvan-key" ] && echo "make the DNS record of $DOMAIN in Arvan through the API key (cloud on)" || echo "not touch Arvan's DNS (no API key: add the record by hand)")"; fi
   if [ "$BEHIND_ARVAN" = 1 ] && [ "$CDN_ONLY" = 1 ]; then printf '%s change the ufw firewall so ports 80 and 443 accept only ArvanCloud addresses (existing rules for other sites are kept)\n' "$line"; else printf '%s not change the firewall\n' "$line"; fi
   printf '%s add timers: upgrade at %s Tehran time, a site check every 10 minutes%s\n' "$line" "$UPGRADE_AT" "$([ "$BACKUP_ENABLED" = 1 ] && echo ", nightly backup at 03:15 (kept $KEEP_BACKUPS days), a test restore on Sundays")"
   if other_app_present; then printf '%s leave the other app exactly as it is (its port %s, its Caddy file, its database)\n' "$line" "$(other_app_conf APP_PORT)"; fi
@@ -1036,7 +1111,7 @@ cmd_install() {
   install_questions
   check_answers
   install -m 755 "$(readlink -f "$0")" /usr/local/bin/nikou 2>/dev/null || true
-  s_checks; s_packages; s_runtime; s_database; s_config; s_software; s_migrate; s_content; s_start; s_caddy; s_firewall; s_backups; s_timers
+  s_checks; s_packages; s_runtime; write_env; s_database; s_config; s_software; s_migrate; s_content; s_start; s_arvan; s_caddy; s_firewall; s_backups; s_timers
   s_final
   offer_github_deploy
 }
@@ -1478,7 +1553,7 @@ menu() {
   esac
 }
 
-usage() { sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//'; }
 
 main() {
   local cmd=${1:-}
@@ -1503,6 +1578,7 @@ main() {
     reset-login) cmd_reset_login "$@" ;;
     first-login) cmd_first_login "$@" ;;
     cdn-ips) cmd_cdn_ips "$@" ;;
+    arvan-dns) cmd_arvan_dns "$@" ;;
     support-file) cmd_support_file "$@" ;;
     render) cmd_render "$@" ;;
     help | -h | --help) usage ;;
