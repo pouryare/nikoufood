@@ -20,7 +20,7 @@ export async function submitLead(type: LeadType, _prev: FormState, formData: For
 
   // Keep what the visitor typed so a failed submit does not wipe the form.
   const raw: Record<string, string> = {}
-  for (const [key, value] of formData.entries()) if (typeof value === 'string') raw[key] = value
+  for (const [key, value] of formData.entries()) if (typeof value === 'string' && !key.startsWith('$ACTION')) raw[key] = value
   const { website, startedAt, sourcePage, ...fields } = raw
 
   // Spam traps: a hidden field only bots fill in, and a form that was "filled" faster than a human can.
@@ -70,7 +70,6 @@ export async function submitLead(type: LeadType, _prev: FormState, formData: For
         status: 'new',
         fullName: data.fullName,
         mobile: data.mobile,
-        phone: data.phone || undefined,
         province: provinceId,
         company: data.company || undefined,
         businessType: data.businessType || undefined,
@@ -88,7 +87,6 @@ export async function submitLead(type: LeadType, _prev: FormState, formData: For
         [
           { label: 'نام', value: data.fullName },
           { label: 'موبایل', value: toEnDigits(data.mobile) },
-          { label: 'تلفن', value: data.phone ?? '' },
           { label: 'استان', value: provinceName },
           { label: 'شرکت', value: data.company ?? '' },
           { label: 'نوع کسب‌وکار', value: data.businessType ?? '' },

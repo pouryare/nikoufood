@@ -28,16 +28,11 @@ const email = z
   .transform((v) => clean(v ?? ''))
   .pipe(z.union([z.literal(''), z.email('ایمیل معتبر نیست.')]))
 
-/** Representative application: deliberately short (name, mobile, province, phone). */
+/** Representative application: deliberately short (name, mobile, province). */
 export const representativeSchema = z.object({
   fullName: name,
   mobile,
   province: z.string().min(1, 'استان را انتخاب کنید.'),
-  phone: z
-    .string()
-    .optional()
-    .transform((v) => toEnDigits(clean(v ?? '')).replace(/[\s-]/g, ''))
-    .pipe(z.string().regex(/^(0\d{10})?$/, 'تلفن را با کد شهر وارد کنید، مثل ۰۲۱۱۲۳۴۵۶۷۸.')),
 })
 
 export const partnershipSchema = z.object({

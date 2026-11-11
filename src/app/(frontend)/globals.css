@@ -1981,3 +1981,20 @@
 .faq summary svg { flex: none; color: var(--nk-gold); transition: transform .3s; }
 .faq details[open] summary svg { transform: rotate(45deg); }
 .faq details > p { max-width: 42rem; padding-bottom: 1.6rem; color: var(--nk-muted); line-height: 2; }
+
+/* ---------- forms ---------- */
+.field { width: 100%; min-height: 3.25rem; padding: 0.75rem 1rem; border: 1px solid var(--nk-line); border-radius: 0.75rem; background: rgba(255,255,255,.03); color: var(--nk-ink); transition: border-color .2s, background-color .2s, box-shadow .2s; }
+textarea.field { min-height: 9rem; line-height: 1.9; resize: vertical; }
+.field::placeholder { color: color-mix(in srgb, var(--nk-muted) 70%, transparent); }
+.field:hover { border-color: color-mix(in srgb, var(--nk-gold) 45%, var(--nk-line)); }
+.field:focus-visible { outline: none; border-color: var(--nk-gold); box-shadow: 0 0 0 3px color-mix(in srgb, var(--nk-gold) 25%, transparent); }
+.field-error { border-color: #ff8a8a; }
+select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' fill='none' stroke='%23a9b1c6' stroke-width='2'%3E%3Cpath d='m1 1 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: left 1rem center; padding-inline-end: 1rem; padding-inline-start: 2.5rem; }
+select.field option { background: var(--nk-surface); color: var(--nk-ink); }
+.form-submit { display: inline-flex; min-height: 3.5rem; align-items: center; justify-content: center; gap: .6rem; border-radius: 0.75rem; background: var(--nk-gold); color: var(--nk-bg); font-weight: 800; font-size: 1.05rem; box-shadow: 0 14px 40px -14px var(--nk-gold); transition: background-color .2s, transform .2s, opacity .2s; }
+.form-submit:hover { background: var(--nk-cream); }
+.form-submit:active { transform: scale(.98); }
+.form-submit:disabled { opacity: .6; pointer-events: none; }
+.contact-row { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem; border: 1px solid var(--nk-line); border-radius: 1rem; background: rgba(255,255,255,.02); transition: border-color .2s, transform .2s; }
+.contact-row:hover { border-color: var(--nk-gold); transform: translateX(-3px); }
+.contact-row-icon { display: grid; flex: none; width: 2.75rem; height: 2.75rem; place-items: center; border: 1px solid color-mix(in srgb, var(--nk-gold) 40%, transparent); border-radius: 50%; color: var(--nk-gold); }
