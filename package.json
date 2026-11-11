@@ -5,6 +5,7 @@
   "description": "Nikoo Etemad corporate website (Next.js + Payload CMS)",
   "license": "UNLICENSED",
   "type": "module",
+  "packageManager": "pnpm@10.28.0",
   "scripts": {
     "build": "cross-env NODE_OPTIONS=\"--no-deprecation --max-old-space-size=6000\" next build",
     "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",

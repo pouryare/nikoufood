@@ -4,6 +4,7 @@
 
 FROM node:22-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH NEXT_TELEMETRY_DISABLED=1
+# The version comes from "packageManager" in package.json (a newer pnpm reads build-script permissions from a different file).
 RUN corepack enable
 WORKDIR /app
 
