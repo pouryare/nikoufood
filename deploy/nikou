@@ -7,19 +7,24 @@
 #   sudo DOMAIN=example.ir ADMIN_EMAIL=me@example.ir nikou install --yes     # no questions; answers from the environment
 #   sudo nikou status | doctor | logs | first-login [--forget] | support-file
 #   sudo nikou upgrade [docker tag | release tarball]     # Docker: pull + migrate + restart; native: unpack + migrate + switch
+#   sudo nikou update [--now|--tonight]        # fetch the newest version, then ask: upgrade now, or tonight at UPGRADE_AT
+#   sudo nikou upgrade-scheduled               # what the nightly timer runs: applies a waiting version
+#   sudo nikou github-deploy                   # let GitHub send each new version here by itself (guided; 4 secrets to paste)
 #   sudo nikou rollback                        # back to the version that ran before the last upgrade
 #   sudo nikou backup | restore <dump.sql.gz> [media.tar.gz]
+#   sudo nikou restore-test                    # restore the newest backup into a scratch database and check it (weekly, too)
 #   sudo nikou maintenance on|off              # a short "we are updating" page for everyone
 #   sudo nikou secrets list | set KEY | unset KEY
 #   sudo nikou reset-login <email>             # a new random password for an admin account
 #   sudo nikou cdn-ips [--open|--only]         # refresh the firewall from ArvanCloud's address list | open web ports | Arvan only
+#   sudo nikou install --dry-run               # ask the questions and list what would be done; nothing is changed
 #   sudo nikou                                 # whiptail menu
 #
 # Two ways to run the site, chosen in the install questions:
 #   docker   the site and (optionally) PostgreSQL run as Docker containers; the images come from Docker Hub.
 #   native   the site runs as a systemd service with its own Node, from a release tarball (scripts/release/pack.sh).
 # PostgreSQL is one of: a container (docker), the PostgreSQL already on this server (a separate database and
-# user are created; nothing of RouteFlow's is touched), one installed by this script (native), or any server you
+# user are created; nothing of another app's is touched), one installed by this script (native), or any server you
 # give the address and login of.
 #
 # Answers (no passwords) live in /etc/nikou/nikou.conf, passwords in /etc/nikou/env (mode 600). Every other
@@ -143,7 +148,7 @@ urlenc() {
 # Answers
 CONF_KEYS=(MODE DOMAIN APP_PORT DOCKERHUB_USER IMAGE_TAG DOCKER_MIRROR DB_MODE DB_HOST DB_PORT DB_NAME DB_USER DB_SSL
   ADMIN_EMAIL LOAD_SEED SMTP_HOST SMTP_PORT SMTP_SECURE SMTP_USER SMTP_FROM BEHIND_ARVAN CERT_MODE CDN_ONLY
-  BACKUP_ENABLED KEEP_BACKUPS OFFSITE_HOST OFFSITE_USER OFFSITE_PATH PREVIOUS_TAG GITHUB_REPO)
+  BACKUP_ENABLED KEEP_BACKUPS OFFSITE_HOST OFFSITE_USER OFFSITE_PATH PREVIOUS_TAG GITHUB_REPO UPGRADE_AT ALERT_EMAIL)
 
 defaults() {
   MODE=${MODE:-docker}; DOMAIN=${DOMAIN:-}; APP_PORT=${APP_PORT:-3000}
@@ -155,6 +160,7 @@ defaults() {
   BEHIND_ARVAN=${BEHIND_ARVAN:-0}; CERT_MODE=${CERT_MODE:-auto}; CDN_ONLY=${CDN_ONLY:-0}
   BACKUP_ENABLED=${BACKUP_ENABLED:-0}; KEEP_BACKUPS=${KEEP_BACKUPS:-14}
   OFFSITE_HOST=${OFFSITE_HOST:-}; OFFSITE_USER=${OFFSITE_USER:-}; OFFSITE_PATH=${OFFSITE_PATH:-}; PREVIOUS_TAG=${PREVIOUS_TAG:-}
+  UPGRADE_AT=${UPGRADE_AT:-03:30}; ALERT_EMAIL=${ALERT_EMAIL:-}
 }
 
 load_conf() {
@@ -212,8 +218,8 @@ database_url() {   # the address the SITE uses (from inside a container, the bui
 
 # ---------------------------------------------------------------------------------------------------------
 # What else is on this server
-routeflow_conf() { [ -f /etc/routeflow/routeflow.conf ] && sed -n "s/^$1=//p" /etc/routeflow/routeflow.conf | tail -1 | tr -d "'\"" || true; }
-routeflow_present() { [ -f /etc/routeflow/routeflow.conf ] || systemctl is-active --quiet routeflow 2>/dev/null; }
+other_app_conf() { [ -f /etc/routeflow/routeflow.conf ] && sed -n "s/^$1=//p" /etc/routeflow/routeflow.conf | tail -1 | tr -d "'\"" || true; }
+other_app_present() { [ -f /etc/routeflow/routeflow.conf ] || systemctl is-active --quiet routeflow 2>/dev/null; }
 # A port is "in use" when something answers on it (no extra tools needed, unlike ss).
 port_free() { ! reachable 127.0.0.1 "$1"; }
 local_pg_listening() { reachable 127.0.0.1 5432; }
@@ -228,14 +234,14 @@ db_on_this_host() { [[ $DB_HOST =~ ^(127\.0\.0\.1|localhost|::1)$ ]]; }
 q1() {
   ask_choice MODE "How should the site run?" "$MODE" \
     "docker|Docker (recommended): the ready-made images from Docker Hub, built by GitHub" \
-    "native|Native: a systemd service from a release tarball, like RouteFlow (no Docker needed)"
+    "native|Native: a systemd service from a release tarball (no Docker needed)"
 }
 q2() { ask_valid DOMAIN "The website's address, without https:// (for example nikoufood.ir)" "$DOMAIN" valid_domain "that is not a valid address (example: nikoufood.ir)"; }
 q3() {
   local suggest=$APP_PORT
   if [ -z "${NIKOU_PORT_CHECKED:-}" ] && ! port_free "$suggest"; then
     while ! port_free "$suggest"; do suggest=$((suggest + 1)); done
-    if interactive; then printf '\n  Port %s is already used on this server (RouteFlow uses 3003), so %s is suggested.\n' "$APP_PORT" "$suggest" >/dev/tty; fi
+    if interactive; then printf '\n  Port %s is already used on this server (another app on this server may use it), so %s is suggested.\n' "$APP_PORT" "$suggest" >/dev/tty; fi
   fi
   ask_valid APP_PORT "The local port the site listens on (only this server can reach it; Caddy forwards to it)" "$suggest" valid_port "a port is a number from 1 to 65535"
 }
@@ -254,7 +260,7 @@ q5() {
   local have=1 pick
   # What is on this server, so the question can say it.
   if local_pg_listening && interactive; then
-    printf '\n  A PostgreSQL is already running on this server (port 5432).%s\n  It will not be changed. You can give the site its own database and user inside it.\n' "$(routeflow_present && echo ' RouteFlow is installed, and it uses a native PostgreSQL (not Docker).')" >/dev/tty
+    printf '\n  A PostgreSQL is already running on this server (port 5432).%s\n  It will not be changed. You can give the site its own database and user inside it.\n' "$(other_app_present && echo ' Another app is installed here, and it uses a native PostgreSQL (not Docker).')" >/dev/tty
   fi
   case "$DB_MODE" in builtin | apt) have=0 ;; esac
   ask_yes DB_HAVE "Do you already have a PostgreSQL database for this site (or want to use the PostgreSQL on this server)?" "$have"
@@ -303,6 +309,7 @@ q7() {
     ask_secret pw "SMTP password (Enter keeps the saved one)"
     [ -z "$pw" ] || { safe_secret "$pw" || die "that password has a character not allowed here (quotes, \$, backslash); set it with: nikou secrets set SMTP_PASS"; env_set SMTP_PASS "$pw"; }
     ask_valid SMTP_FROM "Sender address of the emails" "${SMTP_FROM:-no-reply@${DOMAIN:-example.ir}}" valid_email "not a valid email address"
+    ask_valid ALERT_EMAIL "Send failure alerts (a failed backup or upgrade, the site not answering) to this address" "${ALERT_EMAIL:-$ADMIN_EMAIL}" valid_email "not a valid email address"
   else
     SMTP_HOST=""
   fi
@@ -353,8 +360,8 @@ install_questions() {
   {
     printf '\n==== Nikoo Etemad website: install questions ====\n'
     printf 'Press Enter to keep the answer in [brackets]. You can change any answer before anything starts.\n'
-    if routeflow_present; then
-      printf '\nRouteFlow is installed on this server (address %s, port %s). It is left exactly as it is:\nthis site gets its own Caddy file, its own port and its own database.\n' "$(routeflow_conf DOMAIN)" "$(routeflow_conf APP_PORT)"
+    if other_app_present; then
+      printf '\nAnother app is installed on this server (address %s, port %s). It is left exactly as it is:\nthis site gets its own Caddy file, its own port and its own database.\n' "$(other_app_conf DOMAIN)" "$(other_app_conf APP_PORT)"
     fi
   } >/dev/tty
   q1; q2; q3; q4; q5; q6; q7; q8; q9
@@ -495,7 +502,7 @@ caddy_tls_line() {
 
 render_caddy() {
   cat <<CADDY
-# Written by "nikou install" from $CONF. One file per site: RouteFlow's own file is not touched.
+# Written by "nikou install" from $CONF. One file per site: the other app's file is not touched.
 $DOMAIN {
 	encode zstd gzip
 	# Pictures and videos uploaded in the admin panel are the largest legitimate request.
@@ -612,7 +619,7 @@ gh_save_token() { [ -n "${GITHUB_TOKEN:-}" ] || return 0; install -d -m 755 "$CO
 gh_get() {
   local url=$1 out=${2:--} accept=${3:-application/vnd.github+json} tok; tok=$(gh_token)
   local -a auth=(); [ -z "$tok" ] || auth=(-H "Authorization: Bearer $tok")
-  curl -fsSL --retry 3 -H "Accept: $accept" -H "X-GitHub-Api-Version: 2022-11-28" "${auth[@]}" -o "$out" "$url"
+  curl -fsSL --retry 3 --connect-timeout 15 -H "Accept: $accept" -H "X-GitHub-Api-Version: 2022-11-28" "${auth[@]}" -o "$out" "$url"
 }
 # download_release [tag] -> downloads the native tarball (+ its checksum) into incoming/ and prints the path of the tarball
 download_release() {
@@ -650,7 +657,29 @@ find_tarball() {
       [ -z "$t" ] || { echo "$t"; return; }
     done
   fi
-  download_release latest
+  if t=$(download_release latest); then echo "$t"; return; fi
+  interactive || exit 1
+  manual_upload "$here"
+}
+# The download did not work (GitHub is often hard to reach from Iran): say how to upload the two files by hand and
+# wait until they are in. Prints the tarball's path. A file that was already waiting does not count: a newer one must arrive.
+manual_upload() {   # manual_upload <arch>
+  local arch=$1 dest="$ROOT/incoming" t before
+  install -d -m 755 "$dest"
+  before=$(ls -1 "$dest"/nikoufood-*-linux-"$arch".tar.gz 2>/dev/null | sort -V | tail -1 || true)
+  {
+    printf '\nThe download from GitHub did not work. Upload the files by hand instead:\n'
+    printf '  1. On your computer open https://github.com/%s/releases/latest and download the two files ending in\n     linux-%s.tar.gz and linux-%s.tar.gz.sha256\n' "${GITHUB_REPO:-pouryare/nikoufood}" "$arch" "$arch"
+    printf '  2. Upload them to this folder (%s), for example:\n     scp nikoufood-*-linux-%s.tar.gz* root@THIS_SERVER_IP:%s/\n' "$dest" "$arch" "$dest"
+    printf 'I wait here and go on by myself when both files are in. (Ctrl+C stops.)\n'
+  } >/dev/tty
+  while :; do
+    t=$(ls -1 "$dest"/nikoufood-*-linux-"$arch".tar.gz 2>/dev/null | sort -V | tail -1 || true)
+    if [ -n "$t" ] && [ "$t" != "$before" ] && [ -f "$t.sha256" ] && [ ! -e "$t.part" ]; then break; fi
+    sleep 3
+  done
+  sleep 2   # let a copy in progress finish
+  echo "$t"
 }
 unpack_release() {   # unpack_release tarball -> prints the version
   local t=$1 version arch tmp
@@ -658,6 +687,8 @@ unpack_release() {   # unpack_release tarball -> prints the version
   [ "$arch" = "$(machine_arch)" ] || die "this tarball is for $arch, this server is $(machine_arch)"
   verify_checksum "$t"
   mkdir -p "$ROOT/releases"
+  # An earlier first install that stopped leaves its folder and no live release: start that one over.
+  if [ -d "$ROOT/releases/$version" ] && [ -z "$(current_version)" ]; then rm -rf "${ROOT:?}/releases/$version"; fi
   if [ ! -d "$ROOT/releases/$version" ]; then
     tmp=$(mktemp -d "$ROOT/releases/.unpack.XXXXXX")
     tar -xzf "$t" -C "$tmp" --strip-components=1
@@ -665,6 +696,7 @@ unpack_release() {   # unpack_release tarball -> prints the version
     mv "$tmp" "$ROOT/releases/$version"
   fi
   chown -R root:root "$ROOT/releases/$version"
+  chmod 755 "$ROOT/releases/$version"   # mktemp makes the folder root-only (700): the site's own user could not open its release
   # Next.js keeps its image and data cache here while the site runs.
   mkdir -p "$ROOT/releases/$version/app/.next/cache"; chown -R "$APP_USER:$APP_USER" "$ROOT/releases/$version/app/.next/cache" 2>/dev/null || true
   echo "$version"
@@ -717,8 +749,8 @@ s_checks() {
   if [ ! -f "$ENV_FILE" ] || [ ! -f "$CONF" ]; then
     port_free "$APP_PORT" || die "port $APP_PORT is already in use; choose another with APP_PORT or the questions"
   fi
-  if routeflow_present && [ "$(routeflow_conf DOMAIN)" = "$DOMAIN" ]; then die "RouteFlow already serves $DOMAIN; use a different address for this site"; fi
-  say "OK: ${PRETTY_NAME:-$ID}, $(uname -m), $(df -Pk / | awk 'NR==2 {print int($4/1048576)}') GB free$(routeflow_present && echo ', RouteFlow found (left alone)')"
+  if other_app_present && [ "$(other_app_conf DOMAIN)" = "$DOMAIN" ]; then die "another app on this server already serves $DOMAIN; use a different address for this site"; fi
+  say "OK: ${PRETTY_NAME:-$ID}, $(uname -m), $(df -Pk / | awk 'NR==2 {print int($4/1048576)}') GB free$(other_app_present && echo ', another app found (left alone)')"
 }
 
 s_packages() {
@@ -792,7 +824,7 @@ s_software() {
   if [ "$MODE" = docker ]; then
     compose pull app tools || die "could not pull the images $(image_ref nikoufood) and $(image_ref nikoufood-tools). Check the Docker Hub user, the token (private images) and the tag."
   else
-    local t v; t=$(find_tarball "${TARBALL:-}"); v=$(unpack_release "$t"); switch_to "$v"; prune_releases
+    local t v; t=$(find_tarball "${TARBALL:-}"); preflight_tarball "$t"; v=$(unpack_release "$t"); switch_to "$v"; prune_releases
     say "release $v unpacked"
   fi
 }
@@ -839,9 +871,9 @@ cmd_cdn_ips() {
   local list n net
   list=$(curl -fsS --max-time 20 "$CDN_IPS_URL" 2>/dev/null | parse_cdn_ips || true); n=$(grep -c . <<<"$list" || true)
   [ "$n" -ge 5 ] || { warn "could not read Arvan's address list ($CDN_IPS_URL); the firewall was left as it was"; return 0; }
-  # ufw skips a rule that already exists, so ranges RouteFlow opened are shared, not duplicated.
+  # ufw skips a rule that already exists, so ranges another app opened are shared, not duplicated.
   while read -r net; do ufw allow proto tcp from "$net" to any port 80,443 comment nikou-cdn >/dev/null; done <<<"$list"
-  # Only a rule that opens the web ports to everybody is removed; RouteFlow's own ranges are never deleted.
+  # Only a rule that opens the web ports to everybody is removed; the other app's own ranges are never deleted.
   ufw status numbered | sed -nE 's/^\[ *([0-9]+)\] +(80|443)(\/tcp)? .*ALLOW IN +Anywhere.*/\1/p' | sort -rn | while read -r r; do ufw --force delete "$r" >/dev/null; done
   say "web ports are open to Arvan's $n address ranges only"
 }
@@ -849,7 +881,7 @@ s_firewall() {
   step "Firewall"
   if [ "$BEHIND_ARVAN" = 1 ] && [ "$CDN_ONLY" = 1 ]; then
     cmd_cdn_ips
-    if [ ! -f "$UNIT_DIR/nikou-cdn-ips.timer" ] && ! routeflow_present; then
+    if [ ! -f "$UNIT_DIR/nikou-cdn-ips.timer" ] && ! other_app_present; then
       cat > "$UNIT_DIR/nikou-cdn-ips.service" <<UNIT
 [Unit]
 Description=Nikoo Etemad: refresh the firewall from Arvan's address list
@@ -940,27 +972,73 @@ s_final() {
   printf '\n==================================================\n Nikoo Etemad website is installed\n==================================================\n'
   printf ' Site:   https://%s\n Admin:  https://%s/admin\n' "$DOMAIN" "$DOMAIN"
   if [ -f "$CONF_DIR/.first-login-own-password" ]; then printf ' Login:  %s (the password you chose)\n' "$ADMIN_EMAIL"; else printf ' Login:  %s\n Password (shown once, also in %s/first-login): %s\n' "$ADMIN_EMAIL" "$CONF_DIR" "$(sed -n 's/^Password: //p' "$CONF_DIR/first-login")"; fi
-  printf '\n Useful commands:  nikou status | doctor | logs | upgrade | rollback | backup | maintenance on\n'
+  printf '\n Useful commands:  nikou status | doctor | logs | update | rollback | backup | maintenance on\n'
+  [ -f "$CONF_DIR/github-deploy.done" ] || printf ' Updates by themselves:  sudo nikou github-deploy  (GitHub sends each new release here; guided, 4 secrets to paste)\n'
   [ "$ok" = 1 ] || printf '\n Some checks did not pass: run  sudo nikou doctor\n'
 }
 
+# "nikou install --dry-run": what the install would do with these answers. Nothing is written or changed.
+print_plan() {
+  local line=" •"
+  printf '\n---- What "nikou install" would do (nothing was changed) ----\n'
+  printf '%s install these packages if missing: ca-certificates curl gnupg openssl whiptail rsync caddy postgresql-client\n' "$line"
+  if [ "$MODE" = docker ]; then
+    printf '%s install Docker (docker.io + the compose plugin) if it is missing, then pull %s and %s\n' "$line" "$(image_ref nikoufood)" "$(image_ref nikoufood-tools)"
+    printf '%s write %s/docker-compose.yml; the site listens on 127.0.0.1:%s only\n' "$line" "$ROOT" "$APP_PORT"
+  else
+    printf '%s make the system user %s, unpack the newest release into %s/releases, write the service %s/%s.service (127.0.0.1:%s only)\n' "$line" "$APP_USER" "$ROOT" "$UNIT_DIR" "$SERVICE" "$APP_PORT"
+  fi
+  case "$DB_MODE" in
+    builtin) printf '%s start a PostgreSQL container with the site (data in the Docker volume nikoufood_db-data)\n' "$line" ;;
+    apt) printf '%s install PostgreSQL if this server has none, then make the database %s and user %s\n' "$line" "$DB_NAME" "$DB_USER" ;;
+    local) printf '%s make the database %s and user %s inside the PostgreSQL already here (nothing else in it is touched)\n' "$line" "$DB_NAME" "$DB_USER" ;;
+    *) printf '%s use the existing database %s@%s:%s/%s (only tables for this site are created)\n' "$line" "$DB_USER" "$DB_HOST" "$DB_PORT" "$DB_NAME" ;;
+  esac
+  printf '%s write the answers to %s and the passwords to %s (readable by root only)\n' "$line" "$CONF" "$ENV_FILE"
+  printf '%s create the tables, %s, and the first admin %s\n' "$line" "$([ "$LOAD_SEED" = 1 ] && echo 'load the starter content' || echo 'no starter content')" "$ADMIN_EMAIL"
+  printf '%s write the Caddy site %s/sites/nikoufood.caddy for %s (certificate: %s), add the line "import sites/*.caddy" to %s/Caddyfile if it is missing, reload Caddy\n' "$line" "$CADDY_DIR" "$DOMAIN" "$CERT_MODE" "$CADDY_DIR"
+  if [ "$BEHIND_ARVAN" = 1 ] && [ "$CDN_ONLY" = 1 ]; then printf '%s change the ufw firewall so ports 80 and 443 accept only ArvanCloud addresses (existing rules for other sites are kept)\n' "$line"; else printf '%s not change the firewall\n' "$line"; fi
+  printf '%s add timers: upgrade at %s Tehran time, a site check every 10 minutes%s\n' "$line" "$UPGRADE_AT" "$([ "$BACKUP_ENABLED" = 1 ] && echo ", nightly backup at 03:15 (kept $KEEP_BACKUPS days), a test restore on Sundays")"
+  if other_app_present; then printf '%s leave the other app exactly as it is (its port %s, its Caddy file, its database)\n' "$line" "$(other_app_conf APP_PORT)"; fi
+  printf '\nTo do it for real, run the same command without --dry-run.\n'
+}
+
+offer_github_deploy() {
+  [ ! -f "$CONF_DIR/github-deploy.done" ] || return 0
+  interactive || return 0
+  local go
+  ask_yes go "Set up automatic updates from GitHub now? (GitHub then sends each new release here by itself. It is guided: you only paste 4 secrets on GitHub. You can do it later with: sudo nikou github-deploy)" 1
+  if [ "$go" = 1 ]; then cmd_github_deploy || warn "the GitHub setup stopped; run it again with: sudo nikou github-deploy"; fi
+}
+
 cmd_install() {
-  need_root install
-  local arg
+  local arg dry=0
   for arg in "$@"; do
     case "$arg" in
       --yes) export NIKOU_YES=1 ;;
       --fresh) : ;;
+      --dry-run) dry=1 ;;
       *) TARBALL=$arg ;;
     esac
   done
+  if [ "$dry" = 1 ]; then
+    # Work on a copy of the saved answers, so questions and passwords typed now are not kept.
+    local real=$CONF_DIR
+    CONF_DIR=$(mktemp -d); trap 'rm -rf "$CONF_DIR"' EXIT
+    cp -a "$real/." "$CONF_DIR/" 2>/dev/null || true
+    CONF=$CONF_DIR/nikou.conf; ENV_FILE=$CONF_DIR/env; GH_TOKEN_FILE=$CONF_DIR/github-token
+    load_conf; install_questions; check_answers; print_plan
+    return 0
+  fi
+  need_root install
   exec 9>"$LOCK"; flock -n 9 || die "another nikou command is running"
   load_conf
   install_questions
   check_answers
   install -m 755 "$(readlink -f "$0")" /usr/local/bin/nikou 2>/dev/null || true
-  s_checks; s_packages; s_runtime; s_database; s_config; s_software; s_migrate; s_content; s_start; s_caddy; s_firewall; s_backups
+  s_checks; s_packages; s_runtime; s_database; s_config; s_software; s_migrate; s_content; s_start; s_caddy; s_firewall; s_backups; s_timers
   s_final
+  offer_github_deploy
 }
 
 # ---------------------------------------------------------------------------------------------------------
@@ -977,6 +1055,11 @@ cmd_status() {
   printf 'Site:        https://%s\nRun as:      %s (%s)\nVersion:     %s\nDatabase:    %s\n' "$DOMAIN" "$MODE" "$(app_running && echo running || echo STOPPED)" "${v:-unknown}" "$DB_MODE"
   curl -fsS -o /dev/null --max-time 8 "http://127.0.0.1:$APP_PORT/robots.txt" && echo "Answers:     yes (port $APP_PORT)" || echo "Answers:     NO"
   [ ! -f "$CONF_DIR/maintenance.on" ] || echo "Maintenance: ON (nikou maintenance off)"
+  if [ "$MODE" = docker ]; then [ ! -f "$ROOT/incoming/pending-tag" ] || echo "Waiting:     a new version, applied tonight at $UPGRADE_AT (or: nikou upgrade-scheduled)"
+  else
+    local w; w=$(ls -1 "$ROOT"/incoming/nikoufood-*-linux-*.tar.gz 2>/dev/null | sort -V | tail -1 || true)
+    [ -z "$w" ] || [ ! -f "$w.sha256" ] || [ "$(basename "$w")" = "nikoufood-$(current_version)-linux-$(machine_arch).tar.gz" ] || echo "Waiting:     $(basename "$w"), applied tonight at $UPGRADE_AT (or: nikou upgrade-scheduled)"
+  fi
   local last; last=$(ls -1t "$BACKUPS"/nikou-db-*.sql.gz 2>/dev/null | head -1 || true)
   printf 'Last backup: %s\nDisk free:   %s GB\n' "${last:-none}" "$(df -Pk / | awk 'NR==2 {print int($4/1048576)}')"
 }
@@ -998,8 +1081,12 @@ cmd_doctor() {
   [ "$(df -Pk / | awk 'NR==2 {print int($4/1048576)}')" -ge 2 ] && ok "disk space" || wn "less than 2 GB free"
   [ -n "$(env_get SMTP_HOST)" ] && [ -n "$(env_get SMTP_PASS)" ] && ok "email is set up" || wn "email is not set up: form requests are saved in /admin but not emailed (nikou secrets set SMTP_PASS)"
   [ "$BACKUP_ENABLED" = 1 ] && { [ -n "$(find "$BACKUPS" -name 'nikou-db-*' -mtime -2 2>/dev/null | head -1)" ] && ok "a backup from the last 2 days exists" || wn "no backup from the last 2 days"; } || wn "backups are off"
+  systemctl is-active --quiet nikou-upgrade.timer && ok "a waiting new version is applied at $UPGRADE_AT (Tehran time)" || wn "the scheduled-upgrade timer is not active (run: sudo nikou install, which sets it up again)"
+  [ -f "$CONF_DIR/github-deploy.done" ] && ok "GitHub sends new versions here (github-deploy was set up)" || wn "GitHub does not send new versions here by itself yet (sudo nikou github-deploy); until then use: sudo nikou update"
+  if [ "$BACKUP_ENABLED" = 1 ]; then systemctl is-active --quiet nikou-restoretest.timer && ok "the newest backup is test-restored every Sunday" || wn "the weekly backup restore test is not scheduled"; fi
+  [ -n "$(alert_to)" ] && [ -n "$(env_get SMTP_PASS)" ] && ok "failure alerts go to $(alert_to)" || wn "no failure alerts by email (needs the email setup and an alert address)"
   [ "$BEHIND_ARVAN" = 1 ] && [ "$CDN_ONLY" != 1 ] && wn "behind Arvan but the web ports are open to everyone (nikou cdn-ips --only)" || true
-  routeflow_present && { systemctl is-active --quiet routeflow && ok "RouteFlow is running next to this site" || wn "RouteFlow is installed but not running"; } || true
+  other_app_present && { systemctl is-active --quiet routeflow && ok "the other app is running next to this site" || wn "the other app is installed but not running"; } || true
   return "$bad"
 }
 
@@ -1009,6 +1096,7 @@ cmd_upgrade() {
   if [ "$MODE" = docker ]; then
     local new=${1:-$IMAGE_TAG} old=$IMAGE_TAG
     valid_tag "$new" || die "not a valid tag: $new"
+    need_free /var/lib/docker 2048 "pulling the new images"
     docker tag "$(image_ref nikoufood "$old")" "$(image_ref nikoufood nikou-rollback)" 2>/dev/null || true
     docker tag "$(image_ref nikoufood-tools "$old")" "$(image_ref nikoufood-tools nikou-rollback)" 2>/dev/null || true
     IMAGE_TAG=$new; PREVIOUS_TAG=$old; write_conf; render_compose > "$ROOT/docker-compose.yml"
@@ -1024,7 +1112,7 @@ cmd_upgrade() {
     say "now running $new (before: $old)"
   else
     local t v prev; prev=$(current_version)
-    t=$(NIKOU_WANT_LATEST=1 find_tarball "${1:-}"); v=$(unpack_release "$t")
+    t=$(NIKOU_WANT_LATEST=1 find_tarball "${1:-}"); preflight_tarball "$t"; v=$(unpack_release "$t")
     [ "$v" != "$prev" ] || { say "version $v is already live"; return 0; }
     switch_to "$v"
     if ! run_tools migrate; then [ -z "$prev" ] || switch_to "$prev"; die "the database migration failed; still on ${prev:-nothing}"; fi
@@ -1037,6 +1125,259 @@ cmd_upgrade() {
     prune_releases
     say "now running $v (before: ${prev:-none})"
   fi
+}
+
+# ---------------------------------------------------------------------------------------------------------
+# Alerts by email. Best effort: a failed email never makes a command fail.
+alert_to() { echo "${ALERT_EMAIL:-$ADMIN_EMAIL}"; }
+notify() {   # notify "subject" "text"
+  local to host pass port user from url tmp
+  to=$(alert_to); host=$(env_get SMTP_HOST); pass=$(env_get SMTP_PASS)
+  [ -n "$to" ] && [ -n "$host" ] && [ -n "$pass" ] || return 0
+  port=$(env_get SMTP_PORT); port=${port:-587}; user=$(env_get SMTP_USER); from=$(env_get SMTP_FROM); from=${from:-no-reply@$DOMAIN}
+  if [ "$(env_get SMTP_SECURE)" = true ]; then url="smtps://$host:$port"; else url="smtp://$host:$port"; fi
+  tmp=$(mktemp)
+  printf 'From: Nikoo Etemad server <%s>\nTo: <%s>\nSubject: %s\nContent-Type: text/plain; charset=utf-8\n\n%s\n' "$from" "$to" "[$DOMAIN] $1" "$2" > "$tmp"
+  # shellcheck disable=SC2086
+  curl -sS --max-time 30 --ssl-reqd --url "$url" --mail-from "$from" --mail-rcpt "$to" ${user:+--user "$user:$pass"} -T "$tmp" >/dev/null 2>&1 \
+    || warn "could not send the alert email to $to"
+  rm -f "$tmp"
+  return 0
+}
+# alerting "what" command...   Runs the command; when a timer ran it (no terminal) and it failed, emails the last lines.
+alerting() {
+  local what=$1 err rc=0; shift
+  load_conf
+  err=$(mktemp)
+  ( "$@" ) 2>"$err" || rc=$?
+  cat "$err" >&2
+  if [ "$rc" != 0 ] && [ ! -t 0 ]; then notify "$what failed" "$(tail -n 15 "$err")"; fi
+  rm -f "$err"
+  return "$rc"
+}
+
+# Run every 10 minutes by nikou-watch.timer: one email when the site stops answering (two misses in a row),
+# one when it is back. Quiet during maintenance and during an upgrade.
+cmd_health_check() {
+  need_root health-check; load_conf
+  local f=$DATA/health-misses n
+  if [ -f "$CONF_DIR/maintenance.on" ]; then return 0; fi
+  exec 8>"$LOCK"; flock -n 8 || return 0
+  install -d "$DATA"
+  if wait_healthy 9; then
+    n=$(cat "$f" 2>/dev/null || echo 0); [[ $n =~ ^[0-9]+$ ]] || n=0
+    if [ "$n" -ge 2 ]; then notify "the site answers again" "https://$DOMAIN is back."; fi
+    rm -f "$f"
+  else
+    n=$(cat "$f" 2>/dev/null || echo 0); [[ $n =~ ^[0-9]+$ ]] || n=0
+    n=$((n + 1)); echo "$n" > "$f"
+    if [ "$n" = 2 ]; then notify "the site is not answering" "https://$DOMAIN did not answer on this server's port $APP_PORT twice in a row. On the server: sudo nikou doctor, then sudo nikou logs."; fi
+    return 1
+  fi
+}
+
+# ---------------------------------------------------------------------------------------------------------
+# Disk space and machine checks before an upgrade
+free_mb() { df -Pm "$1" 2>/dev/null | awk 'NR==2 {print $4}'; }
+need_free() {   # need_free path megabytes what
+  local path=$1 have; [ -d "$path" ] || path=/
+  have=$(free_mb "$path"); have=${have:-0}
+  [ "$have" -ge "$2" ] || die "not enough free disk space for $3: $have MB free in $path, about $2 MB needed. Nothing was changed."
+}
+preflight_tarball() {   # preflight_tarball file: right machine type and room to unpack it
+  local t=$1 version arch mb need
+  read -r version arch < <(parse_tarball_name "$t") || die "not a release tarball name: $(basename "$t")"
+  [ "$arch" = "$(machine_arch)" ] || die "this tarball is for $arch, this server is $(machine_arch). Nothing was changed."
+  mb=$(( $(stat -c %s "$t") / 1048576 )); need=$((mb * 4)); [ "$need" -ge 1024 ] || need=1024
+  need_free "$ROOT" "$need" "unpacking $(basename "$t")"
+}
+
+# ---------------------------------------------------------------------------------------------------------
+# Timers: scheduled upgrade, weekly restore test, site watch (the backup timer is written by the backup step)
+write_timer() {   # write_timer name "description" "OnCalendar" "nikou command" "extra [Timer] line"
+  cat > "$UNIT_DIR/$1.service" <<UNIT
+[Unit]
+Description=$2
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nikou $4
+UNIT
+  cat > "$UNIT_DIR/$1.timer" <<UNIT
+[Unit]
+Description=$2
+[Timer]
+OnCalendar=$3
+${5:-}
+[Install]
+WantedBy=timers.target
+UNIT
+}
+s_timers() {
+  [[ $UPGRADE_AT =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]] || die "UPGRADE_AT must look like 03:30 (hours:minutes, Tehran time)"
+  write_timer nikou-upgrade "Nikoo Etemad: scheduled upgrade" "*-*-* $UPGRADE_AT:00 Asia/Tehran" upgrade-scheduled
+  write_timer nikou-watch "Nikoo Etemad: is the site answering?" "*:0/10" health-check
+  if [ "$BACKUP_ENABLED" = 1 ]; then
+    write_timer nikou-restoretest "Nikoo Etemad: weekly restore test" "Sun *-*-* 04:20:00 Asia/Tehran" restore-test "Persistent=true"
+  else
+    systemctl disable --now nikou-restoretest.timer >/dev/null 2>&1 || true
+  fi
+  systemctl daemon-reload
+  systemctl enable --now nikou-upgrade.timer nikou-watch.timer >/dev/null 2>&1 || true
+  [ "$BACKUP_ENABLED" != 1 ] || systemctl enable --now nikou-restoretest.timer >/dev/null 2>&1 || true
+  say "a waiting new version is applied at $UPGRADE_AT Tehran time; the site is watched every 10 minutes$([ "$BACKUP_ENABLED" = 1 ] && echo '; the newest backup is test-restored on Sundays')"
+}
+
+# ---------------------------------------------------------------------------------------------------------
+# nikou update: get the newest version, then ask: now, or tonight
+cmd_update() {
+  need_root update; load_conf
+  local when=ask arg now
+  for arg in "$@"; do
+    case "$arg" in --now) when=now ;; --tonight | --schedule) when=tonight ;; *) die "usage: nikou update [--now|--tonight]" ;; esac
+  done
+  if [ "$MODE" = docker ]; then
+    local ref live_id new_id
+    ref=$(image_ref nikoufood latest)
+    need_free /var/lib/docker 2048 "pulling the new images"
+    live_id=$(docker inspect -f '{{.Image}}' "$(compose ps -q app 2>/dev/null | head -1)" 2>/dev/null || true)
+    say "checking Docker Hub for $ref"
+    docker pull -q "$ref" >/dev/null || die "could not pull $ref (is Docker Hub reachable? private images need: docker login)"
+    new_id=$(docker image inspect -f '{{.Id}}' "$ref" 2>/dev/null || true)
+    if [ -n "$live_id" ] && [ "$live_id" = "$new_id" ]; then say "Already on the newest version. Nothing to do."; rm -f "$ROOT/incoming/pending-tag"; return 0; fi
+    if [ "$when" = ask ]; then ask_yes now "A newer version is downloaded. Upgrade now? (No: it is applied tonight at $UPGRADE_AT.)" 0; if [ "$now" = 1 ]; then when=now; else when=tonight; fi; fi
+    if [ "$when" = now ]; then cmd_upgrade latest
+    else install -d -m 755 "$ROOT/incoming"; echo latest > "$ROOT/incoming/pending-tag"; say "Waiting. It is applied tonight at $UPGRADE_AT Tehran time, or at once with: sudo nikou upgrade-scheduled"; fi
+  else
+    local file want live
+    live=$(current_version)
+    file=$(NIKOU_WANT_LATEST=1 find_tarball "") || exit 1
+    verify_checksum "$file" || exit 1
+    want=$(parse_tarball_name "$file" | cut -d' ' -f1)
+    if [ -n "$live" ] && [ "$(printf '%s\n%s\n' "$live" "$want" | sort -V | tail -1)" = "$live" ]; then
+      say "Already on $live; the newest release is $want. Nothing to do."
+      return 0
+    fi
+    if [ "$when" = ask ]; then ask_yes now "Version $want is downloaded and checked (now: ${live:-none}). Upgrade now? (No: it is applied tonight at $UPGRADE_AT.)" 0; if [ "$now" = 1 ]; then when=now; else when=tonight; fi; fi
+    if [ "$when" = now ]; then cmd_upgrade "$file"
+    else say "Waiting in $ROOT/incoming. It is applied tonight at $UPGRADE_AT Tehran time, or at once with: sudo nikou upgrade-scheduled"; fi
+  fi
+}
+
+# What the nightly timer runs (also by hand): the newest waiting version. Nothing waiting = nothing happens.
+cmd_upgrade_scheduled() {
+  need_root upgrade-scheduled; load_conf
+  local inc=$ROOT/incoming
+  if [ "$MODE" = docker ]; then
+    local m=$inc/pending-tag tag
+    [ -f "$m" ] || { say "nothing is waiting"; return 0; }
+    tag=$(head -1 "$m"); valid_tag "$tag" || { rm -f "$m"; die "the file $m held no valid tag; it was removed"; }
+    cmd_upgrade "$tag"
+    rm -f "$m"
+    notify "upgraded" "The site now runs the Docker tag $tag."
+  else
+    local t v best="" bestv="" live; live=$(current_version)
+    for t in $(ls -1 "$inc"/nikoufood-*-linux-"$(machine_arch)".tar.gz 2>/dev/null | sort -V || true); do
+      [ -f "$t.sha256" ] || continue   # a tarball without its sum file is still being copied
+      best=$t; bestv=$(parse_tarball_name "$t" | cut -d' ' -f1)
+    done
+    [ -n "$best" ] || { say "nothing is waiting"; return 0; }
+    if [ -n "$live" ] && [ "$(printf '%s\n%s\n' "$live" "$bestv" | sort -V | tail -1)" = "$live" ]; then say "the waiting version $bestv is not newer than $live"; return 0; fi
+    cmd_upgrade "$best"
+    notify "upgraded" "The site now runs version $bestv (before: ${live:-none})."
+    # keep the newest two tarballs for a manual re-run; older ones go
+    for t in $(ls -1 "$inc"/nikoufood-*-linux-*.tar.gz 2>/dev/null | sort -V | head -n -2 || true); do rm -f "$t" "$t.sha256"; done
+  fi
+}
+
+# ---------------------------------------------------------------------------------------------------------
+# nikou github-deploy: GitHub sends each new release to this server (the "deploy" job in release.yml).
+# Everything on the server is done here; only the GitHub secrets are pasted by the person, one at a time,
+# and the secret key is shown on the terminal only and shredded at the end. The user is called nikoudeploy,
+# not "deploy", so it never clashes with another app's deploy user and key on the same server.
+DEPLOY_USER_NAME=nikoudeploy
+deploy_known_hosts() { awk -v ip="$1" '{print ip, $1, $2; exit}' "${2:-/etc/ssh/ssh_host_ed25519_key.pub}"; }
+deploy_wait() { read -r -p "  Press Enter when it is done > " _ </dev/tty || die "cancelled"; }
+cmd_github_deploy() {
+  need_root github-deploy; load_conf
+  interactive || die "github-deploy guides you step by step: run it in a terminal (sudo nikou github-deploy)"
+  local repo=${GITHUB_REPO:-pouryare/nikoufood} ip=${DEPLOY_HOST:-} dir du=$DEPLOY_USER_NAME
+  [ -n "$ip" ] || ip=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "src") {print $(i + 1); exit}}')
+  [ -n "$ip" ] || die "could not find this server's address; run: sudo DEPLOY_HOST=<its public address> nikou github-deploy"
+  [ -r /etc/ssh/ssh_host_ed25519_key.pub ] || die "this server has no ed25519 SSH host key (/etc/ssh/ssh_host_ed25519_key.pub)"
+  command -v ssh-keygen >/dev/null || apt-get install -y -q openssh-client >/dev/null
+  say "The key-only user GitHub copies releases as ($du)"
+  id "$du" >/dev/null 2>&1 || { useradd -m -s /bin/bash "$du"; passwd -l "$du" >/dev/null; }
+  install -d -m 755 "$ROOT"; install -d -o root -g "$du" -m 2775 "$ROOT/incoming"
+  install -d -m 700 -o "$du" -g "$du" "/home/$du/.ssh"
+  dir=$(mktemp -d); chmod 700 "$dir"
+  trap 'shred -u "$dir"/key "$dir"/key.pub 2>/dev/null; rm -rf "$dir"; trap - RETURN' RETURN
+  ssh-keygen -q -t ed25519 -N "" -C nikou-github-deploy -f "$dir/key"
+  # One GitHub key at a time: an older one made here is replaced.
+  touch "/home/$du/.ssh/authorized_keys"
+  grep -v ' nikou-github-deploy$' "/home/$du/.ssh/authorized_keys" >"$dir/keep" || true
+  cat "$dir/keep" "$dir/key.pub" >"/home/$du/.ssh/authorized_keys"
+  chown "$du:$du" "/home/$du/.ssh/authorized_keys"; chmod 600 "/home/$du/.ssh/authorized_keys"
+  {
+    printf '\nA new key was made and given to the user %s. Now four short steps on GitHub.\n' "$du"
+    printf '\nStep 1 of 4. Open https://github.com/%s/settings/environments\n  Open the environment called production (press "New environment" if there is none).\n' "$repo"
+    deploy_wait
+    printf '\nStep 2 of 4. Under "Environment secrets" press "Add environment secret".\n  Name:  DEPLOY_SSH_KEY\n  Value: everything between the lines below, including the BEGIN and END lines (select with the mouse, copy):\n\n'
+    cat "$dir/key"
+    printf '\n'
+    deploy_wait
+    printf '\nStep 3 of 4. Add more environment secrets:\n  Name: DEPLOY_USER   Value: %s\n  Name: DEPLOY_HOST   Value: %s\n' "$du" "$ip"
+    if [ "$MODE" = docker ]; then printf '  Name: DEPLOY_MODE   Value: docker   (this server runs the Docker images; GitHub then only tells it to pull the new ones)\n'; fi
+    deploy_wait
+    printf '\nStep 4 of 4. Add the last one:\n  Name:  DEPLOY_KNOWN_HOSTS\n  Value: %s\n' "$(deploy_known_hosts "$ip")"
+    deploy_wait
+    printf '\nThe secret key is deleted from this server now. From the next release (a v... tag) GitHub sends it here by itself;\nit is applied at %s Tehran time, or at once with: sudo nikou upgrade-scheduled\n' "$UPGRADE_AT"
+  } >/dev/tty
+  install -d -m 755 "$CONF_DIR"; : > "$CONF_DIR/github-deploy.done"
+}
+
+# ---------------------------------------------------------------------------------------------------------
+# nikou restore-test: put the newest backup into a scratch database, check it, throw it away. The live database is never touched.
+RESTORE_DB=nikou_restore_test
+swap_db() { database_url | sed -E "s#/$DB_NAME(\\?.*)?\$#/$1\\1#"; }
+scratch_sql() {   # scratch_sql <database> [psql args] < sql
+  local db=$1; shift
+  if [ "$DB_MODE" = builtin ]; then compose exec -T db psql -U "$DB_USER" -d "$db" -X -q "$@"; else "$(pg_tool psql)" "$(swap_db "$db")" -X -q "$@"; fi
+}
+restore_db_drop() {
+  case "$DB_MODE" in
+    local | apt) runuser -u postgres -- psql -X -q -c "DROP DATABASE IF EXISTS $RESTORE_DB" >/dev/null 2>&1 || true ;;
+    *) echo "DROP DATABASE IF EXISTS $RESTORE_DB;" | scratch_sql postgres >/dev/null 2>&1 || true ;;
+  esac
+}
+restore_db_create() {
+  restore_db_drop
+  case "$DB_MODE" in
+    local | apt) runuser -u postgres -- createdb -O "$DB_USER" "$RESTORE_DB" ;;
+    *) echo "CREATE DATABASE $RESTORE_DB;" | scratch_sql postgres -v ON_ERROR_STOP=1 >/dev/null ;;
+  esac
+}
+count_tables() { echo "select count(*) from information_schema.tables where table_schema = 'public'" | scratch_sql "$1" -tA; }
+cmd_restore_test() {
+  need_root restore-test; load_conf
+  local dump media got live
+  install -d "$DATA"
+  dump=$(ls -1t "$BACKUPS"/nikou-db-*.sql.gz 2>/dev/null | head -1 || true)
+  [ -n "$dump" ] || die "no backup found in $BACKUPS yet (sudo nikou backup)"
+  gzip -t "$dump" || die "restore test FAILED: the newest database backup is damaged ($dump)"
+  media=$(ls -1t "$BACKUPS"/nikou-media-*.tar.gz 2>/dev/null | head -1 || true)
+  if [ -n "$media" ]; then tar -tzf "$media" >/dev/null 2>&1 || die "restore test FAILED: the newest files backup is damaged ($media)"; fi
+  if ! restore_db_create 2>/dev/null; then
+    warn "could not make a scratch database (the database user needs the CREATEDB right), so only the backup files were checked (they are readable)"
+    return 0
+  fi
+  if ! gunzip -c "$dump" | scratch_sql "$RESTORE_DB" -v ON_ERROR_STOP=1 >/dev/null 2>"$DATA/restore-test.err"; then
+    local why; why=$(tail -n 5 "$DATA/restore-test.err" 2>/dev/null || true)
+    restore_db_drop; die "restore test FAILED: $(basename "$dump") does not restore. $why"
+  fi
+  got=$(count_tables "$RESTORE_DB" || echo 0); live=$(count_tables "$DB_NAME" || echo -1)
+  restore_db_drop; rm -f "$DATA/restore-test.err"
+  [[ $got =~ ^[0-9]+$ ]] && [ "$got" -ge 1 ] && [ "$got" = "$live" ] || die "restore test FAILED: the restored copy has $got tables, the live database $live"
+  say "restore test passed: $(basename "$dump") restores into $got tables, like the live database${media:+; $(basename "$media") is readable}"
 }
 
 cmd_rollback() {
@@ -1123,9 +1464,10 @@ cmd_support_file() {
 menu() {
   command -v whiptail >/dev/null || die "whiptail is not installed; run a command instead (nikou help)"
   local choice arg
-  choice=$(whiptail --title "Nikoo Etemad" --menu "What do you want to do?" 20 70 11 \
+  choice=$(whiptail --title "Nikoo Etemad" --menu "What do you want to do?" 23 76 14 \
     status "Show the state of the site" doctor "Check everything" logs "Follow the site's log" \
-    upgrade "Upgrade to a new version" rollback "Go back to the previous version" backup "Make a backup now" \
+    update "Fetch the newest version; upgrade now or tonight" github-deploy "Let GitHub send new versions here (guided)" \
+    upgrade "Upgrade to a named version or file" restore-test "Test the newest backup in a scratch database" rollback "Go back to the previous version" backup "Make a backup now" \
     maintenance-on "Show the maintenance page" maintenance-off "Hide the maintenance page" \
     first-login "Show the first login again" support-file "Make a file to send for help" 3>&1 1>&2 2>&3) || exit 0
   case "$choice" in
@@ -1136,7 +1478,7 @@ menu() {
   esac
 }
 
-usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; }
 
 main() {
   local cmd=${1:-}
@@ -1145,11 +1487,16 @@ main() {
     "") if [ -t 0 ] && [ -w /dev/tty ]; then need_root; menu; else usage; fi ;;
     install) cmd_install "$@" ;;
     upgrade) cmd_upgrade "$@" ;;
+    update) cmd_update "$@" ;;
+    upgrade-scheduled) alerting "the scheduled upgrade" cmd_upgrade_scheduled "$@" ;;
+    github-deploy) cmd_github_deploy "$@" ;;
+    restore-test) alerting "the backup restore test" cmd_restore_test "$@" ;;
+    health-check) cmd_health_check "$@" ;;
     rollback) cmd_rollback "$@" ;;
     status) cmd_status "$@" ;;
     doctor) cmd_doctor "$@" ;;
     logs) cmd_logs "$@" ;;
-    backup) cmd_backup "$@" ;;
+    backup) if [ "${1:-}" = --quiet ]; then alerting "the nightly backup" cmd_backup "$@"; else cmd_backup "$@"; fi ;;
     restore) cmd_restore "$@" ;;
     maintenance) cmd_maintenance "$@" ;;
     secrets) cmd_secrets "$@" ;;

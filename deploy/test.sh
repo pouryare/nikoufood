@@ -26,7 +26,7 @@ t "port bounds"                       bash -c '. ./nikou; valid_port 3000 && ! v
 t "email"                             bash -c '. ./nikou; valid_email a.b@c.ir && ! valid_email a@b'
 t "safe_secret refuses quotes and \$" bash -c '. ./nikou; safe_secret abc123 && ! safe_secret "a\$b" && ! safe_secret "a\"b" && ! safe_secret ""'
 t "tarball name parsed"               test "$(parse_tarball_name /x/nikoufood-1.2.3-linux-x64.tar.gz)" = '1.2.3 x64'
-t "bad tarball name refused"          bash -c '. ./nikou; ! parse_tarball_name routeflow-1.2.3-linux-x64.tar.gz'
+t "bad tarball name refused"          bash -c '. ./nikou; ! parse_tarball_name other-1.2.3-linux-x64.tar.gz'
 t "Arvan list parsed"                 test "$(printf '1.2.3.0/24\njunk\n2001:db8::/32\n' | parse_cdn_ips | wc -l)" = 2
 
 render() {   # render <name> VAR=value ...   (a fresh answers file each time)
@@ -51,7 +51,7 @@ if docker compose version >/dev/null 2>&1; then
   t "docker compose accepts it"   docker compose -f "$TMP/d1/docker-compose.yml" config -q
 fi
 
-echo "Docker with the PostgreSQL already on the server (RouteFlow's)"
+echo "Docker with the PostgreSQL already on the server (another app's)"
 render d2 MODE=docker DOMAIN=nikoufood.ir DOCKERHUB_USER=pourya DB_MODE=local APP_PORT=3010
 t "app shares the host network"   has "$TMP/d2/docker-compose.yml" "network_mode: host"
 t "app port from the answers"     has "$TMP/d2/docker-compose.yml" 'PORT: "3010"'
@@ -124,6 +124,91 @@ t "Arvan certificate saved"       has "$NIKOU_CONF_DIR/nikou.conf" "CERT_MODE=in
 t "backups saved"                 has "$NIKOU_CONF_DIR/nikou.conf" "BACKUP_ENABLED=1"
 t "seed off saved"                has "$NIKOU_CONF_DIR/nikou.conf" "LOAD_SEED=0"
 t "question flow reached the end" has "$TMP/q2.txt" "CONF_WRITTEN"
+
+echo "Updates, timers, alerts"
+ARCH=$(machine_arch)
+export NIKOU_UNIT_DIR=$TMP/units; mkdir -p "$NIKOU_UNIT_DIR"
+t "nikou and install.sh are valid bash"   bash -c 'bash -n ./nikou && bash -n ./install.sh'
+t "release folder made readable"          bash -c "sed -n '/^unpack_release/,/^}/p' ./nikou | grep -q 'chmod 755 \"\$ROOT/releases/\$version\"'"
+UNIT_DIR=$NIKOU_UNIT_DIR
+( MODE=native DOMAIN=nikoufood.ir UPGRADE_AT=02:45 BACKUP_ENABLED=1; load_conf; systemctl() { :; }; say() { :; }; s_timers )
+t "upgrade timer at the chosen hour"      has "$UNIT_DIR/nikou-upgrade.timer" "OnCalendar=*-*-* 02:45:00 Asia/Tehran"
+t "upgrade timer runs upgrade-scheduled"  has "$UNIT_DIR/nikou-upgrade.service" "ExecStart=/usr/local/bin/nikou upgrade-scheduled"
+t "site check every 10 minutes"           has "$UNIT_DIR/nikou-watch.timer" "OnCalendar=*:0/10"
+t "weekly restore test on Sundays"        has "$UNIT_DIR/nikou-restoretest.timer" "Sun *-*-* 04:20:00 Asia/Tehran"
+t "bad UPGRADE_AT is an error"            bash -c '. ./nikou; UPGRADE_AT=25:99; ! ( s_timers )'
+t "deploy host key line"                  test "$(printf 'ssh-ed25519 AAAAkey root@host\n' > "$TMP/h.pub"; deploy_known_hosts 203.0.113.9 "$TMP/h.pub")" = '203.0.113.9 ssh-ed25519 AAAAkey'
+t "deploy user has its own name"        test "$DEPLOY_USER_NAME" = nikoudeploy
+t "arm64 tarball refused on x64 (and back)" bash -c ". ./nikou; ROOT=$TMP/opt; other=arm64; [ \"$ARCH\" = arm64 ] && other=x64; f=$TMP/nikoufood-1.0.0-linux-\$other.tar.gz; : > \$f; ! ( preflight_tarball \$f )"
+t "not enough disk space refused"         bash -c '. ./nikou; ! ( need_free / 999999999 "a test" )'
+t "enough disk space accepted"            bash -c '. ./nikou; need_free / 1 "a test"'
+t "scratch database address swapped"      bash -c '. ./nikou; DB_NAME=nikou DB_USER=u DB_HOST=127.0.0.1 DB_PORT=5432 DB_MODE=local DB_SSL=0; ENV_FILE='"$TMP"'/e; echo DB_PASSWORD=p > $ENV_FILE; test "$(swap_db nikou_restore_test)" = "postgres://u:p@127.0.0.1:5432/nikou_restore_test"'
+
+# Alert emails: a fake curl records what it was asked to send.
+mkdir -p "$TMP/bin"
+cat > "$TMP/bin/curl" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$CURL_LOG"
+for a in "$@"; do if [ "$prev" = -T ]; then cat "$a" >> "$CURL_LOG"; fi; prev=$a; done
+SH
+chmod +x "$TMP/bin/curl"
+export CURL_LOG=$TMP/curl.log
+printf 'SMTP_HOST=mail.example.ir\nSMTP_PORT=587\nSMTP_USER=bot\nSMTP_PASS=pw\nSMTP_FROM=no-reply@nikoufood.ir\nSMTP_SECURE=false\n' > "$NIKOU_CONF_DIR/env"
+( PATH=$TMP/bin:$PATH; DOMAIN=nikoufood.ir ADMIN_EMAIL=owner@example.ir ALERT_EMAIL=""; notify "backup failed" "disk full" )
+t "alert goes to the SMTP server"         has "$CURL_LOG" "smtp://mail.example.ir:587"
+t "alert goes to the admin by default"    has "$CURL_LOG" "owner@example.ir"
+t "alert has the subject"                 has "$CURL_LOG" "Subject: [nikoufood.ir] backup failed"
+t "alert has the text"                    has "$CURL_LOG" "disk full"
+rm -f "$CURL_LOG"
+( PATH=$TMP/bin:$PATH; DOMAIN=nikoufood.ir ADMIN_EMAIL=owner@example.ir ALERT_EMAIL=ops@example.ir; notify "x" "y" )
+t "ALERT_EMAIL wins over the admin"       has "$CURL_LOG" "ops@example.ir"
+printf 'SMTP_HOST=mail.example.ir\n' > "$NIKOU_CONF_DIR/env"; rm -f "$CURL_LOG"
+( PATH=$TMP/bin:$PATH; DOMAIN=nikoufood.ir ADMIN_EMAIL=owner@example.ir; notify "x" "y" )
+t "no alert without an SMTP password"     test ! -e "$CURL_LOG"
+: > "$NIKOU_CONF_DIR/env"
+# alerting: a failing command (no terminal) mails and returns its failure; a good one is silent
+printf 'SMTP_HOST=mail.example.ir\nSMTP_PASS=pw\n' > "$NIKOU_CONF_DIR/env"; rm -f "$CURL_LOG"
+t "failing job is reported and fails"     bash -c ". ./nikou; PATH=$TMP/bin:\$PATH; DOMAIN=nikoufood.ir; ADMIN_EMAIL=a@b.ir; ! ( alerting 'the test job' bash -c 'echo boom >&2; exit 3' ) </dev/null"
+t "failure mail names the job"            has "$CURL_LOG" "Subject: [nikoufood.ir] the test job failed"
+rm -f "$CURL_LOG"
+t "good job sends nothing"                bash -c ". ./nikou; PATH=$TMP/bin:\$PATH; alerting 'ok job' true </dev/null"
+t "good job: no mail"                     test ! -e "$CURL_LOG"
+: > "$NIKOU_CONF_DIR/env"
+
+# The nightly run, with the upgrade itself replaced by a stub that records what it was given.
+sched() {   # sched <native|docker> -> prints what the nightly run did
+  ( need_root() { :; }; load_conf() { :; }; notify() { :; }
+    MODE=$1; ROOT=$TMP/opt; UPGRADE_AT=03:30; DOMAIN=nikoufood.ir; ADMIN_EMAIL=a@b.ir
+    cmd_upgrade() { echo "UPGRADE $(basename "$1")"; }
+    current_version() { echo "${LIVE:-1.0.0}"; }
+    cmd_upgrade_scheduled )
+}
+rm -rf "$TMP/opt/incoming"; mkdir -p "$TMP/opt/incoming"
+t "nothing waiting: nothing happens"      test "$(sched native)" = "== nothing is waiting"
+for v in 1.1.0 1.2.0; do : > "$TMP/opt/incoming/nikoufood-$v-linux-$ARCH.tar.gz"; done
+: > "$TMP/opt/incoming/nikoufood-1.1.0-linux-$ARCH.tar.gz.sha256"
+t "a tarball without its sum is ignored (still copying)" test "$(sched native)" = "UPGRADE nikoufood-1.1.0-linux-$ARCH.tar.gz"
+: > "$TMP/opt/incoming/nikoufood-1.2.0-linux-$ARCH.tar.gz.sha256"
+t "the newest complete tarball is applied" test "$(sched native)" = "UPGRADE nikoufood-1.2.0-linux-$ARCH.tar.gz"
+t "a waiting version not newer than the live one is skipped" test "$(LIVE=1.2.0 sched native)" = "== the waiting version 1.2.0 is not newer than 1.2.0"
+for v in 0.9.0 1.0.0; do : > "$TMP/opt/incoming/nikoufood-$v-linux-$ARCH.tar.gz"; : > "$TMP/opt/incoming/nikoufood-$v-linux-$ARCH.tar.gz.sha256"; done
+sched native >/dev/null
+t "old tarballs go after an upgrade (newest 2 kept)" test ! -e "$TMP/opt/incoming/nikoufood-0.9.0-linux-$ARCH.tar.gz" -a ! -e "$TMP/opt/incoming/nikoufood-1.0.0-linux-$ARCH.tar.gz" -a -e "$TMP/opt/incoming/nikoufood-1.2.0-linux-$ARCH.tar.gz" -a -e "$TMP/opt/incoming/nikoufood-1.1.0-linux-$ARCH.tar.gz"
+rm -rf "$TMP/opt/incoming"; mkdir -p "$TMP/opt/incoming"
+t "docker: nothing waiting"               test "$(sched docker)" = "== nothing is waiting"
+echo latest > "$TMP/opt/incoming/pending-tag"
+t "docker: the waiting tag is applied"    test "$(sched docker)" = "UPGRADE latest"
+t "docker: the note is removed after"     test ! -e "$TMP/opt/incoming/pending-tag"
+
+# Dry run: the questions' answers come from the environment; nothing may be written.
+rm -rf "$TMP/dry"; mkdir -p "$TMP/dry"
+( export NIKOU_CONF_DIR=$TMP/dry NIKOU_ROOT=$TMP/dryopt NIKOU_DATA=$TMP/dryvar NIKOU_CADDY_DIR=$TMP/drycaddy
+  MODE=native DOMAIN=nikoufood.ir ADMIN_EMAIL=a@b.ir DB_MODE=apt BACKUP_ENABLED=1 ./nikou install --dry-run --yes ) > "$TMP/dry.txt" 2>&1
+t "dry run lists the plan"                has "$TMP/dry.txt" "What \"nikou install\" would do (nothing was changed)"
+t "dry run names the Caddy file"          has "$TMP/dry.txt" "nikoufood.caddy"
+t "dry run mentions the timers"           has "$TMP/dry.txt" "upgrade at 03:30 Tehran time"
+t "dry run wrote no answers"              test -z "$(ls -A "$TMP/dry")"
+t "dry run created no folders"            test ! -e "$TMP/dryopt" -a ! -e "$TMP/dryvar" -a ! -e "$TMP/drycaddy"
 
 echo
 [ "$FAIL" = 0 ] && echo "All installer checks passed." || { echo "Some installer checks FAILED."; exit 1; }

@@ -51,7 +51,7 @@ Put nginx in front (`deploy/nginx.conf.sample`) and add a certificate with certb
 
 ## One-command server install (`install.sh`)
 
-`deploy/install.sh` sets the site up on a Debian or Ubuntu server, the same way RouteFlow is installed. It asks questions in plain English and does the rest.
+`deploy/install.sh` sets the site up on a Debian or Ubuntu server, It asks questions in plain English and does the rest.
 
 You only need `install.sh` on the server. It downloads the newest server kit (and, for a native install, the newest site files) from the GitHub release by itself:
 
@@ -62,12 +62,38 @@ You only need `install.sh` on the server. It downloads the newest server kit (an
 The installer asks:
 
 - **Docker or native.** Docker pulls the images from Docker Hub. Native unpacks the release tarball and runs it with systemd (no Docker needed).
-- **Do you already have PostgreSQL?** Yes: connect with host, user and password, or let the installer make a separate database and user inside the PostgreSQL already on the server (for example RouteFlow's) and connect to it by itself. The second choice is offered when PostgreSQL is running on the server and the installer can use the `postgres` superuser. No: the installer installs one for you (a container for Docker, the Debian package for native).
+- **Do you already have PostgreSQL?** Yes: connect with host, user and password, or let the installer make a separate database and user inside the PostgreSQL already on the server and connect to it by itself. The second choice is offered when PostgreSQL is running on the server and the installer can use the `postgres` superuser. No: the installer installs one for you (a container for Docker, the Debian package for native).
 - Website address, port (default 3000), first admin, starter content, mail, ArvanCloud CDN, and optional backups.
 
-It never touches RouteFlow's PostgreSQL settings or its Caddy file. The site gets its own `/etc/caddy/sites/nikoufood.caddy`.
+It never touches another app's PostgreSQL settings or Caddy file. The site gets its own `/etc/caddy/sites/nikoufood.caddy`.
 
 Afterwards use `nikou` (or just `nikou` for a menu): `status`, `upgrade`, `rollback`, `backup`, `restore`, `logs`, `doctor`, `secrets`. Example: `nikou upgrade` downloads the newest version and rolls back by itself if it does not start.
+
+### Updating the site
+
+Every release has a version number, and a server only moves to a higher one. To publish a new version:
+
+```
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+The **Release files** workflow then builds the files, checks that the new tarball really starts and answers, and publishes a GitHub release. (The **Run workflow** button does the same with the `version` in `package.json`.) For Docker servers the **Docker** workflow builds the images on the same tag.
+
+On the server there are two ways to apply it, and both give the same two choices, **now** or **tonight**:
+
+- **By hand:** `sudo nikou update` downloads the newest version (Docker: pulls the newest images), then asks `Upgrade now?`. Answer no and it is applied tonight at `UPGRADE_AT` (default 03:30 Tehran time, set in `/etc/nikou/nikou.conf`). Use `--now` or `--tonight` to skip the question. A waiting version can be applied at once with `sudo nikou upgrade-scheduled`.
+- **By itself:** `sudo nikou github-deploy` (the installer offers it at the end) makes a key-only user called `nikoudeploy` and a key, then shows four secrets one at a time to paste into GitHub (environment `production`: `DEPLOY_SSH_KEY`, `DEPLOY_USER`, `DEPLOY_HOST`, `DEPLOY_KNOWN_HOSTS`; for a Docker server also `DEPLOY_MODE` = `docker`). After that, each new `v...` tag is sent to the server by the **deploy** job and applied tonight. Run it again to replace the key.
+
+If the server cannot reach GitHub, `install.sh` and `nikou update` say which files to upload by hand with `scp`, wait for them, and go on by themselves.
+
+Before an upgrade the installer checks that the file is for this machine type (x64 or arm64) and that there is enough free disk space, and changes nothing if not. A failed upgrade goes back to the previous version by itself.
+
+### Safety nets
+
+- **Dry run:** `sudo nikou install --dry-run` asks the questions and lists everything the install would do. Nothing is written or changed.
+- **Restore test:** every Sunday the newest backup is restored into a scratch database, compared with the live one and thrown away (`sudo nikou restore-test` does it now). The live database is never touched. The backup holds both the database and the uploaded pictures.
+- **Alerts by email:** if the mail settings are set, a failed backup, upgrade or restore test, and a site that does not answer twice in a row (checked every 10 minutes), are emailed to the alert address (asked with the mail questions; default is the admin email). `sudo nikou doctor` shows whether all of this is switched on.
 
 ## Local notes
 

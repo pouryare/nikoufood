@@ -8,7 +8,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 ARCH=x64
 NODE_VERSION=${NODE_VERSION:-22.23.4}
-VERSION=$(node -p "require('./package.json').version")
+VERSION=${RELEASE_VERSION:-$(node -p "require('./package.json').version")}   # the release workflow passes the tag's version
 NAME=nikoufood-$VERSION-linux-$ARCH
 OUT=dist/$NAME
 rm -rf "$OUT" dist/"$NAME".tar.gz* && mkdir -p "$OUT/app" "$OUT/tools" dist
