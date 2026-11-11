@@ -1,0 +1,43 @@
+# Builds the files for a NATIVE install (no Docker) and the two-file server kit.
+#   - run by hand: Actions → "Release files" → Run workflow
+#   - or push a tag such as v1.0.0 (the files are then also attached to a GitHub release)
+# The result is published as a GitHub release (and kept as a run artifact). install.sh on the server downloads it by itself.
+# By hand you can still copy:
+#   nikoufood-server-kit.tar.gz  (install.sh + nikou)   and   nikoufood-<version>-linux-x64.tar.gz (+ .sha256)
+name: Release files
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: bash scripts/release/pack.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nikoufood-release
+          path: dist/nikoufood-*
+          retention-days: 30
+      - name: Version for the release name
+        id: ver
+        run: echo "v=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      # install.sh downloads "the latest release", so every run publishes one (the same version is updated in place).
+      - name: Publish the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.v }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          files: dist/nikoufood-*

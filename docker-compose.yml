@@ -1,0 +1,62 @@
+# Run on the ArvanCloud VPS:
+#   cp .env.example .env   (fill it in)   →   docker compose up -d --build
+#   first time only:  docker compose run --rm tools pnpm seed
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nikou
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      POSTGRES_DB: nikou
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nikou']
+      interval: 5s
+      retries: 10
+
+  # Applies database changes before the site starts (safe to run again).
+  migrate:
+    build: { context: ., target: tools }
+    command: pnpm migrate
+    environment: &env
+      DATABASE_URL: postgres://nikou:${DB_PASSWORD}@db:5432/nikou
+      PAYLOAD_SECRET: ${PAYLOAD_SECRET:?set PAYLOAD_SECRET in .env}
+      SITE_URL: ${NEXT_PUBLIC_SITE_URL:?set NEXT_PUBLIC_SITE_URL in .env}
+      NODE_ENV: production
+      MEDIA_DIR: /data/media
+      FONTS_DIR: /data/media/fonts
+      IP_HASH_SALT: ${IP_HASH_SALT:-}
+      NOTIFY_EMAILS: ${NOTIFY_EMAILS:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    depends_on: { db: { condition: service_healthy } }
+    restart: 'no'
+
+  app:
+    build: { context: ., target: runner }
+    restart: unless-stopped
+    environment: *env
+    volumes:
+      - media:/data/media
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on: { migrate: { condition: service_completed_successfully } }
+
+  # Same source, for one-off jobs:  docker compose run --rm tools pnpm seed
+  tools:
+    build: { context: ., target: tools }
+    profiles: [tools]
+    environment: *env
+    volumes:
+      - media:/data/media
+    depends_on: { db: { condition: service_healthy } }
+
+volumes:
+  db-data:
+  media:
