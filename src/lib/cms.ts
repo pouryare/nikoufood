@@ -124,11 +124,28 @@ export async function articlesEnabled(): Promise<boolean> {
 /* ---------- small helpers shared by pages ---------- */
 export type { Brand, Product }
 
-export function mediaOf(value: unknown): { url: string; alt: string; width?: number; height?: number; mimeType?: string } | null {
+export type MediaInfo = {
+  url: string
+  alt: string
+  width?: number
+  height?: number
+  mimeType?: string
+  /** The editor's focal point as a CSS object-position, so a cropped picture keeps its subject in view. */
+  focal?: string
+}
+
+export function mediaOf(value: unknown): MediaInfo | null {
   if (!value || typeof value !== 'object') return null
-  const m = value as { url?: string | null; alt?: string; width?: number | null; height?: number | null; mimeType?: string | null }
+  const m = value as { url?: string | null; alt?: string; width?: number | null; height?: number | null; mimeType?: string | null; focalX?: number | null; focalY?: number | null }
   if (!m.url) return null
-  return { url: m.url, alt: m.alt ?? '', width: m.width ?? undefined, height: m.height ?? undefined, mimeType: m.mimeType ?? undefined }
+  return {
+    url: m.url,
+    alt: m.alt ?? '',
+    width: m.width ?? undefined,
+    height: m.height ?? undefined,
+    mimeType: m.mimeType ?? undefined,
+    focal: typeof m.focalX === 'number' && typeof m.focalY === 'number' ? `${m.focalX}% ${m.focalY}%` : undefined,
+  }
 }
 
 /* ---------- interface texts ---------- */

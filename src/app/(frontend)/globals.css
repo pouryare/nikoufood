@@ -594,7 +594,6 @@
 .film-half-animal .film-art {
   color: var(--animal);
 }
-.film-shade,
 .film-divider {
   display: none;
 }
@@ -726,13 +725,25 @@
   transform: scale(calc(1.12 - var(--k, 0) * 0.12));
   will-change: transform;
 }
-.film[data-mode='pinned'] .film-shade {
-  display: block;
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(to top, color-mix(in oklab, var(--nk-bg) 96%, transparent) 6%, color-mix(in oklab, var(--nk-bg) 58%, transparent) 40%, transparent 72%),
-    linear-gradient(to bottom, color-mix(in oklab, var(--nk-bg) 78%, transparent), transparent 24%);
+/* Photos sit where the drawings sit and melt into the background, so the text always has a clean surface. */
+.film[data-mode='pinned'] .film-media[data-media='photo'] {
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+.film[data-mode='pinned'] .film-scene[data-layout='single'] > .film-media[data-media='photo'] {
+  right: auto;
+  width: 76%;
+  -webkit-mask-image: linear-gradient(to right, #000 56%, transparent 100%), linear-gradient(to top, transparent, #000 18%);
+  mask-image: linear-gradient(to right, #000 56%, transparent 100%), linear-gradient(to top, transparent, #000 18%);
+}
+.film[data-mode='pinned'] .film-scene[data-photo] .film-copy-in {
+  max-width: 31rem;
+}
+.film[data-mode='pinned'] .film-half .film-media[data-media='photo'] {
+  bottom: auto;
+  height: 70%;
+  -webkit-mask-image: linear-gradient(to top, transparent, #000 34%);
+  mask-image: linear-gradient(to top, transparent, #000 34%);
 }
 /* whole scene without a photo: the drawing sits on the free side over a soft glow */
 .film[data-mode='pinned'] .film-scene[data-layout='single'] > .film-media[data-media='art'] {
@@ -956,6 +967,22 @@
   .film[data-mode='pinned'] .film-half .film-art {
     height: min(20svh, 30vw);
   }
+  .film[data-mode='pinned'] .film-scene[data-layout='single'] > .film-media[data-media='photo'] {
+    right: 0;
+    bottom: auto;
+    width: 100%;
+    height: 60%;
+    -webkit-mask-image: linear-gradient(to top, transparent, #000 36%);
+    mask-image: linear-gradient(to top, transparent, #000 36%);
+  }
+  .film[data-mode='pinned'] .film-half .film-media[data-media='photo'] {
+    right: auto;
+    bottom: 0;
+    width: 54%;
+    height: 100%;
+    -webkit-mask-image: linear-gradient(to right, #000 42%, transparent 100%);
+    mask-image: linear-gradient(to right, #000 42%, transparent 100%);
+  }
   .film[data-mode='pinned'] .film-half-copy {
     inset-inline: 1.25rem 36vw;
     bottom: 1.1rem;
@@ -998,4 +1025,264 @@
   .film-path-label {
     display: none;
   }
+}
+
+/* ------------------------------------------------------------------
+   Iran coverage map
+   ------------------------------------------------------------------ */
+.network-map {
+  --cov-direct: var(--nk-gold);
+  --cov-covered: color-mix(in oklab, var(--nk-gold) 52%, var(--nk-raised));
+  --cov-open: color-mix(in oklab, var(--nk-accent) 20%, var(--nk-raised));
+  --cov-soon: var(--nk-surface);
+  display: grid;
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  align-items: center;
+}
+@media (min-width: 1024px) {
+  .network-map {
+    grid-template-columns: minmax(0, 1.45fr) minmax(19rem, 0.8fr);
+  }
+}
+.network-map-stage {
+  position: relative;
+  aspect-ratio: 654 / 593;
+  max-height: 46rem;
+  width: 100%;
+  margin-inline: auto;
+}
+.network-map-stage::before {
+  content: '';
+  position: absolute;
+  inset: 8% 6%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--nk-gold) 13%, transparent), transparent);
+  filter: blur(30px);
+  pointer-events: none;
+}
+.iran-map {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transition: opacity 0.6s var(--ease-out-quart);
+}
+.network-map-stage[data-3d] .iran-map {
+  opacity: 0;
+  pointer-events: none;
+}
+.network-map-3d {
+  position: absolute;
+  inset: -4% -8%;
+  opacity: 0;
+  transition: opacity 0.8s var(--ease-out-quart);
+}
+.network-map-stage[data-3d] .network-map-3d {
+  opacity: 1;
+}
+.iran-map-land path {
+  fill: var(--cov-soon);
+  stroke: var(--nk-bg);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+  cursor: pointer;
+  transition:
+    fill 0.3s var(--ease-out-quart),
+    filter 0.3s var(--ease-out-quart);
+}
+.iran-map-land path[data-coverage='direct'] {
+  fill: var(--cov-direct);
+}
+.iran-map-land path[data-coverage='covered'] {
+  fill: var(--cov-covered);
+}
+.iran-map-land path[data-coverage='open'] {
+  fill: var(--cov-open);
+}
+.iran-map-land path.is-hovered,
+.iran-map-land path.is-selected {
+  fill: var(--nk-cream);
+  filter: drop-shadow(0 0 10px color-mix(in oklab, var(--nk-gold) 70%, transparent));
+}
+.iran-map-routes {
+  pointer-events: none;
+  fill: none;
+}
+.iran-map-route {
+  stroke: var(--nk-gold);
+  stroke-width: 0.7;
+  opacity: 0.2;
+}
+.is-active > .iran-map-route {
+  opacity: 0.95;
+  stroke-width: 1.4;
+}
+.iran-map-pulse {
+  stroke: var(--nk-cream);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-dasharray: 0.14 1;
+  stroke-dashoffset: 0.14;
+  animation: map-pulse 4.2s linear infinite;
+}
+@keyframes map-pulse {
+  to {
+    stroke-dashoffset: -1;
+  }
+}
+.iran-map-node {
+  fill: var(--nk-gold);
+  opacity: 0.75;
+}
+.iran-map-hub {
+  fill: var(--nk-bg);
+  stroke: var(--nk-cream);
+  stroke-width: 2;
+}
+.iran-map-hub-ring {
+  fill: none;
+  stroke: var(--nk-cream);
+  stroke-width: 1.2;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: map-ring 2.6s var(--ease-out-quart) infinite;
+}
+@keyframes map-ring {
+  from {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(4.2);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .iran-map-pulse,
+  .iran-map-hub-ring {
+    animation: none;
+    opacity: 0;
+  }
+}
+.network-map-hint {
+  position: absolute;
+  inset-inline: 0;
+  bottom: -0.5rem;
+  text-align: center;
+  font-size: var(--text-micro);
+  color: var(--nk-muted);
+}
+.network-map-side {
+  display: grid;
+  gap: 1.25rem;
+}
+.network-map-select {
+  position: relative;
+  display: grid;
+  gap: 0.5rem;
+  font-size: var(--text-small);
+  color: var(--nk-muted);
+}
+.network-map-select select {
+  appearance: none;
+  width: 100%;
+  height: 3.25rem;
+  padding-inline: 1.1rem 2.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--nk-line);
+  background: var(--nk-surface);
+  color: var(--nk-text);
+  font: inherit;
+  font-size: var(--text-body);
+}
+.network-map-select select:focus-visible {
+  outline: 2px solid var(--nk-gold);
+  outline-offset: 2px;
+}
+.network-map-select svg {
+  position: absolute;
+  inset-inline-end: 1rem;
+  bottom: 1.05rem;
+  pointer-events: none;
+}
+.network-map-card {
+  padding: clamp(1.5rem, 3vw, 2.25rem);
+  min-height: 15rem;
+}
+.network-map-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--nk-line);
+  font-size: var(--text-small);
+  font-weight: 700;
+}
+.network-map-status::before,
+.network-map-swatch {
+  content: '';
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--cov-soon);
+  border: 1px solid color-mix(in oklab, var(--nk-text) 30%, transparent);
+}
+[data-coverage='direct'].network-map-status::before,
+.network-map-swatch[data-coverage='direct'] {
+  background: var(--cov-direct);
+}
+[data-coverage='covered'].network-map-status::before,
+.network-map-swatch[data-coverage='covered'] {
+  background: var(--cov-covered);
+}
+[data-coverage='open'].network-map-status::before,
+.network-map-swatch[data-coverage='open'] {
+  background: var(--cov-open);
+}
+.network-map-partner {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--nk-line);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+.network-map-partner-logo {
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  flex: none;
+  padding: 0.5rem;
+  border-radius: var(--radius-md);
+  border: 1px dashed color-mix(in oklab, var(--nk-gold) 55%, transparent);
+  background: var(--nk-bg);
+  color: var(--nk-gold);
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.6rem;
+}
+.network-map-partner-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-inline-start: auto;
+  font-size: var(--text-small);
+  font-weight: 700;
+  color: var(--nk-gold);
+}
+.network-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.4rem;
+  font-size: var(--text-small);
+  color: var(--nk-muted);
+}
+.network-map-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }

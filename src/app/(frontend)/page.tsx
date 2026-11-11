@@ -1,4 +1,5 @@
 import { Hero } from '@/components/home/Hero'
+import { NetworkSection } from '@/components/home/NetworkSection'
 import { isFilmArt } from '@/components/home/FilmArt'
 import { OriginFilm, type FilmScene, type FilmSide } from '@/components/home/OriginFilm'
 import { getHomePage, getSiteSettings, getTheme, getUi, mediaOf } from '@/lib/cms'
@@ -64,6 +65,12 @@ export default async function HomePage() {
           scenes={scenes}
         />
       ) : null}
+      <NetworkSection
+        head={home.distribution ?? {}}
+        tehran={{ title: home.distribution?.tehranTitle, text: home.distribution?.tehranText }}
+        others={{ title: home.distribution?.provincesTitle, text: home.distribution?.provincesText }}
+        cta={{ label: home.map?.ctaLabel, href: '/network' }}
+      />
     </>
   )
 }

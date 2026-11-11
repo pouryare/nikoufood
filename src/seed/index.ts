@@ -19,10 +19,11 @@ async function main() {
   payload.logger.info('Seeding starter content…')
 
   /* logos */
-  const upload = async (file: string, alt: string) => {
+  const upload = async (file: string, alt: string, focal?: readonly number[]) => {
     const existingMedia = await payload.find({ collection: 'media', where: { filename: { equals: path.basename(file) } }, limit: 1 })
     if (existingMedia.docs[0]) return existingMedia.docs[0].id
-    const doc = await payload.create({ collection: 'media', data: { alt }, filePath: path.resolve(process.cwd(), file) })
+    const data = focal?.length === 2 ? { alt, focalX: focal[0], focalY: focal[1] } : { alt }
+    const doc = await payload.create({ collection: 'media', data, filePath: path.resolve(process.cwd(), file) })
     return doc.id
   }
   const logoMark = await upload('public/brand/nikou-mark.png', 'نماد لوگوی نیکو اعتماد')
@@ -74,7 +75,20 @@ async function main() {
   await payload.updateGlobal({ slug: 'site-settings', data: { ...c.siteSettings, logoMark, defaultProductImage } })
   await payload.updateGlobal({ slug: 'navigation', data: c.navigation })
 
-  await payload.updateGlobal({ slug: 'home-page', data: c.homePage as never })
+  // Film scenes name their starter pictures by file; the CMS stores the uploaded media ids.
+  type SeedPicture = { file: string; alt: string; focal?: readonly number[] }
+  type SeedSide = { picture?: SeedPicture; pictureMobile?: SeedPicture } & Record<string, unknown>
+  const filmSide = async (side?: SeedSide) => {
+    if (!side) return undefined
+    const { picture, pictureMobile, ...rest } = side
+    const put = (pic?: SeedPicture) => (pic ? upload(`src/seed/assets/film/${pic.file}`, pic.alt, pic.focal) : undefined)
+    return { ...rest, image: await put(picture), imageMobile: await put(pictureMobile) }
+  }
+  const scenes = []
+  for (const scene of c.homePage.film.scenes as Array<{ single?: SeedSide; plant?: SeedSide; animal?: SeedSide } & Record<string, unknown>>) {
+    scenes.push({ ...scene, single: await filmSide(scene.single), plant: await filmSide(scene.plant), animal: await filmSide(scene.animal) })
+  }
+  await payload.updateGlobal({ slug: 'home-page', data: { ...c.homePage, film: { ...c.homePage.film, scenes } } as never })
   await payload.updateGlobal({ slug: 'about-page', data: c.aboutPage as never })
   await payload.updateGlobal({ slug: 'network-page', data: c.networkPage as never })
   await payload.updateGlobal({ slug: 'representation-page', data: c.representationPage as never })

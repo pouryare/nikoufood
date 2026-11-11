@@ -10,7 +10,7 @@ import { toFa } from '@/lib/format'
 import { prefersReducedMotion } from '@/lib/webgl'
 import { FilmArt, type FilmArtName } from './FilmArt'
 
-type Picture = { url: string; alt: string }
+type Picture = { url: string; alt: string; focal?: string }
 
 /** One picture area: a whole scene, or one half of a split scene. */
 export type FilmSide = {
@@ -58,25 +58,32 @@ function enterOf(scenes: FilmScene[], i: number): Enter {
   return cur === 'single' ? 'close' : 'slide'
 }
 
+const hasPhoto = (side: FilmSide) => Boolean(side.video || side.image)
+
 function SideMedia({ side, baked }: { side: FilmSide; baked: boolean }) {
   if (baked) return null
-  const photo = Boolean(side.video || side.image)
   return (
-    <>
-      <div className="film-media" data-media={photo ? 'photo' : 'art'}>
-        {side.video ? (
-          <video src={side.video.url} muted playsInline preload="metadata" poster={side.image?.url} aria-hidden tabIndex={-1} />
-        ) : side.image ? (
-          <>
-            <Image src={side.image.url} alt={side.image.alt} fill sizes="100vw" className={cn('object-cover', side.imageMobile && 'max-md:hidden')} />
-            {side.imageMobile ? <Image src={side.imageMobile.url} alt={side.imageMobile.alt} fill sizes="100vw" className="object-cover md:hidden" /> : null}
-          </>
-        ) : side.art ? (
-          <FilmArt name={side.art} className="film-art" />
-        ) : null}
-      </div>
-      {photo ? <div className="film-shade" aria-hidden /> : null}
-    </>
+    <div className="film-media" data-media={hasPhoto(side) ? 'photo' : 'art'}>
+      {side.video ? (
+        <video src={side.video.url} muted playsInline preload="metadata" poster={side.image?.url} aria-hidden tabIndex={-1} />
+      ) : side.image ? (
+        <>
+          <Image
+            src={side.image.url}
+            alt={side.image.alt}
+            fill
+            sizes="(min-width: 768px) 75vw, 100vw"
+            style={{ objectPosition: side.image.focal }}
+            className={cn('object-cover', side.imageMobile && 'max-md:hidden')}
+          />
+          {side.imageMobile ? (
+            <Image src={side.imageMobile.url} alt={side.imageMobile.alt} fill sizes="100vw" style={{ objectPosition: side.imageMobile.focal }} className="object-cover md:hidden" />
+          ) : null}
+        </>
+      ) : side.art ? (
+        <FilmArt name={side.art} className="film-art" />
+      ) : null}
+    </div>
   )
 }
 
@@ -263,6 +270,7 @@ export function OriginFilm({ eyebrow, title, intro, plantLabel, animalLabel, fil
                   }}
                   className="film-scene"
                   data-layout={scene.layout}
+                  data-photo={scene.layout === 'single' && !baked && hasPhoto(scene.side) ? '' : undefined}
                   data-enter={enter}
                   data-exit={exit}
                 >
