@@ -242,12 +242,110 @@ rm -f "$CURL_LOG"; out=$(arvan)
 t "new record is created"                 has "$CURL_LOG" "POST /domains/nikoufood.ir/dns-records"
 t "record points at the server, cloud on" has "$CURL_LOG" '"ip":"203.0.113.9"'
 t "record has the cloud switched on"      has "$CURL_LOG" '"cloud":true'
+rm -f "$CURL_LOG"; ( PATH=$TMP/bin:$PATH; DOMAIN=shop.nikoufood.ir; ARVAN_API_KEY=k123; say() { :; }; arvan_point_domain 203.0.113.9 false ) >/dev/null 2>&1
+t "first record keeps the cloud off"      has "$CURL_LOG" '"cloud":false'
+( CERT_WAIT_TRIES=2 CERT_WAIT_SLEEP=0; cert_ready() { return 1; }; wait_for_cert ) && r=0 || r=$?
+t "no certificate: waiting gives up"      test "$r" = 1
+( CERT_WAIT_TRIES=3 CERT_WAIT_SLEEP=0; cert_ready() { return 0; }; wait_for_cert ) && r=0 || r=$?
+t "certificate there: wait ends at once"  test "$r" = 0
 t "managed HTTPS is asked for"            has "$CURL_LOG" "PATCH /domains/nikoufood.ir/ssl"
 t "success is reported"                   test "$out" = "Arvan: shop.nikoufood.ir now points at 203.0.113.9 with the cloud switched on"
 rm -f "$CURL_LOG"; FAKE_RECORDS='[{"id":"r1","type":"A","name":"shop"}]' arvan >/dev/null
 t "an existing record is changed, not duplicated" has "$CURL_LOG" "PUT /domains/nikoufood.ir/dns-records/r1"
 rm -f "$CURL_LOG"; out=$(DOM=x.missing.ir arvan) || true
 t "a domain not in the account is explained" bash -c "echo '$out' | grep -q 'missing.ir is not in your Arvan account'"
+
+echo "Parallel resumable download, small update"
+cat > "$TMP/range-server.py" <<'PY'
+# A small file server that understands Range requests. With DROP_FIRST=1 it cuts its first six answers short
+# (half the bytes, then closes), to prove the downloader carries on from the bytes it already has.
+import http.server, os, re, sys
+root, port, drop = sys.argv[1], int(sys.argv[2]), os.environ.get("DROP_FIRST") == "1"
+drops = [6]
+class H(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *a): pass
+    def do_GET(self):
+        path = os.path.join(root, self.path.lstrip("/"))
+        if not os.path.isfile(path): self.send_error(404); return
+        data = open(path, "rb").read()
+        rng = self.headers.get("Range")
+        a, b = 0, len(data) - 1
+        if rng:
+            m = re.match(r"bytes=(\d+)-(\d*)", rng); a = int(m.group(1)); b = int(m.group(2)) if m.group(2) else b
+            self.send_response(206); self.send_header("Content-Range", "bytes %d-%d/%d" % (a, b, len(data)))
+        else:
+            self.send_response(200)
+        body = data[a:b + 1]
+        self.send_header("Content-Length", str(len(body))); self.end_headers()
+        if drop and drops[0] > 0 and len(body) > 1000:
+            drops[0] -= 1; self.wfile.write(body[:len(body) // 2]); self.wfile.flush(); self.connection.close(); return
+        self.wfile.write(body)
+http.server.ThreadingHTTPServer(("127.0.0.1", port), H).serve_forever()
+PY
+mkdir -p "$TMP/www"; head -c 9000017 /dev/urandom > "$TMP/www/big.bin"; head -c 1000 /dev/urandom > "$TMP/www/small.bin"
+serve() { ( DROP_FIRST=$2 python3 "$TMP/range-server.py" "$TMP/www" "$1" >/dev/null 2>&1 & echo $! ); sleep 1; }
+dl() {   # dl <port> <file> -> downloads with 4 pieces into $TMP/dl and prints the result's checksum
+  ( ROOT=$TMP/dlroot; GITHUB_TOKEN=x; DOWNLOAD_SEGMENTS=4; DOWNLOAD_RETRY_WAIT=0
+    download_asset "http://127.0.0.1:$1/$2" "$2" "$(stat -c %s "$TMP/www/$2")" "$TMP/dl" 2>/dev/null && sha256sum "$TMP/dl/$2.part" | cut -d' ' -f1 )
+}
+PID=$(serve 18431 0)
+rm -rf "$TMP/dl"
+t "big file in pieces equals the original" test "$(dl 18431 big.bin)" = "$(sha256sum "$TMP/www/big.bin" | cut -d' ' -f1)"
+t "no piece files are left behind"        test -z "$(ls "$TMP/dl" | grep -v '\.part$')"
+rm -rf "$TMP/dl"
+t "small file in one stream equals the original" test "$(dl 18431 small.bin)" = "$(sha256sum "$TMP/www/small.bin" | cut -d' ' -f1)"
+kill "$PID" 2>/dev/null
+PID=$(serve 18432 1)
+rm -rf "$TMP/dl"
+t "cut connections are resumed (the first six answers cut short)" test "$(dl 18432 big.bin)" = "$(sha256sum "$TMP/www/big.bin" | cut -d' ' -f1)"
+kill "$PID" 2>/dev/null
+
+# Fingerprint of the folders that rarely change
+. ../scripts/release/base-id.sh
+mkdir -p "$TMP/rel/node/bin" "$TMP/rel/tools/node_modules/a" "$TMP/rel/app/node_modules/b" "$TMP/rel/app/.next"
+echo node > "$TMP/rel/node/bin/node"; echo liba > "$TMP/rel/tools/node_modules/a/i.js"; echo libb > "$TMP/rel/app/node_modules/b/i.js"; ln -s ../a "$TMP/rel/tools/node_modules/link"
+ID1=$(base_id "$TMP/rel")
+echo "page" > "$TMP/rel/app/.next/page.js"
+t "the code part does not change the fingerprint" test "$(base_id "$TMP/rel")" = "$ID1"
+echo changed > "$TMP/rel/app/node_modules/b/i.js"
+t "a changed library changes the fingerprint"     test "$(base_id "$TMP/rel")" != "$ID1"
+echo libb > "$TMP/rel/app/node_modules/b/i.js"
+rm "$TMP/rel/tools/node_modules/link"; ln -s ../b "$TMP/rel/tools/node_modules/link"
+t "a changed link changes the fingerprint"        test "$(base_id "$TMP/rel")" != "$ID1"
+rm "$TMP/rel/tools/node_modules/link"; ln -s ../a "$TMP/rel/tools/node_modules/link"
+
+# The small update: live version 1.0.0 has the base; release 1.1.0 comes as a small code-only file
+LIVE=$TMP/sroot/releases/1.0.0; mkdir -p "$LIVE"; cp -a "$TMP/rel/." "$LIVE/"; base_id "$LIVE" > "$LIVE/BASE_ID"; ln -sfn "$LIVE" "$TMP/sroot/current"
+make_app() {   # make_app <version> <base id>: the code-only file of a release, served from $TMP/www
+  local top=nikoufood-$1-linux-$ARCH w=$TMP/mk; rm -rf "$w"; mkdir -p "$w/$top/app/.next" "$w/$top/tools/src"
+  echo "code $1" > "$w/$top/app/.next/page.js"; echo "migration" > "$w/$top/tools/src/m.ts"; echo "$1" > "$w/$top/VERSION"; printf '%s' "$2" > "$w/$top/BASE_ID"
+  tar -czf "$TMP/www/$top.app.tar.gz" -C "$w" "$top"; (cd "$TMP/www" && sha256sum "$top.app.tar.gz" > "$top.app.tar.gz.sha256")
+}
+PID=$(serve 18433 0)
+update_try() {   # update_try <version> -> 0 when the full tarball was put together from the live copy
+  local v=$1 top=nikoufood-$1-linux-$ARCH lines
+  lines="http://127.0.0.1:18433/$top.app.tar.gz $top.app.tar.gz $(stat -c %s "$TMP/www/$top.app.tar.gz")
+http://127.0.0.1:18433/$top.app.tar.gz.sha256 $top.app.tar.gz.sha256 $(stat -c %s "$TMP/www/$top.app.tar.gz.sha256")"
+  ( ROOT=$TMP/sroot; GITHUB_TOKEN=x; mkdir -p "$ROOT/incoming"; fetch_app_update "$lines" "$ROOT/incoming/$top.tar.gz" "$v" "$ARCH" )
+}
+rm -rf "$TMP/sroot/incoming"
+make_app 1.1.0 "$(cat "$LIVE/BASE_ID")"
+t "same base: the full release is put together" update_try 1.1.0
+t "it holds the new code"                     bash -c "tar -xzOf $TMP/sroot/incoming/nikoufood-1.1.0-linux-$ARCH.tar.gz nikoufood-1.1.0-linux-$ARCH/app/.next/page.js | grep -q 'code 1.1.0'"
+t "it holds the live libraries and Node"      bash -c "tar -tzf $TMP/sroot/incoming/nikoufood-1.1.0-linux-$ARCH.tar.gz | grep -q 'app/node_modules/b/i.js' && tar -tzf $TMP/sroot/incoming/nikoufood-1.1.0-linux-$ARCH.tar.gz | grep -q '/node/bin/node'"
+t "its checksum file is right"                bash -c "cd $TMP/sroot/incoming && sha256sum -c nikoufood-1.1.0-linux-$ARCH.tar.gz.sha256"
+make_app 1.2.0 "different-base"
+refused() { ! update_try "$@"; }
+t "another base: the small update is refused (whole release instead)" refused 1.2.0
+t "a refused update leaves no half-made file"  test ! -e "$TMP/sroot/incoming/nikoufood-1.2.0-linux-$ARCH.tar.gz"
+rm -f "$LIVE/BASE_ID"; make_app 1.3.0 "x"
+t "live version without a base id: refused"   refused 1.3.0
+kill "$PID" 2>/dev/null
+
+# update uses a release GitHub already sent
+t "waiting release is found"                  bash -c ". ./nikou; ROOT=$TMP/sroot; test \"\$(newest_incoming)\" = $TMP/sroot/incoming/nikoufood-1.1.0-linux-$ARCH.tar.gz"
+t "newer than live: yes"                      bash -c ". ./nikou; ROOT=$TMP/sroot; newer_than_live 1.1.0"
+t "newer than live: no for the same version"  bash -c ". ./nikou; ROOT=$TMP/sroot; ln -sfn $TMP/sroot/releases/1.0.0 $TMP/sroot/current; ! newer_than_live 1.0.0"
 
 echo
 [ "$FAIL" = 0 ] && echo "All installer checks passed." || { echo "Some installer checks FAILED."; exit 1; }

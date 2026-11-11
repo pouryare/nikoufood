@@ -2,6 +2,7 @@
 # Builds the release tarball for a native install (no Docker) and the two-file server kit.
 #   scripts/release/pack.sh            # dist/nikoufood-<version>-linux-x64.tar.gz (+ .sha256), dist/nikoufood-server-kit.tar.gz
 # Run it on a Linux x64 machine (the native sharp image library is built for the machine that installs it).
+# Two files come out: the whole release, and a small code-only one (see below).
 # The tarball holds the built site, the migration and seed tools with their packages, and its own Node:
 # nothing is downloaded on the server.
 set -euo pipefail
@@ -32,8 +33,17 @@ mkdir -p "$OUT/node" && tar -xJf "$tmp/node.tar.xz" -C "$OUT/node" --strip-compo
 rm -rf "$tmp"
 
 echo "$VERSION" > "$OUT/VERSION"
+# shellcheck disable=SC1091
+. scripts/release/base-id.sh
+base_id "$OUT" > "$OUT/BASE_ID"
+
+# 1. The whole release (a first install, or when a dependency changed).
 tar -czf "dist/$NAME.tar.gz" -C dist "$NAME"
 ( cd dist && sha256sum "$NAME.tar.gz" > "$NAME.tar.gz.sha256" )
+# 2. The small one: the same without Node and the libraries. `nikou update` downloads only this when the live version
+#    has the same BASE_ID, and puts the rest together from its own copy.
+tar -czf "dist/$NAME.app.tar.gz" -C dist --exclude="$NAME/node" --exclude="$NAME/tools/node_modules" --exclude="$NAME/app/node_modules" "$NAME"
+( cd dist && sha256sum "$NAME.app.tar.gz" > "$NAME.app.tar.gz.sha256" )
 rm -rf "$OUT"
 
 # The two files that start an install on a server.

@@ -13,6 +13,9 @@ const securityHeaders = [
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
 ]
 
+// Files that rarely change: browsers and Arvan's servers may keep them for 30 days (and show the old copy for one more day while checking for a new one).
+const longCache = [{ key: 'Cache-Control', value: 'public, max-age=2592000, stale-while-revalidate=86400' }]
+
 const nextConfig: NextConfig = {
   // One self-contained server folder: what the Docker image runs on the VPS.
   output: 'standalone',
@@ -26,10 +29,16 @@ const nextConfig: NextConfig = {
   agentRules: false,
   images: {
     formats: ['image/avif', 'image/webp'],
+    // Keep each optimized picture for 31 days instead of the short default, so it is made once and then served from disk.
+    minimumCacheTTL: 2678400,
     localPatterns: [{ pathname: '/api/media/file/**' }, { pathname: '/brand/**' }],
   },
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }]
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      { source: '/brand/:path*', headers: longCache },
+      { source: '/api/media/file/:path*', headers: longCache },
+    ]
   },
   webpack: (webpackConfig) => {
     webpackConfig.resolve.extensionAlias = {

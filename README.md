@@ -64,7 +64,7 @@ The installer asks:
 - **Docker or native.** Docker pulls the images from Docker Hub. Native unpacks the release tarball and runs it with systemd (no Docker needed).
 - **Do you already have PostgreSQL?** Yes: connect with host, user and password, or let the installer make a separate database and user inside the PostgreSQL already on the server and connect to it by itself. The second choice is offered when PostgreSQL is running on the server and the installer can use the `postgres` superuser. No: the installer installs one for you (a container for Docker, the Debian package for native).
 - Website address, port (default 3000), first admin, starter content, mail, ArvanCloud CDN, and optional backups.
-- **Arvan API key (optional, asked when the site is behind Arvan).** With it the installer adds the A record of the address in Arvan by itself, with the cloud switched on, and asks Arvan for managed HTTPS. The domain must already be in your Arvan account. Without a key it tells you what record to add by hand. `sudo nikou arvan-dns` does just this step later. The key is kept in `/etc/nikou/arvan-key`, readable by root only, and is never given to the site.
+- **Arvan API key (optional, asked when the site is behind Arvan).** With it the installer adds the A record of the address in Arvan by itself, first with the cloud switched off. Arvan's cloud would answer Let's Encrypt's check instead of your server and the certificate would never be issued (error 502). Once Caddy has its certificate the installer switches the cloud on, and asks Arvan for managed HTTPS. The domain must already be in your Arvan account. Without a key it tells you what record to add by hand. `sudo nikou arvan-dns` does just this step later (also the fix if you see a 502 right after installing). The key is kept in `/etc/nikou/arvan-key`, readable by root only, and is never given to the site.
 
 It never touches another app's PostgreSQL settings or Caddy file. The site gets its own `/etc/caddy/sites/nikoufood.caddy`.
 
@@ -83,6 +83,7 @@ The **Release files** workflow then builds the files, checks that the new tarbal
 
 On the server there are two ways to apply it, and both give the same two choices, **now** or **tonight**:
 
+- **Downloads are fast and resumable:** a release is fetched in 8 parallel pieces, each retried, so a poor connection does not start over. Every release has two files: the full one (site, Node and tools) and a small `.app.tar.gz` with only the site code. If Node and the libraries did not change, `nikou update` downloads just the small file (about 10 MB instead of 370 MB) and builds the full release on the server.
 - **By hand:** `sudo nikou update` downloads the newest version (Docker: pulls the newest images), then asks `Upgrade now?`. Answer no and it is applied tonight at `UPGRADE_AT` (default 03:30 Tehran time, set in `/etc/nikou/nikou.conf`). Use `--now` or `--tonight` to skip the question. A waiting version can be applied at once with `sudo nikou upgrade-scheduled`.
 - **By itself:** `sudo nikou github-deploy` (the installer offers it at the end) makes a key-only user called `nikoudeploy` and a key, then shows four secrets one at a time to paste into GitHub (environment `production`: `DEPLOY_SSH_KEY`, `DEPLOY_USER`, `DEPLOY_HOST`, `DEPLOY_KNOWN_HOSTS`; for a Docker server also `DEPLOY_MODE` = `docker`). After that, each new `v...` tag is sent to the server by the **deploy** job and applied tonight. Run it again to replace the key.
 
@@ -95,6 +96,13 @@ Before an upgrade the installer checks that the file is for this machine type (x
 - **Dry run:** `sudo nikou install --dry-run` asks the questions and lists everything the install would do. Nothing is written or changed.
 - **Restore test:** every Sunday the newest backup is restored into a scratch database, compared with the live one and thrown away (`sudo nikou restore-test` does it now). The live database is never touched. The backup holds both the database and the uploaded pictures.
 - **Alerts by email:** if the mail settings are set, a failed backup, upgrade or restore test, and a site that does not answer twice in a row (checked every 10 minutes), are emailed to the alert address (asked with the mail questions; default is the admin email). `sudo nikou doctor` shows whether all of this is switched on.
+
+## Speed
+
+- **Pictures** go through the site's image optimizer: AVIF or WebP, sized for each screen, made on the first visit and kept on disk for 31 days. Nothing to convert by hand.
+- **Text and code** are compressed by Caddy (zstd or gzip). The 3D scenes load after the page text.
+- **Cache headers:** site files (`/_next/static`) are kept by browsers for a year (set by Next). `/brand/*` and uploaded media (`/api/media/file/*`) are kept for 30 days.
+- **Arvan edge cache (done in the Arvan panel, CDN section, caching rules):** cache these paths so visitors get them from a nearby Arvan server instead of the VPS: `/_next/static/*`, `/_next/image*`, `/api/media/file/*`, `/brand/*`. Do not cache `/admin`, `/api` (other than media files) or form posts. After changing an uploaded file in the admin, purge the Arvan cache for that path if the old picture still shows.
 
 ## Local notes
 
