@@ -28,6 +28,8 @@ export function SmoothScroll() {
       autoRaf: false,
     })
     ref.current = lenis
+    // Other parts of the site (the page map) glide through the same scroller instead of fighting it.
+    ;(window as Window & { nkLenis?: Lenis }).nkLenis = lenis
     lenis.on('scroll', ScrollTrigger.update)
     const tick = (time: number) => lenis.raf(time * 1000)
     gsap.ticker.add(tick)
@@ -42,6 +44,7 @@ export function SmoothScroll() {
       gsap.ticker.remove(tick)
       lenis.destroy()
       ref.current = null
+      delete (window as Window & { nkLenis?: Lenis }).nkLenis
     }
   }, [])
 

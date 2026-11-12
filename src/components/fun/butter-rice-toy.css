@@ -1,0 +1,117 @@
+/* The frame around the buttered-rice game (ButterRiceToy). */
+
+.brt {
+  display: grid;
+  gap: 1.25rem;
+  align-items: center;
+  padding: clamp(1rem, 3vw, 2rem);
+  border: 1px solid var(--nk-line);
+  border-radius: 1.5rem;
+  background:
+    radial-gradient(60% 80% at 30% 50%, color-mix(in oklab, var(--nk-gold) 8%, transparent), transparent 70%),
+    color-mix(in oklab, var(--nk-surface) 70%, transparent);
+}
+.brt[data-layout='band'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 48rem) {
+  .brt[data-layout='band'] {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  }
+}
+.brt[data-layout='stack'] {
+  border: 0;
+  background: none;
+  padding: 0;
+}
+.brt[data-layout='stack'] .brt-copy {
+  order: 2;
+  justify-items: center;
+  text-align: center;
+}
+
+.brt-copy {
+  display: grid;
+  gap: 0.85rem;
+  justify-items: start;
+}
+.brt-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  font-weight: 900;
+  line-height: 1.4;
+}
+.brt-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--nk-muted);
+}
+.brt-hint svg {
+  color: var(--nk-gold);
+}
+.brt-meter {
+  width: min(100%, 18rem);
+  height: 0.5rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--nk-raised);
+}
+.brt-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c8902f, var(--nk-gold), #f7dc92);
+  transform-origin: right;
+  transition: transform 0.3s var(--ease-out-expo);
+}
+.brt-status {
+  min-height: 1.9em;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--nk-muted);
+}
+.brt-status strong {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 900;
+  background: linear-gradient(180deg, #fff3cc, var(--nk-gold) 55%, #a8741f);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: brt-pop 0.6s var(--ease-out-expo) both;
+}
+@keyframes brt-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.85);
+  }
+}
+.brt-again {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 2.4rem;
+  padding: 0 0.95rem;
+  border: 1px solid var(--nk-line);
+  border-radius: 999px;
+  color: var(--nk-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition:
+    color 0.2s,
+    border-color 0.2s;
+}
+.brt-again:hover {
+  color: var(--nk-gold);
+  border-color: color-mix(in oklab, var(--nk-gold) 55%, var(--nk-line));
+}
+.brt-plate {
+  height: 260px;
+}
+@media (min-width: 48rem) {
+  .brt-plate {
+    height: 320px;
+  }
+}

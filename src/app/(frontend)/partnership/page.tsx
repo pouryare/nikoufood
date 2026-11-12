@@ -1,9 +1,12 @@
 import type { CSSProperties } from 'react'
 import { LeadForm } from '@/components/forms/LeadForm'
+import { NeedsCalculator } from '@/components/products/NeedsCalculator'
 import { FeatureRows } from '@/components/ui/FeatureRows'
 import { Icon, iconName } from '@/components/ui/Icon'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { getPartnershipPage, getUi } from '@/lib/cms'
+import { SectionHeading } from '@/components/ui/SectionHeading'
+import { calcHeading, calcProducts } from '@/lib/calculator'
+import { getPartnershipPage, getProducts, getSiteSettings, getUi } from '@/lib/cms'
 import { pageMetadata } from '@/lib/seo'
 
 export async function generateMetadata() {
@@ -11,12 +14,16 @@ export async function generateMetadata() {
   return pageMetadata({ title: page.header?.title, description: page.header?.intro, path: '/partnership', meta: page.meta })
 }
 
-export default async function PartnershipPage() {
-  const [page, ui] = await Promise.all([getPartnershipPage(), getUi()])
+export default async function PartnershipPage({ searchParams }: { searchParams: Promise<{ estimate?: string | string[] }> }) {
+  const [page, ui, settings, products, params] = await Promise.all([getPartnershipPage(), getUi(), getSiteSettings(), getProducts(), searchParams])
   const header = page.header
   const audiences = (page.audiences ?? []).filter((a) => a.title)
   const benefits = (page.benefits ?? []).filter((b) => b.title)
   const types = (page.businessTypes ?? []).map((t) => t.label).filter(Boolean)
+  const calc = settings.needsCalculator !== false ? calcProducts(products) : []
+  const calcHead = calcHeading(page.calculator)
+  // An estimate sent from a product page's calculator arrives in the address and starts the message.
+  const estimate = typeof params.estimate === 'string' ? params.estimate.slice(0, 600) : undefined
 
   return (
     <>
@@ -46,10 +53,22 @@ export default async function PartnershipPage() {
         </section>
       ) : null}
 
-      <section className="pb-24">
+      {calc.length ? (
+        <section id="calculator" className="pb-20">
+          <div className="wrap">
+            <SectionHeading eyebrow={calcHead.eyebrow} title={calcHead.title} text={calcHead.text} />
+            <div className="mt-10" data-reveal>
+              <NeedsCalculator products={calc} labels={ui.calculator} sendTo="form" />
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      <section id="form" className="pb-24">
         <div className="wrap grid gap-12 lg:grid-cols-12">
           <div className="lg:col-span-7" data-reveal>
             <LeadForm
+              initialMessage={estimate}
               type="partnership"
               fields={['fullName', 'mobile', 'company', 'businessType', 'email', 'message']}
               businessTypes={types as string[]}

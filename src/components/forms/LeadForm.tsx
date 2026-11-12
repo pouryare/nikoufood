@@ -30,6 +30,8 @@ export type LeadFormProps = {
     fixErrors: string
   }
   copy: { title?: string | null; intro?: string | null; submitLabel?: string | null; successTitle?: string | null; successMessage?: string | null; privacyNote?: string | null }
+  /** Text the message box starts with, e.g. an estimate from the needs calculator. */
+  initialMessage?: string
 }
 
 const OPTIONAL: LeadFormProps['fields'] = ['company', 'businessType', 'email']
@@ -41,7 +43,7 @@ export function LeadForm(props: LeadFormProps) {
   return <Form key={round} {...props} onAgain={() => setRound((n) => n + 1)} />
 }
 
-function Form({ type, fields, provinces = [], defaultProvince, businessTypes = [], sourcePage, labels, copy, onAgain }: LeadFormProps & { onAgain: () => void }) {
+function Form({ type, fields, provinces = [], defaultProvince, businessTypes = [], sourcePage, labels, copy, initialMessage, onAgain }: LeadFormProps & { onAgain: () => void }) {
   const [state, formAction, pending] = useActionState(submitLead.bind(null, type), idle)
   const startedAt = useRef(0)
   // The page is rendered on the server, so the moment the visitor can actually start typing is noted here.
@@ -98,7 +100,7 @@ function Form({ type, fields, provinces = [], defaultProvince, businessTypes = [
               {OPTIONAL.includes(name) ? <span className="ms-2 font-normal text-muted">({labels.optional})</span> : null}
             </label>
             {name === 'message' ? (
-              <textarea {...common} rows={5} defaultValue={values[name] ?? ''} />
+              <textarea {...common} rows={5} defaultValue={values[name] ?? initialMessage ?? ''} />
             ) : name === 'province' ? (
               <select {...common} defaultValue={values[name] ?? defaultProvince ?? ''}>
                 <option value="">{labels.provincePlaceholder}</option>

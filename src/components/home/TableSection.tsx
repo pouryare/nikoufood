@@ -1,3 +1,4 @@
+import { ButterRiceToy } from '@/components/fun/ButterRiceToy'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import {
   getProduct,
@@ -8,14 +9,15 @@ import {
   related,
   type Product,
 } from '@/lib/cms'
-import { TABLE_DISHES, TABLE_IMAGE, TABLE_PRODUCT_SLUG, TABLE_TEXTS } from '@/lib/home-defaults'
+import { NOOSH_JAN, TABLE_DISHES, TABLE_IMAGE, TABLE_PRODUCT_SLUG, TABLE_TEXTS } from '@/lib/home-defaults'
 import type { HomePage } from '@/payload-types'
+import { NooshJan } from './NooshJan'
 import { SofrehTable, type SofrehDish } from './SofrehTable'
 
-type Props = { table: NonNullable<HomePage['table']>; butterStop?: boolean }
+type Props = { table: NonNullable<HomePage['table']>; butterStop?: boolean; nooshJan?: boolean }
 
 /** «سفرهٔ ایرانی»: the dishes people love, each with the butter that suits it. Everything here comes from the CMS. */
-export async function TableSection({ table, butterStop }: Props) {
+export async function TableSection({ table, butterStop, nooshJan }: Props) {
   if (table.enabled === false) return null
   const [settings, ui] = await Promise.all([getSiteSettings(), getUi()])
 
@@ -58,8 +60,20 @@ export async function TableSection({ table, butterStop }: Props) {
             pairLabel={table.pairLabel || TABLE_TEXTS.pairLabel}
             viewLabel={ui.products.view}
             butterDish={butterStop ? Math.min(dishes.length, Math.max(1, table.butterDish ?? 1)) - 1 : null}
+            overlay={nooshJan ? <NooshJan text={table.nooshJan || NOOSH_JAN} /> : null}
           />
         </div>
+        {table.toy?.enabled !== false ? (
+          <div data-reveal className="mt-10">
+            <ButterRiceToy
+              title={table.toy?.title || ui.toys.riceTitle}
+              hint={table.toy?.hint || ui.toys.riceHint}
+              doneText={table.toy?.doneText || ui.toys.riceDone}
+              progressLabel={ui.toys.riceProgress}
+              againLabel={ui.toys.again}
+            />
+          </div>
+        ) : null}
       </div>
     </section>
   )

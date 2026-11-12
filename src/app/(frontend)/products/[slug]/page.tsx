@@ -3,12 +3,16 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { CSSProperties } from 'react'
+import { NeedsCalculator } from '@/components/products/NeedsCalculator'
+import { PackShowcase } from '@/components/products/PackShowcase'
 import { ProductCard } from '@/components/products/ProductCard'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { ButtonLink } from '@/components/ui/Button'
 import { CtaBand } from '@/components/ui/CtaBand'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { getListingPages, getProduct, getProducts, getSiteSettings, getUi, mediaOf, productPicture, related } from '@/lib/cms'
+import { SectionHeading } from '@/components/ui/SectionHeading'
+import { calcHeading, calcProduct } from '@/lib/calculator'
+import { getListingPages, getPartnershipPage, getProduct, getProducts, getSiteSettings, getUi, mediaOf, productPicture, related } from '@/lib/cms'
 import { productLd } from '@/lib/jsonld'
 import { pageMetadata } from '@/lib/seo'
 import { productTags } from '@/lib/product-tags'
@@ -47,6 +51,9 @@ export default async function ProductPage({ params }: { params: Params }) {
   const more = others.length ? others : (await getProducts()).filter((p) => p.id !== product.id).slice(0, 3)
   const cta = listing.productCta
   const fills = media?.mimeType === 'image/jpeg'
+  const calc = settings.needsCalculator !== false ? calcProduct(product) : null
+  // The foil pack up close: only on single-serve products, and only while its switch is on.
+  const packView = category?.slug === 'single-serve' && product.packView !== false
   const hasBody = product.description && (product.description as { root?: { children?: unknown[] } }).root?.children?.length
 
   return (
@@ -200,6 +207,25 @@ export default async function ProductPage({ params }: { params: Params }) {
           </div>
         </div>
       </section>
+
+      {packView ? (
+        <section className="pb-20">
+          <div className="wrap" data-reveal>
+            <PackShowcase labels={ui.toys} />
+          </div>
+        </section>
+      ) : null}
+
+      {calc ? (
+        <section className="pb-20">
+          <div className="wrap">
+            <SectionHeading {...calcHeading((await getPartnershipPage()).calculator)} />
+            <div className="mt-10" data-reveal>
+              <NeedsCalculator products={[calc]} labels={ui.calculator} sendTo="/partnership" />
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {more.length ? (
         <section className="pb-24">

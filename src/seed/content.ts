@@ -1,4 +1,6 @@
-import { BUTTER_STOPS, FINDER_TEXTS, MELT_LINE, ROUTE_STEPS, SIZES_TEXTS, TABLE_DISHES, TABLE_PRODUCT_SLUG, TABLE_TEXTS, TRUST_BIG_WORD } from '../lib/home-defaults'
+import { CHAT_TEXTS, CHAT_TOPICS, type ChatNode } from '../lib/chat-defaults'
+import { DEFAULT_HOLIDAYS } from '../lib/holidays'
+import { BUTTER_STOPS, FINDER_TEXTS, KITCHEN_SCENES, KITCHEN_TEXTS, MELT_LINE, NOOSH_JAN, ROUTE_STEPS, SIZES_TEXTS, TABLE_DISHES, TABLE_PRODUCT_SLUG, TABLE_TEXTS, TRUST_BIG_WORD } from '../lib/home-defaults'
 import { MARKET_ICONS, TAXONOMY_ICONS } from '../lib/icons'
 /**
  * Starter content for the CMS (Persian). Everything here is an editable first draft:
@@ -20,6 +22,17 @@ export const siteSettings = {
   enable3D: true,
   showWhatsappButton: true,
   footerText: 'شرکت نیکو اعتماد پارس پیام؛ تولید، تأمین و توزیع کره و چربی‌های خوراکی در سراسر ایران.',
+  holidaysEnabled: true,
+  // The CMS keeps months as the strings «1» to «12».
+  holidays: DEFAULT_HOLIDAYS.map(({ name, greeting, look, fromDay, toDay, ...h }) => ({
+    name,
+    greeting,
+    look,
+    fromDay,
+    toDay,
+    fromMonth: String(h.fromMonth) as '1',
+    toMonth: String(h.toMonth) as '1',
+  })),
   copyright: '© شرکت نیکو اعتماد پارس پیام. تمامی حقوق محفوظ است.',
 }
 
@@ -125,7 +138,7 @@ export const homePage = {
     ],
     cta: { label: 'بیشتر دربارهٔ ما', href: '/about' },
   },
-  sizes: { enabled: true, ...SIZES_TEXTS },
+  sizes: { enabled: true, ...SIZES_TEXTS, packEnabled: true },
   products: {
     eyebrow: 'محصولات',
     title: 'کره و چربی‌های خوراکی، برای هر نیاز',
@@ -134,6 +147,8 @@ export const homePage = {
     showMarkets: true,
   },
   finder: { enabled: true, ...FINDER_TEXTS },
+  // Scenes name their market by slug; the seed swaps in the market's id.
+  kitchenDay: { enabled: true, ...KITCHEN_TEXTS, seconds: 21, scenes: KITCHEN_SCENES },
   // The melt appears only after its clip is uploaded; the line is ready for it.
   melt: { enabled: true, line: MELT_LINE },
   table: {
@@ -142,6 +157,8 @@ export const homePage = {
     // Every dish gets the single-serve butter (Pourya's pick); each can be changed in the CMS.
     dishes: TABLE_DISHES.map((dish) => ({ ...dish, productSlug: TABLE_PRODUCT_SLUG })),
     butterDish: 1,
+    nooshJan: NOOSH_JAN,
+    toy: { enabled: true },
   },
   brands: {
     eyebrow: 'برندها',
@@ -463,3 +480,18 @@ export const products = [
     featured: true,
   },
 ].map((p) => ({ ...p, applications: riceUses, features: [] as { text: string }[], specs: [] as { label: string; value: string }[] }))
+
+/** The question-and-answer chat; the third level of questions is stored as «deeper». */
+const chatRow = (node: ChatNode, depth: number): Record<string, unknown> => {
+  const { followUps, ...row } = node
+  const kids = (followUps ?? []).map((n) => chatRow(n, depth + 1))
+  if (!kids.length) return row
+  return depth === 1 ? { ...row, followUps: kids } : { ...row, deeper: kids }
+}
+
+export const faqChat = {
+  onHome: true,
+  onNetwork: true,
+  ...CHAT_TEXTS,
+  topics: CHAT_TOPICS.map((n) => chatRow(n, 1)),
+}

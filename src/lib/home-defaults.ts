@@ -17,6 +17,9 @@ export const TABLE_TEXTS = {
   pairLabel: 'کرهٔ مناسب این غذا',
 }
 
+/** Written in gold over the table once the travelling butter has melted. */
+export const NOOSH_JAN = 'نوش جان'
+
 /** The four dishes of the sample table picture (/home/sofreh-top.webp), placed in % of its width and height. */
 export const TABLE_DISHES = [
   { name: 'چلوکباب کوبیده', x: 25.7, y: 24.4 },
@@ -69,3 +72,34 @@ export const TRUST_BIG_WORD = 'اعتماد'
 /** Where the travelling butter stops on the home page, in order. */
 export const BUTTER_STOPS = ['hero', 'intro', 'sizes', 'finder', 'table'] as const
 export type ButterStop = (typeof BUTTER_STOPS)[number]
+
+/** «یک روز در آشپزخانه»: the day plays by itself; each meal shows the market it serves and where to look next. */
+export const KITCHEN_TEXTS = {
+  eyebrow: 'یک روز در آشپزخانه',
+  title: 'از صبح تا شب، کره سر میز است',
+  text: 'یک روز کامل در چند ثانیه: ببینید هر وعده کدام کره را لازم دارد.',
+}
+
+export const KITCHEN_SCENES = [
+  {
+    time: 'صبح',
+    title: 'صبحانهٔ هتل',
+    text: 'بستهٔ تک‌نفرهٔ فرم‌سیل، سر میز صبحانهٔ هتل‌ها.',
+    market: 'hotels',
+    link: { label: 'کرهٔ تک‌نفره', href: '/products?category=single-serve' },
+  },
+  {
+    time: 'ظهر',
+    title: 'ناهار رستوران',
+    text: 'برای هر بشقاب چلو، یک بستهٔ تک‌نفره.',
+    market: 'restaurants',
+    link: { label: 'کرهٔ تک‌نفره', href: '/products?category=single-serve' },
+  },
+  {
+    time: 'شب',
+    title: 'شام مرکز تهیهٔ غذا',
+    text: 'کرهٔ فله‌ای، کنار دیگ‌های بزرگ مراکز تهیهٔ غذا.',
+    market: 'food-centers',
+    link: { label: 'کرهٔ فله‌ای', href: '/products?category=bulk' },
+  },
+]

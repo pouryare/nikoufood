@@ -114,18 +114,18 @@ export function Hero({ brandName, eyebrow, words, subtitle, primaryCta, secondar
             <span className="sr-only">{brandName}: </span>
             <span className="hero-word hero-word-top animate-fade-up relative z-0 block text-ink" style={delay(80)}>
               <span className="hero-shift block" style={{ '--sx': 26, '--sy': 10, '--px': 9, '--py': -6 } as CSSProperties}>
-                {top}
+                <span data-stretch="">{top}</span>
               </span>
             </span>
             {/* The middle word is the only one in front of the butter, so the butter really sits between the words. */}
             <span className="hero-word hero-word-middle animate-fade-up relative z-20 block text-ink" style={delay(200)}>
               <span className="hero-shift hero-front block" style={{ '--sx': -34, '--sy': -8, '--px': -11, '--py': 0 } as CSSProperties}>
-                {middle}
+                <span data-stretch="">{middle}</span>
               </span>
             </span>
             <span className="hero-word hero-word-bottom animate-fade-up relative z-0 block" style={delay(320)}>
               <span className="hero-shift block" style={{ '--sx': 18, '--sy': -12, '--px': 7, '--py': 8 } as CSSProperties}>
-                <span className="relative inline-block">
+                <span className="relative inline-block" data-stretch="">
                   <span className="text-gold-sheen pour">{bottom}</span>
                   {butterStop ? <span aria-hidden data-butter-stop="hero" className="butter-stop" style={{ right: '20%', top: '16%' }} /> : null}
                 </span>

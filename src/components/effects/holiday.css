@@ -1,0 +1,98 @@
+/* Holiday mode: a greeting under the header and a soft fall over the first screen (Holiday.tsx). */
+
+.holiday-sky {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+}
+.holiday-sky canvas {
+  width: 100%;
+  height: 100%;
+}
+.holiday-sky::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(70% 38% at 50% 0%, var(--holiday-glow), transparent 72%);
+}
+.holiday-sky[data-look='yalda'],
+.holiday-note[data-look='yalda'] {
+  --holiday-glow: rgb(190 30 60 / 0.26);
+  --holiday-ink: #f08a9a;
+}
+.holiday-sky[data-look='nowruz'],
+.holiday-note[data-look='nowruz'] {
+  --holiday-glow: rgb(120 200 140 / 0.2);
+  --holiday-ink: #9fd9a8;
+}
+.holiday-sky[data-look='gold'],
+.holiday-note[data-look='gold'] {
+  --holiday-glow: rgb(227 176 75 / 0.22);
+  --holiday-ink: #f7dc92;
+}
+
+.holiday-note {
+  position: fixed;
+  top: calc(var(--header-h, 4.5rem) + 0.75rem);
+  left: 50%;
+  z-index: 46;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: max-content;
+  max-width: calc(100vw - 2rem);
+  padding: 0.5rem 0.5rem 0.5rem 0.9rem;
+  padding-inline-start: 1rem;
+  border: 1px solid color-mix(in oklab, var(--holiday-ink) 45%, var(--nk-line));
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--nk-bg) 86%, transparent);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 44px -18px rgb(0 0 0 / 0.85);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -0.75rem);
+  transition:
+    opacity 0.5s,
+    transform 0.6s var(--ease-out-expo);
+}
+.holiday-note[data-show] {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+}
+.holiday-note[data-show][data-away] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -0.75rem);
+}
+.holiday-note > svg {
+  flex: none;
+  color: var(--holiday-ink);
+}
+.holiday-note p {
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.7;
+}
+.holiday-close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  color: var(--nk-muted);
+  transition: color 0.2s;
+}
+.holiday-close:hover {
+  color: var(--nk-text);
+}
+@media (max-width: 40rem) {
+  .holiday-note {
+    border-radius: 1rem;
+  }
+  .holiday-note p {
+    font-size: 0.84rem;
+  }
+}

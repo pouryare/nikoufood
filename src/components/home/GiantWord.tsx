@@ -75,7 +75,7 @@ export function GiantWord({ eyebrow, title, word }: Props) {
           <h2 className="gw-title text-h1">
             {at > 0 ? <span className="gw-rest">{title.slice(0, at)}</span> : null}
             <span ref={wordRef} className="gw-word">
-              {word}
+              <span data-stretch="">{word}</span>
             </span>
             {at + word.length < title.length ? (
               <span className="gw-rest">{title.slice(at + word.length)}</span>

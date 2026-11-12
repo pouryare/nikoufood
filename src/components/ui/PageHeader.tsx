@@ -50,7 +50,9 @@ export function PageHeader({ eyebrow, title, intro, trail = [], homeLabel, visua
               </p>
             ) : null}
             <h1 data-reveal style={{ '--i': 2 } as CSSProperties} className="rise mt-5 text-h1">
-              <RiseText text={title} />
+              <span data-stretch="0.6">
+                <RiseText text={title} />
+              </span>
             </h1>
             {intro ? (
               <p data-reveal style={{ '--i': 3 } as CSSProperties} className="rise-text mt-7 max-w-2xl text-lead text-muted">

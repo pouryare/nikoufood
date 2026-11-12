@@ -2,6 +2,10 @@ import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import { LogoMark } from '@/components/brand/LogoMark'
 import { Ambience } from '@/components/effects/Ambience'
+import { GoldCursor } from '@/components/effects/GoldCursor'
+import { Holiday } from '@/components/effects/Holiday'
+import { MoltenButtons } from '@/components/effects/MoltenButtons'
+import { StretchTitles } from '@/components/effects/StretchTitles'
 import { Magnetic } from '@/components/effects/Magnetic'
 import { PageTransition } from '@/components/effects/PageTransition'
 import { SmoothScroll } from '@/components/effects/SmoothScroll'
@@ -16,6 +20,7 @@ import { RevealObserver } from '@/components/ui/RevealObserver'
 import { BRAND_MARK_PATH, BRAND_MARK_VIEWBOX } from '@/data/brand-mark'
 import { getChannels } from '@/lib/channels'
 import { effectsOf, soundFilesOf } from '@/lib/effects'
+import { activeHoliday } from '@/lib/holidays'
 import { articlesEnabled, getNavigation, getSiteSettings, getTheme, getUi, mediaOf } from '@/lib/cms'
 import { organizationLd, websiteLd } from '@/lib/jsonld'
 import { SITE_URL } from '@/lib/site'
@@ -76,6 +81,8 @@ export default async function FrontendLayout({ children }: { children: ReactNode
   const dockChannels = channels.filter((c) => c.messenger || c.key === 'phone').filter((c) => settings.showWhatsappButton !== false || c.key !== 'whatsapp')
   const uploadedLogo = settings.useUploadedLogo && mediaOf(settings.logoMark)
   const fx = effectsOf(settings)
+  // Pages are rendered per request, so the occasion is checked against today's date in Tehran.
+  const holiday = settings.holidaysEnabled !== false ? activeHoliday(settings.holidays) : null
 
   return (
     <html
@@ -87,6 +94,7 @@ export default async function FrontendLayout({ children }: { children: ReactNode
       data-fx-thread={fx.goldenThread ? '' : undefined}
       data-fx-rise={fx.titleRise ? '' : undefined}
       data-fx-foil={fx.foilCards ? '' : undefined}
+      data-fx-molten={fx.moltenButtons ? '' : undefined}
     >
       <body className="flex min-h-svh flex-col">
         {css ? <style dangerouslySetInnerHTML={{ __html: css }} /> : null}
@@ -123,7 +131,13 @@ export default async function FrontendLayout({ children }: { children: ReactNode
             )}
           </PageTransition>
         ) : null}
+        {holiday ? (
+          <Holiday name={holiday.name} greeting={holiday.greeting} look={holiday.look} link={holiday.link} closeLabel={ui.touches.holidayClose} />
+        ) : null}
         {fx.magneticButtons ? <Magnetic /> : null}
+        {fx.moltenButtons ? <MoltenButtons /> : null}
+        {fx.goldCursor ? <GoldCursor labels={{ view: ui.touches.cursorView, drag: ui.touches.cursorDrag }} /> : null}
+        {fx.stretchyTitles ? <StretchTitles /> : null}
         {fx.smoothScroll ? <SmoothScroll /> : null}
         <RevealObserver />
         <JsonLd data={[organizationLd(settings), websiteLd(settings)]} />

@@ -26,7 +26,7 @@ export function ProductCard({ product, sizes = '(max-width: 767px) 78vw, (max-wi
   const fills = image?.mimeType === 'image/jpeg'
   return (
     <TiltCard className="h-full" innerClassName="rounded-lg" max={5}>
-      <article className="product-card panel" data-lit>
+      <article className="product-card panel" data-lit data-cursor="view">
         <LitEdge />
         {/* A soft shine that slides over the card like light on gold foil (تنظیمات سایت › جلوه‌های ویژه). */}
         <span aria-hidden className="product-card-foil" />

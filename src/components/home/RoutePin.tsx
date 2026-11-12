@@ -3,6 +3,7 @@
 import { useEffect, useRef, type CSSProperties } from 'react'
 import { Icon, type IconName } from '@/components/ui/Icon'
 import { toFa } from '@/lib/format'
+import './butter-art.css'
 
 export type RouteStep = {
   title: string
@@ -137,9 +138,45 @@ export function RoutePin({ steps, label }: { steps: RouteStep[]; label: string }
                 />
               ))}
               <g data-node="0" className="route-node" data-on="">
-                <path d="M372 34l26 13-26 13-26-13z" className="route-box-top" />
+                {/* A taped cardboard carton, lit from the top left. */}
+                <defs>
+                  <linearGradient id="route-carton-top" x1="0.15" y1="0.1" x2="0.85" y2="0.9">
+                    <stop offset="0" stopColor="#f1dab0" />
+                    <stop offset="1" stopColor="#d9b782" />
+                  </linearGradient>
+                  <linearGradient id="route-carton-left" x1="0" y1="0" x2="0.35" y2="1">
+                    <stop offset="0" stopColor="#d3aa74" />
+                    <stop offset="1" stopColor="#b08350" />
+                  </linearGradient>
+                  <linearGradient id="route-carton-right" x1="0" y1="0" x2="-0.3" y2="1">
+                    <stop offset="0" stopColor="#b48652" />
+                    <stop offset="1" stopColor="#8a6036" />
+                  </linearGradient>
+                  <filter id="route-carton-blur" x="-30%" y="-80%" width="160%" height="260%">
+                    <feGaussianBlur stdDeviation="2.6" />
+                  </filter>
+                </defs>
+                <path d="M374 55l28 13-27 14-27-13z" fill="#000" opacity="0.6" filter="url(#route-carton-blur)" />
                 <path d="M346 47v18l26 13V60z" className="route-box-left" />
                 <path d="M398 47v18l-26 13V60z" className="route-box-right" />
+                <path d="M372 34l26 13-26 13-26-13z" className="route-box-top" />
+                {/* Fluting shows faintly on the sides; the bottom edge sits in shade. */}
+                <g fill="none" stroke="#6b4520" strokeWidth="0.5" opacity="0.22">
+                  <path d="M346 51.5l26 13M346 56l26 13M346 60.5l26 13" />
+                  <path d="M398 51.5l-26 13M398 56l-26 13M398 60.5l-26 13" />
+                </g>
+                <path d="M346 62.5v2.5l26 13 26-13v-2.5l-26 13z" fill="#3d2408" opacity="0.3" />
+                {/* The flaps meet in the middle; packing tape runs over the seam and down the side. */}
+                <path d="M359 40.5l26 13" fill="none" stroke="#7a5228" strokeWidth="0.7" opacity="0.7" />
+                <path d="M355.8 42.1l6.4-3.2 26 13v8l-6.4 3.2v-8z" fill="#c59a5c" opacity="0.72" />
+                <path d="M362.2 38.9l26 13v8" fill="none" stroke="#fff4d8" strokeWidth="0.7" opacity="0.65" />
+                <path d="M357.6 42.4l24.6 12.3" fill="none" stroke="#fff8e6" strokeWidth="1.1" strokeLinecap="round" opacity="0.4" />
+                {/* A blank shipping label. */}
+                <path d="M350.5 54.2l11 5.5v8.4l-11-5.5z" fill="#f6efe0" opacity="0.92" />
+                <path d="M352.3 58.1l7.4 3.7M352.3 60.9l5 2.5" fill="none" stroke="#8a7a62" strokeWidth="0.7" opacity="0.55" />
+                {/* Light along the top edges and the near corner. */}
+                <path d="M346 47l26 13 26-13" fill="none" stroke="#fff3d6" strokeWidth="0.9" strokeLinejoin="round" opacity="0.7" />
+                <path d="M372 60v18" fill="none" stroke="#f0d3a2" strokeWidth="0.8" opacity="0.45" />
                 <text x="372" y="104" textAnchor="middle" className="route-label">
                   {short(0)}
                 </text>

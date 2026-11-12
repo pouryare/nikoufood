@@ -1,0 +1,195 @@
+/* «یک روز در آشپزخانه»: the playing day beside the meal of the hour (KitchenDay.tsx). */
+
+.kday {
+  display: grid;
+  gap: clamp(1.25rem, 3vw, 2.5rem);
+  align-items: center;
+}
+@media (min-width: 64rem) {
+  .kday {
+    grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);
+  }
+}
+
+.kday-art {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 1px solid var(--nk-line);
+  border-radius: 1.5rem;
+  box-shadow: 0 50px 100px -60px rgb(0 0 0 / 0.9);
+  transition: opacity 0.45s;
+}
+@media (min-width: 48rem) {
+  .kday-art {
+    aspect-ratio: 16 / 10;
+  }
+}
+.kday[data-dim] .kday-art {
+  opacity: 0.15;
+}
+.kday-clock {
+  position: absolute;
+  top: 0.9rem;
+  inset-inline-start: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 999px;
+  background: rgb(7 11 22 / 0.62);
+  backdrop-filter: blur(8px);
+  color: #f7dc92;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.kday-clock span {
+  min-width: 3.2em;
+  text-align: center;
+}
+
+.kday-side {
+  display: grid;
+  gap: 1.5rem;
+}
+.kday-card {
+  display: grid;
+  gap: 0.6rem;
+  justify-items: start;
+  min-height: 13.5rem;
+  align-content: start;
+  animation: kday-in 0.6s var(--ease-out-expo) both;
+}
+@media (max-width: 63.99rem) {
+  .kday-card {
+    min-height: 0;
+  }
+}
+@keyframes kday-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+.kday-time {
+  color: var(--nk-gold);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+.kday-card h3 {
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 900;
+  line-height: 1.35;
+}
+.kday-text {
+  color: var(--nk-muted);
+  line-height: 2;
+}
+.kday-market {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-block: 0.2rem 0.4rem;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid color-mix(in oklab, var(--nk-gold) 40%, var(--nk-line));
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.kday-market svg {
+  color: var(--nk-gold);
+}
+
+.kday-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.kday-track {
+  position: relative;
+  flex: 1;
+  height: 2.75rem;
+}
+.kday-track::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  height: 0.3rem;
+  border-radius: 999px;
+  background: var(--nk-raised);
+  transform: translateY(-50%);
+}
+.kday-fill {
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  height: 0.3rem;
+  margin-top: -0.15rem;
+  border-radius: 999px;
+  background: linear-gradient(to left, #f7dc92, var(--nk-gold) 50%, #8572ef);
+  transform-origin: right;
+  transform: scaleX(0);
+}
+.kday-track button {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: grid;
+  align-items: end;
+  justify-items: start;
+  padding-inline-start: 0.2rem;
+  color: var(--nk-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.kday-track button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  inset-inline-start: 0;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-top: -0.35rem;
+  border: 2px solid var(--nk-bg);
+  border-radius: 50%;
+  background: var(--nk-line);
+  transition: background-color 0.3s;
+}
+.kday-track button[aria-pressed='true'] {
+  color: var(--nk-gold);
+}
+.kday-track button[aria-pressed='true']::before {
+  background: var(--nk-gold);
+}
+.kday-track button span {
+  position: absolute;
+  bottom: -0.35rem;
+  inset-inline-start: 0;
+}
+.kday-play {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 1px solid var(--nk-line);
+  border-radius: 50%;
+  color: var(--nk-text);
+  transition:
+    color 0.2s,
+    border-color 0.2s;
+}
+.kday-play:hover {
+  color: var(--nk-gold);
+  border-color: var(--nk-gold);
+}
+@media (prefers-reduced-motion: reduce) {
+  .kday-card {
+    animation: none;
+  }
+}

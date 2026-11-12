@@ -1,0 +1,142 @@
+/* Shared by ExplodedPack and PeelLid. Colours repeat the site palette so the file stands alone. */
+.pack-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+@media (min-width: 768px) {
+  .pack-stage {
+    min-height: 340px;
+  }
+}
+.pack-stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+  /* The canvas never blocks page scrolling; only the tab corner (.pack-grab) takes gestures. */
+  pointer-events: none;
+}
+.pack-stage[data-ready='true'] canvas {
+  opacity: 1;
+}
+
+/* Still picture shown until the live pack has drawn its first frame (and kept if WebGL is missing). */
+.pack-still {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: none;
+  pointer-events: none;
+  transition: opacity 0.45s ease;
+}
+.pack-stage[data-ready='true'] .pack-still {
+  opacity: 0 !important;
+}
+
+/* Part names: gold dot on the part, dashed leader, name at the right edge. */
+.pack-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  direction: ltr;
+  opacity: 0;
+  pointer-events: none;
+  color: #f4eee0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  will-change: transform, opacity;
+}
+@media (min-width: 420px) {
+  .pack-label {
+    font-size: 15px;
+  }
+}
+.pack-label-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e3b04b;
+  box-shadow: 0 0 0 3px rgba(227, 176, 75, 0.18);
+}
+.pack-label-line {
+  flex: 1 1 auto;
+  min-width: 10px;
+  height: 1px;
+  background: repeating-linear-gradient(90deg, rgba(227, 176, 75, 0.75) 0 3px, transparent 3px 7px);
+}
+.pack-label-text {
+  direction: rtl;
+}
+
+/* The only touch-greedy spot: the corner of the lid with the pull tab. */
+.pack-grab {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: grab;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.pack-grab[data-dragging='true'] {
+  cursor: grabbing;
+}
+.pack-grab:focus-visible {
+  outline: 2px solid #e3b04b;
+  outline-offset: -6px;
+}
+.pack-grab[hidden] {
+  display: none;
+}
+
+.pack-hint {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transform: translate(-22%, 9px);
+  direction: rtl;
+  color: #f7dc92;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.pack-stage[data-ready='true'] .pack-hint {
+  opacity: 1;
+}
+.pack-stage .pack-hint[data-hidden='true'] {
+  opacity: 0;
+}
+.pack-hint svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pack-stage canvas,
+  .pack-still,
+  .pack-hint {
+    transition: none;
+  }
+}
