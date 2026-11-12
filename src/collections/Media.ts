@@ -5,13 +5,13 @@ import { revalidateCollectionChange, revalidateCollectionDelete } from '../hooks
 
 export const Media: CollectionConfig = {
   slug: 'media',
-  labels: { singular: 'تصویر یا ویدیو', plural: 'رسانه‌ها' },
+  labels: { singular: 'تصویر، ویدیو یا صدا', plural: 'رسانه‌ها' },
   admin: { group: 'محتوا', useAsTitle: 'alt', defaultColumns: ['filename', 'alt', 'updatedAt'] },
   access: { read: anyone, create: isStaff, update: isStaff, delete: isStaff },
   hooks: { afterChange: [revalidateCollectionChange], afterDelete: [revalidateCollectionDelete] },
   upload: {
     staticDir: path.resolve(process.cwd(), process.env.MEDIA_DIR || 'media'),
-    mimeTypes: ['image/*', 'video/mp4', 'video/webm'],
+    mimeTypes: ['image/*', 'video/mp4', 'video/webm', 'audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/webm', 'audio/mp4', 'audio/aac'],
     focalPoint: true,
     imageSizes: [
       { name: 'thumb', width: 400, formatOptions: { format: 'webp', options: { quality: 80 } } },

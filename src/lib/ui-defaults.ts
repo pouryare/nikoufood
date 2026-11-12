@@ -14,6 +14,8 @@ export const UI_DEFAULTS = {
     learnMore: 'بیشتر بدانید',
     scrollHint: 'برای دیدن داستان، اسکرول کنید',
     comingSoon: 'به‌زودی',
+    soundOn: 'روشن کردن صدا',
+    soundOff: 'خاموش کردن صدا',
   },
   products: {
     view: 'مشاهدهٔ محصول',

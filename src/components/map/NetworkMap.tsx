@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { LitEdge } from '@/components/effects/LitEdge'
 import { ButtonLink } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
 import { cn } from '@/lib/cn'
@@ -95,7 +96,8 @@ export function NetworkMap({ provinces, hubSlug = 'tehran', labels, partner, rep
         </label>
 
         {shown ? (
-          <div className="network-map-card panel" aria-live="polite">
+          <div className="network-map-card panel" aria-live="polite" data-lit>
+            <LitEdge />
             <span className="network-map-status" data-coverage={shown.coverage}>
               {labels[shown.coverage]}
             </span>

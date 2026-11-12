@@ -1,3 +1,4 @@
+import { MELT_LINE, TABLE_DISHES, TABLE_PRODUCT_SLUG, TABLE_TEXTS } from '../lib/home-defaults'
 /**
  * Starter content for the CMS (Persian). Everything here is an editable first draft:
  * wording follows the project brief, unknown facts are left empty or generic.
@@ -83,11 +84,13 @@ export const homePage = {
       {
         layout: 'single',
         kicker: 'مزرعه',
+        sound: 'farm',
         single: { title: 'همه‌چیز از زمین شروع می‌شود', text: 'دانه‌های روغنی زیر آفتاب می‌رسند و گاوها در مرتع می‌چرند؛ دو مسیر متفاوت، با یک نقطهٔ شروع.', art: 'farm', picture: { file: 'film-farm.webp', alt: 'مزرعهٔ آفتابگردان و گاوهای شیری در مرتع هنگام غروب', focal: [10, 50] }, pictureMobile: { file: 'film-farm-phone.webp', alt: 'گل‌های آفتابگردان و گاوهای شیری در مرتع هنگام غروب', focal: [50, 30] } },
       },
       {
         layout: 'split',
         kicker: 'دانه | شیر',
+        sound: 'milk',
         plant: { title: 'دانه، پاک و آماده', text: 'دانه‌ها پس از برداشت بوجاری و پوست‌گیری می‌شوند تا فقط مغز سالم باقی بماند.', art: 'seed', picture: { file: 'film-seed.webp', alt: 'گل آفتابگردانِ رسیده و دانه‌های آفتابگردان', focal: [10, 67] } },
         animal: { title: 'شیر، تازه و سرد', text: 'شیر پس از دوشش بلافاصله تا حدود ۴ درجه سرد و پیش از ورود به خط تولید آزمایش می‌شود.', art: 'milk', picture: { file: 'film-milk.webp', alt: 'شیر تازه که در پارچ شیشه‌ای ریخته می‌شود', focal: [70, 92] } },
       },
@@ -105,6 +108,7 @@ export const homePage = {
       {
         layout: 'single',
         kicker: 'سفره',
+        sound: 'sizzle',
         single: { title: 'و سرانجام، روی برنج داغ', text: 'برای چلو، کباب و جوجه؛ همان لحظه‌ای که طعم کامل می‌شود.', art: 'table', picture: { file: 'film-table.webp', alt: 'چلو با کره، کباب کوبیده و جوجه‌کباب روی سفرهٔ ایرانی', focal: [90, 55] }, pictureMobile: { file: 'film-table-phone.webp', alt: 'چلو با کره، کباب کوبیده و جوجه‌کباب روی سفرهٔ ایرانی', focal: [50, 58] } },
       },
     ],
@@ -126,6 +130,14 @@ export const homePage = {
     text: 'از بستهٔ تک‌نفره برای رستوران‌ها و کترینگ‌ها تا بستهٔ فله‌ای برای مراکز تهیهٔ غذا و پخش‌کنندگان.',
     ctaLabel: 'مشاهدهٔ همهٔ محصولات',
     showMarkets: true,
+  },
+  // The melt appears only after its clip is uploaded; the line is ready for it.
+  melt: { enabled: true, line: MELT_LINE },
+  table: {
+    enabled: true,
+    ...TABLE_TEXTS,
+    // Every dish gets the single-serve butter (Pourya's pick); each can be changed in the CMS.
+    dishes: TABLE_DISHES.map((dish) => ({ ...dish, productSlug: TABLE_PRODUCT_SLUG })),
   },
   brands: {
     eyebrow: 'برندها',

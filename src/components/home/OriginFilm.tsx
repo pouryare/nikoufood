@@ -6,7 +6,9 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Image from 'next/image'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { cn } from '@/lib/cn'
+import type { SoundName } from '@/lib/effects'
 import { toFa } from '@/lib/format'
+import { emitSound } from '@/lib/sound'
 import { prefersReducedMotion } from '@/lib/webgl'
 import { FilmArt, type FilmArtName } from './FilmArt'
 
@@ -19,12 +21,15 @@ export type FilmSide = {
   image?: Picture | null
   imageMobile?: Picture | null
   video?: { url: string } | null
+  /** An upright clip for phones; without it, phones show the middle of the wide clip. */
+  videoMobile?: { url: string } | null
   art?: FilmArtName | null
 }
 
+type SceneSound = { sound?: SoundName | null }
 export type FilmScene =
-  | { layout: 'single'; kicker: string; side: FilmSide }
-  | { layout: 'split'; kicker: string; plant: FilmSide; animal: FilmSide }
+  | ({ layout: 'single'; kicker: string; side: FilmSide } & SceneSound)
+  | ({ layout: 'split'; kicker: string; plant: FilmSide; animal: FilmSide } & SceneSound)
 
 type Props = {
   eyebrow?: string | null
@@ -58,14 +63,20 @@ function enterOf(scenes: FilmScene[], i: number): Enter {
   return cur === 'single' ? 'close' : 'slide'
 }
 
-const hasPhoto = (side: FilmSide) => Boolean(side.video || side.image)
+const hasPhoto = (side: FilmSide) => Boolean(side.video || side.videoMobile || side.image)
+/** Sounds that keep playing while their scene is on screen; the others play once. */
+const LOOPING: SoundName[] = ['farm', 'milk']
 
 function SideMedia({ side, baked }: { side: FilmSide; baked: boolean }) {
   if (baked) return null
   return (
     <div className="film-media" data-media={hasPhoto(side) ? 'photo' : 'art'}>
-      {side.video ? (
-        <video src={side.video.url} muted playsInline preload="metadata" poster={side.image?.url} aria-hidden tabIndex={-1} />
+      {side.video || side.videoMobile ? (
+        // The browser picks the upright clip on phones and the wide one elsewhere.
+        <video muted playsInline preload="metadata" poster={side.image?.url ?? side.imageMobile?.url} aria-hidden tabIndex={-1}>
+          {side.video ? <source src={side.video.url} media={side.videoMobile ? '(min-width: 768px)' : undefined} /> : null}
+          {side.videoMobile ? <source src={side.videoMobile.url} /> : null}
+        </video>
       ) : side.image ? (
         <>
           <Image
@@ -163,6 +174,7 @@ export function OriginFilm({ eyebrow, title, intro, plantLabel, animalLabel, fil
   const sceneRefs = useRef<(HTMLLIElement | null)[]>([])
   const pinned = useMotionAllowed()
   const [current, setCurrent] = useState(0)
+  const [inside, setInside] = useState(false)
   const count = scenes.length
   const baked = Boolean(film || filmMobile)
 
@@ -214,7 +226,7 @@ export function OriginFilm({ eyebrow, title, intro, plantLabel, animalLabel, fil
       const tween = gsap.to(proxy, {
         p: 1,
         ease: 'none',
-        scrollTrigger: { trigger: trackRef.current, start: 'top top', end: 'bottom bottom', scrub: 0.45 },
+        scrollTrigger: { trigger: trackRef.current, start: 'top top', end: 'bottom bottom', scrub: 0.45, onToggle: (self) => setInside(self.isActive) },
         onUpdate: () => render(proxy.p),
       })
       render(tween.scrollTrigger?.progress ?? 0)
@@ -225,6 +237,18 @@ export function OriginFilm({ eyebrow, title, intro, plantLabel, animalLabel, fil
     },
     { dependencies: [pinned, count, render], scope: rootRef },
   )
+
+  // Each scene can have its own sound (only heard when the visitor has turned sound on).
+  const sceneSound = scenes[current]?.sound
+  useEffect(() => {
+    if (!inside || !sceneSound) return
+    if (!LOOPING.includes(sceneSound)) {
+      emitSound(sceneSound)
+      return
+    }
+    emitSound(sceneSound, 'start')
+    return () => emitSound(sceneSound, 'stop')
+  }, [inside, sceneSound])
 
   if (count === 0) return null
 

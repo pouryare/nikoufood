@@ -1,6 +1,7 @@
 import path from 'path'
 import { getPayload, type Payload } from 'payload'
 import config from '@payload-config'
+import { TABLE_IMAGE } from '../lib/home-defaults'
 import * as c from './content'
 import { PROVINCES } from './provinces'
 
@@ -60,7 +61,7 @@ async function main() {
   }
 
   for (const p of c.products) {
-    await upsert('products', p.slug, {
+    idBySlug[`products:${p.slug}`] = (await upsert('products', p.slug, {
       name: p.name,
       slug: p.slug,
       order: p.order,
@@ -72,7 +73,7 @@ async function main() {
       variants: p.variants,
       applications: p.applications,
       markets: p.markets.map((m) => idBySlug[`markets:${m}`]),
-    })
+    })).id as number
   }
 
   /* globals */
@@ -92,7 +93,13 @@ async function main() {
   for (const scene of c.homePage.film.scenes as Array<{ single?: SeedSide; plant?: SeedSide; animal?: SeedSide } & Record<string, unknown>>) {
     scenes.push({ ...scene, single: await filmSide(scene.single), plant: await filmSide(scene.plant), animal: await filmSide(scene.animal) })
   }
-  await payload.updateGlobal({ slug: 'home-page', data: { ...c.homePage, film: { ...c.homePage.film, scenes } } as never })
+  const sofreh = await upload('public/home/sofreh-top.webp', TABLE_IMAGE.alt)
+  const table = {
+    ...c.homePage.table,
+    image: sofreh,
+    dishes: c.homePage.table.dishes.map(({ productSlug, ...dish }) => ({ ...dish, product: idBySlug[`products:${productSlug}`] })),
+  }
+  await payload.updateGlobal({ slug: 'home-page', data: { ...c.homePage, film: { ...c.homePage.film, scenes }, table } as never })
   await payload.updateGlobal({ slug: 'about-page', data: c.aboutPage as never })
   await payload.updateGlobal({ slug: 'network-page', data: c.networkPage as never })
   await payload.updateGlobal({ slug: 'representation-page', data: c.representationPage as never })

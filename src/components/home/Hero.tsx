@@ -123,7 +123,7 @@ export function Hero({ brandName, eyebrow, words, subtitle, primaryCta, secondar
             </span>
             <span className="hero-word hero-word-bottom animate-fade-up relative z-0 block" style={delay(320)}>
               <span className="hero-shift block" style={{ '--sx': 18, '--sy': -12, '--px': 7, '--py': 8 } as CSSProperties}>
-                <span className="text-gold-sheen">{bottom}</span>
+                <span className="text-gold-sheen pour">{bottom}</span>
               </span>
             </span>
           </h1>
@@ -186,6 +186,9 @@ export function Hero({ brandName, eyebrow, words, subtitle, primaryCta, secondar
           </div>
         </div>
       </div>
+
+      {/* The start of the golden thread: a line of gold runs down from under the butter as the visitor scrolls on. */}
+      <span aria-hidden className="hero-thread" />
 
       <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 hidden flex-col items-center gap-2 lg:flex" aria-hidden>
         <span className="hidden text-micro text-muted 2xl:block">{scrollHint}</span>

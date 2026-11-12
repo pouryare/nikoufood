@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { LitEdge } from '@/components/effects/LitEdge'
 import { ButtonLink } from '@/components/ui/Button'
 import { BRAND_MARK_PATH, BRAND_MARK_VIEWBOX } from '@/data/brand-mark'
 
@@ -19,7 +20,8 @@ export function CtaBand({ title, text, actions, as: Tag = 'h2' }: Props) {
   return (
     <section className="section-y">
       <div className="wrap">
-        <div className="cta-band grain" data-reveal>
+        <div className="cta-band grain" data-reveal data-lit>
+          <LitEdge />
           <svg aria-hidden viewBox={`-8 -8 ${v + 16} ${v + 16}`} className="cta-band-mark">
             <defs>
               <linearGradient id={id} x1="28" y1="0" x2="481" y2="0" gradientUnits="userSpaceOnUse">
@@ -35,7 +37,7 @@ export function CtaBand({ title, text, actions, as: Tag = 'h2' }: Props) {
             {shown.length ? (
               <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
                 {shown.map((action, i) => (
-                  <ButtonLink key={`${action!.href}-${i}`} href={action!.href} variant={VARIANTS[Math.min(i, 2)]} size="lg" icon={i === 0 ? 'arrowLeft' : false} className="max-sm:w-full">
+                  <ButtonLink key={`${action!.href}-${i}`} href={action!.href} variant={VARIANTS[Math.min(i, 2)]} size="lg" icon={i === 0 ? 'arrowLeft' : false} className="max-sm:w-full" data-thread={i === 0 ? 'end' : undefined}>
                     {action!.label}
                   </ButtonLink>
                 ))}

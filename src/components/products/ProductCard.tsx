@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { LitEdge } from '@/components/effects/LitEdge'
 import { Icon } from '@/components/ui/Icon'
 import { TiltCard } from '@/components/ui/TiltCard'
 import type { MediaInfo } from '@/lib/cms'
@@ -21,7 +22,8 @@ export function ProductCard({ product, sizes = '(max-width: 767px) 78vw, (max-wi
   const fills = image?.mimeType === 'image/jpeg'
   return (
     <TiltCard className="h-full" innerClassName="rounded-lg" max={5}>
-      <article className="product-card panel">
+      <article className="product-card panel" data-lit>
+        <LitEdge />
         <div className="product-card-stage" data-fills={fills ? '' : undefined}>
           <span aria-hidden className="product-card-halo" />
           {image ? (

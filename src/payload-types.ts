@@ -1101,6 +1101,29 @@ export interface SiteSetting {
    */
   enable3D?: boolean | null;
   showWhatsappButton?: boolean | null;
+  /**
+   * برای کسانی که در تنظیمات دستگاهشان «کاهش حرکت» را روشن کرده‌اند، جلوه‌های متحرک خودکار خاموش می‌شوند.
+   */
+  effects?: {
+    lamp?: boolean | null;
+    pattern?: boolean | null;
+    grain?: boolean | null;
+    pourTitles?: boolean | null;
+    goldenThread?: boolean | null;
+    pageTransition?: boolean | null;
+    magneticButtons?: boolean | null;
+    smoothScroll?: boolean | null;
+    sound?: boolean | null;
+  };
+  /**
+   * فایل کوتاه mp3 یا ogg. اگر جلز یا کلیک خالی باشد، نسخهٔ ملایمی از آن در خود مرورگر ساخته می‌شود. صدای مزرعه و شیر فقط با فایل پخش می‌شوند.
+   */
+  sounds?: {
+    sizzle?: (number | null) | Media;
+    farm?: (number | null) | Media;
+    milk?: (number | null) | Media;
+    click?: (number | null) | Media;
+  };
   footerText?: string | null;
   copyright?: string | null;
   trustBadges?:
@@ -1242,6 +1265,8 @@ export interface UiText {
     learnMore?: string | null;
     scrollHint?: string | null;
     comingSoon?: string | null;
+    soundOn?: string | null;
+    soundOff?: string | null;
   };
   products?: {
     view?: string | null;
@@ -1359,6 +1384,15 @@ export interface HomePage {
     image?: (number | null) | Media;
   };
   /**
+   * کرهٔ بخش اول روی برنج داغ می‌افتد و آب می‌شود؛ ویدیو با اسکرول جلو و عقب می‌رود. این بخش فقط وقتی نمایش داده می‌شود که ویدیو آپلود شده باشد.
+   */
+  melt?: {
+    enabled?: boolean | null;
+    video?: (number | null) | Media;
+    videoMobile?: (number | null) | Media;
+    line?: string | null;
+  };
+  /**
    * یک فیلم با چند صحنه که با اسکرول جلو می‌رود. جایی که مراحل تولید کرهٔ گیاهی و حیوانی یکی است، صحنه «تک‌تصویر» است؛ جایی که فرق دارند، «دو‌نیمه» است (گیاهی سمت راست، حیوانی سمت چپ؛ در موبایل بالا و پایین).
    */
   film?: {
@@ -1377,6 +1411,10 @@ export interface HomePage {
       | {
           layout: 'single' | 'split';
           kicker: string;
+          /**
+           * فایل صداها در «تنظیمات سایت ← امکانات ← صداها» گذاشته می‌شود.
+           */
+          sound?: ('none' | 'farm' | 'milk' | 'sizzle') | null;
           single?: {
             title?: string | null;
             text?: string | null;
@@ -1386,6 +1424,10 @@ export interface HomePage {
              * ویدیوی کوتاه mp4 یا webm بدون صدا؛ با اسکرول جلو و عقب می‌رود.
              */
             video?: (number | null) | Media;
+            /**
+             * اگر خالی باشد، در موبایل وسطِ همان ویدیوی بالا نمایش داده می‌شود.
+             */
+            videoMobile?: (number | null) | Media;
             /**
              * تا وقتی تصویر یا ویدیو نیست، این طرح طلایی نمایش داده می‌شود.
              */
@@ -1401,6 +1443,10 @@ export interface HomePage {
              */
             video?: (number | null) | Media;
             /**
+             * اگر خالی باشد، در موبایل وسطِ همان ویدیوی بالا نمایش داده می‌شود.
+             */
+            videoMobile?: (number | null) | Media;
+            /**
              * تا وقتی تصویر یا ویدیو نیست، این طرح طلایی نمایش داده می‌شود.
              */
             art?: ('none' | 'farm' | 'seed' | 'milk' | 'oil' | 'cream' | 'butter' | 'table') | null;
@@ -1414,6 +1460,10 @@ export interface HomePage {
              * ویدیوی کوتاه mp4 یا webm بدون صدا؛ با اسکرول جلو و عقب می‌رود.
              */
             video?: (number | null) | Media;
+            /**
+             * اگر خالی باشد، در موبایل وسطِ همان ویدیوی بالا نمایش داده می‌شود.
+             */
+            videoMobile?: (number | null) | Media;
             /**
              * تا وقتی تصویر یا ویدیو نیست، این طرح طلایی نمایش داده می‌شود.
              */
@@ -1448,6 +1498,31 @@ export interface HomePage {
     text?: string | null;
     ctaLabel?: string | null;
     showMarkets?: boolean | null;
+  };
+  table?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    text?: string | null;
+    enabled?: boolean | null;
+    /**
+     * اگر خالی باشد، تصویر نمونهٔ خود سایت نمایش داده می‌شود.
+     */
+    image?: (number | null) | Media;
+    hint?: string | null;
+    pairLabel?: string | null;
+    /**
+     * اگر خالی باشد، چهار غذای تصویر نمونه نمایش داده می‌شوند.
+     */
+    dishes?:
+      | {
+          name: string;
+          x: number;
+          y: number;
+          product?: (number | null) | Product;
+          note?: string | null;
+          id?: string | null;
+        }[]
+      | null;
   };
   brands?: {
     eyebrow?: string | null;
@@ -1983,6 +2058,27 @@ export interface SiteSettingsSelect<T extends boolean = true> {
   articlesVisibility?: T;
   enable3D?: T;
   showWhatsappButton?: T;
+  effects?:
+    | T
+    | {
+        lamp?: T;
+        pattern?: T;
+        grain?: T;
+        pourTitles?: T;
+        goldenThread?: T;
+        pageTransition?: T;
+        magneticButtons?: T;
+        smoothScroll?: T;
+        sound?: T;
+      };
+  sounds?:
+    | T
+    | {
+        sizzle?: T;
+        farm?: T;
+        milk?: T;
+        click?: T;
+      };
   footerText?: T;
   copyright?: T;
   trustBadges?:
@@ -2082,6 +2178,8 @@ export interface UiTextsSelect<T extends boolean = true> {
         learnMore?: T;
         scrollHint?: T;
         comingSoon?: T;
+        soundOn?: T;
+        soundOff?: T;
       };
   products?:
     | T
@@ -2207,6 +2305,14 @@ export interface HomePageSelect<T extends boolean = true> {
             };
         image?: T;
       };
+  melt?:
+    | T
+    | {
+        enabled?: T;
+        video?: T;
+        videoMobile?: T;
+        line?: T;
+      };
   film?:
     | T
     | {
@@ -2223,6 +2329,7 @@ export interface HomePageSelect<T extends boolean = true> {
           | {
               layout?: T;
               kicker?: T;
+              sound?: T;
               single?:
                 | T
                 | {
@@ -2231,6 +2338,7 @@ export interface HomePageSelect<T extends boolean = true> {
                     image?: T;
                     imageMobile?: T;
                     video?: T;
+                    videoMobile?: T;
                     art?: T;
                   };
               plant?:
@@ -2241,6 +2349,7 @@ export interface HomePageSelect<T extends boolean = true> {
                     image?: T;
                     imageMobile?: T;
                     video?: T;
+                    videoMobile?: T;
                     art?: T;
                   };
               animal?:
@@ -2251,6 +2360,7 @@ export interface HomePageSelect<T extends boolean = true> {
                     image?: T;
                     imageMobile?: T;
                     video?: T;
+                    videoMobile?: T;
                     art?: T;
                   };
               id?: T;
@@ -2284,6 +2394,27 @@ export interface HomePageSelect<T extends boolean = true> {
         text?: T;
         ctaLabel?: T;
         showMarkets?: T;
+      };
+  table?:
+    | T
+    | {
+        eyebrow?: T;
+        title?: T;
+        text?: T;
+        enabled?: T;
+        image?: T;
+        hint?: T;
+        pairLabel?: T;
+        dishes?:
+          | T
+          | {
+              name?: T;
+              x?: T;
+              y?: T;
+              product?: T;
+              note?: T;
+              id?: T;
+            };
       };
   brands?:
     | T
