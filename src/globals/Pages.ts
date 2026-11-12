@@ -182,9 +182,21 @@ export const HomePage = page('home-page', 'صفحه اصلی', [
     ]),
     linkGroup('cta', 'لینک'),
   ]),
+  sectionHeadField('sizes', 'فله‌ای یا تک‌نفره (بخش ثابتی که قالب بزرگ کره به بسته‌های کوچک تبدیل می‌شود)', [
+    checkbox('enabled', 'نمایش داده شود', true),
+    text('bulkLabel', 'نام اندازهٔ بزرگ (مثلاً «فله‌ای»)'),
+    textarea('bulkText', 'توضیح اندازهٔ بزرگ'),
+    text('singleLabel', 'نام اندازهٔ کوچک (مثلاً «تک‌نفره»)'),
+    textarea('singleText', 'توضیح اندازهٔ کوچک'),
+  ]),
   sectionHeadField('products', 'بخش محصولات', [
     text('ctaLabel', 'متن دکمه'),
     checkbox('showMarkets', 'نمایش نوار متحرک «مناسب برای» (از فهرست بازارهای هدف)', true),
+  ]),
+  sectionHeadField('finder', 'کسب‌وکار شما چیست؟ (فهرست بزرگ بازارها و محصولات مناسب هر کدام)', [
+    checkbox('enabled', 'نمایش داده شود', true),
+    textarea('emptyText', 'متن وقتی برای یک بازار محصولی انتخاب نشده'),
+    linkGroup('cta', 'دکمه'),
   ]),
   sectionHeadField('table', 'سفرهٔ ایرانی (هر غذا و کرهٔ مناسبش)', [
     checkbox('enabled', 'نمایش داده شود', true),
@@ -193,6 +205,7 @@ export const HomePage = page('home-page', 'صفحه اصلی', [
     }),
     text('hint', 'راهنمای کوتاه (مثلاً «روی هر غذا بزنید»)'),
     text('pairLabel', 'عنوان کارت کره (مثلاً «کرهٔ مناسب این غذا»)'),
+    number('butterDish', 'کرهٔ مسافر روی کدام غذا فرود بیاید (شمارهٔ غذا در فهرست، از ۱)', { min: 1, admin: { description: 'اگر خالی باشد، روی غذای اول.' } }),
     itemsField(
       'dishes',
       'غذاها',
@@ -217,11 +230,48 @@ export const HomePage = page('home-page', 'صفحه اصلی', [
     textarea('tehranText', 'متن کارت تهران'),
     text('provincesTitle', 'عنوان کارت شهرستان‌ها'),
     textarea('provincesText', 'متن کارت شهرستان‌ها'),
+    checkbox('routeEnabled', 'به جای دو کارت، مسیر طلایی مرحله‌به‌مرحله نمایش داده شود', true),
+    itemsField(
+      'steps',
+      'مراحل مسیر (از بسته‌بندی تا آشپزخانه)',
+      [
+        text('title', 'عنوان', { required: true }),
+        textarea('text', 'توضیح'),
+        text('short', 'نام کوتاه روی تصویر مسیر (مثلاً «تهران · طعمینو»)'),
+        iconField(),
+      ],
+      { maxRows: 4, admin: { description: 'چهار مرحله: بسته‌بندی، مرکز پخش، استان‌ها، آشپزخانه‌ها. اگر خالی باشد، چهار مرحلهٔ پیش‌فرض نمایش داده می‌شوند.' } },
+    ),
   ]),
   sectionHeadField('map', 'نقشه ایران', [text('ctaLabel', 'متن دکمه')]),
   sectionHeadField('trust', 'اعتمادسازی', [
+    text('bigWord', 'کلمهٔ بزرگی که پیش از این بخش صفحه را پر می‌کند و در تیتر جا می‌گیرد (مثلاً «اعتماد»)', {
+      admin: { description: 'بهتر است این کلمه در خود تیتر هم باشد. خالی بگذارید تا این جلوه نمایش داده نشود.' },
+    }),
     itemsField('items', 'موارد', [text('title', 'عنوان', { required: true }), textarea('text', 'توضیح'), iconField()]),
   ]),
+  {
+    name: 'butter',
+    label: 'کرهٔ مسافر (یک تکه کره که با اسکرول از بخشی به بخش دیگر می‌رود)',
+    type: 'group',
+    admin: { description: 'روشن و خاموش کردن کلی آن در تنظیمات سایت › جلوه‌های ویژه است.' },
+    fields: [
+      {
+        name: 'stops',
+        label: 'جاهای توقف',
+        type: 'select',
+        hasMany: true,
+        defaultValue: ['hero', 'intro', 'sizes', 'finder', 'table'],
+        options: [
+          { label: 'روی کلمهٔ طلایی بخش اول', value: 'hero' },
+          { label: 'کنار متن معرفی', value: 'intro' },
+          { label: 'کنار قالب بزرگ (فله‌ای یا تک‌نفره)', value: 'sizes' },
+          { label: 'کنار تیتر «کسب‌وکار شما چیست؟»', value: 'finder' },
+          { label: 'روی برنج سفره (آنجا ذوب می‌شود)', value: 'table' },
+        ],
+      },
+    ],
+  },
   {
     name: 'finalCta',
     label: 'دعوت به اقدام پایانی',

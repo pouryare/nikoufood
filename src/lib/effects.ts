@@ -14,6 +14,17 @@ export type Effects = {
   sound: boolean
   /** Sound starts on (after the visitor's first click or tap) unless they turned it off before. */
   soundOnAtStart: boolean
+  titleRise: boolean
+  wordLight: boolean
+  rollingNumbers: boolean
+  foilCards: boolean
+  showroom: boolean
+  bento: boolean
+  stickyChapters: boolean
+  kineticCta: boolean
+  footerName: boolean
+  sheetStack: boolean
+  travellingButter: boolean
 }
 
 export function effectsOf(settings: Pick<SiteSetting, 'effects'>): Effects {
@@ -30,6 +41,17 @@ export function effectsOf(settings: Pick<SiteSetting, 'effects'>): Effects {
     smoothScroll: on(e.smoothScroll),
     sound: on(e.sound),
     soundOnAtStart: on(e.soundOnAtStart),
+    titleRise: on(e.titleRise),
+    wordLight: on(e.wordLight),
+    rollingNumbers: on(e.rollingNumbers),
+    foilCards: on(e.foilCards),
+    showroom: on(e.showroom),
+    bento: on(e.bento),
+    stickyChapters: on(e.stickyChapters),
+    kineticCta: on(e.kineticCta),
+    footerName: on(e.footerName),
+    sheetStack: on(e.sheetStack),
+    travellingButter: on(e.travellingButter),
   }
 }
 

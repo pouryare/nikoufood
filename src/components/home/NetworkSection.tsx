@@ -2,6 +2,7 @@ import { NetworkMap, type NetworkMapLabels } from '@/components/map/NetworkMap'
 import type { Coverage } from '@/components/map/types'
 import { ButtonLink } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
+import { RoutePin, type RouteStep } from './RoutePin'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { getNetworkPage, getProvinces, getPublicRepresentatives, getSiteSettings, getTheme, getUi, mediaOf } from '@/lib/cms'
 import { themeColors } from '@/lib/theme'
@@ -17,7 +18,22 @@ function mix(a: string, b: string, t: number) {
 }
 
 /** The coverage map with its heading and the two "how we distribute" cards. Used on the home page and the network page. */
-export async function NetworkSection({ head, tehran, others, cta, as = 'h2' }: { head: Head; tehran?: Card; others?: Card; cta?: { label?: string | null; href: string }; as?: 'h1' | 'h2' }) {
+export async function NetworkSection({
+  head,
+  tehran,
+  others,
+  cta,
+  as = 'h2',
+  route,
+}: {
+  head: Head
+  tehran?: Card
+  others?: Card
+  cta?: { label?: string | null; href: string }
+  as?: 'h1' | 'h2'
+  /** The golden route from packing to the kitchen; it replaces the two cards (home page only). */
+  route?: { steps: RouteStep[]; label: string } | null
+}) {
   const [provinces, reps, network, ui, theme, settings] = await Promise.all([getProvinces(), getPublicRepresentatives(), getNetworkPage(), getUi(), getTheme(), getSiteSettings()])
   const c = themeColors(theme)
   const labels: NetworkMapLabels = { ...ui.network }
@@ -30,7 +46,9 @@ export async function NetworkSection({ head, tehran, others, cta, as = 'h2' }: {
     <section className="section-y">
       <div className="wrap">
         <SectionHeading {...head} as={as} />
-        {cards.length ? (
+        {route && route.steps.length ? (
+          <RoutePin steps={route.steps} label={route.label} />
+        ) : cards.length ? (
           <div className="mt-12 grid gap-5 md:grid-cols-2">
             {cards.map((card, i) => (
               <div key={card.title} data-reveal style={{ '--i': i } as React.CSSProperties} className="panel flex gap-5 p-6 md:p-8">

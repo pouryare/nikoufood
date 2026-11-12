@@ -25,11 +25,13 @@ export type HeroProps = {
   scrollHint: string
   accentFrom: string
   accentTo: string
+  /** Marks the gold word as the travelling butter's first resting place. */
+  butterStop?: boolean
 }
 
 const delay = (ms: number): CSSProperties => ({ animationDelay: `${ms}ms` })
 
-export function Hero({ brandName, eyebrow, words, subtitle, primaryCta, secondaryCta, image, enable3D, scrollHint, accentFrom, accentTo }: HeroProps) {
+export function Hero({ brandName, eyebrow, words, subtitle, primaryCta, secondaryCta, image, enable3D, scrollHint, accentFrom, accentTo, butterStop }: HeroProps) {
   const sectionRef = useRef<HTMLElement>(null)
   const pointer = useRef({ x: 0, y: 0 })
   const progress = useRef(0)
@@ -123,7 +125,10 @@ export function Hero({ brandName, eyebrow, words, subtitle, primaryCta, secondar
             </span>
             <span className="hero-word hero-word-bottom animate-fade-up relative z-0 block" style={delay(320)}>
               <span className="hero-shift block" style={{ '--sx': 18, '--sy': -12, '--px': 7, '--py': 8 } as CSSProperties}>
-                <span className="text-gold-sheen pour">{bottom}</span>
+                <span className="relative inline-block">
+                  <span className="text-gold-sheen pour">{bottom}</span>
+                  {butterStop ? <span aria-hidden data-butter-stop="hero" className="butter-stop" style={{ right: '20%', top: '16%' }} /> : null}
+                </span>
               </span>
             </span>
           </h1>
@@ -172,7 +177,7 @@ export function Hero({ brandName, eyebrow, words, subtitle, primaryCta, secondar
               {subtitle}
             </p>
           ) : null}
-          <div className="animate-fade-up flex items-center gap-3" style={delay(640)}>
+          <div className="hero-ctas animate-fade-up flex flex-wrap items-center gap-3" style={delay(640)}>
             {primaryCta?.label ? (
               <ButtonLink href={primaryCta.href} size="lg" className="max-sm:h-12 max-sm:flex-1 max-sm:px-4 max-sm:text-small">
                 {primaryCta.label}

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/cn'
+import { RiseText } from './RiseText'
 
 type Props = {
   eyebrow?: string | null
@@ -22,12 +23,12 @@ export function SectionHeading({ eyebrow, title, text, align = 'start', as: Tag 
         </p>
       ) : null}
       {title ? (
-        <Tag data-reveal style={{ '--i': 1 } as React.CSSProperties} className={cn('mt-5', Tag === 'h1' ? 'text-h1' : 'text-h2')}>
-          {title}
+        <Tag data-reveal style={{ '--i': 1 } as React.CSSProperties} className={cn('rise mt-5', Tag === 'h1' ? 'text-h1' : 'text-h2')}>
+          <RiseText text={title} />
         </Tag>
       ) : null}
       {text ? (
-        <p data-reveal style={{ '--i': 2 } as React.CSSProperties} className="mt-6 text-lead text-muted">
+        <p data-reveal style={{ '--i': 2 } as React.CSSProperties} className="rise-text mt-6 text-lead text-muted">
           {text}
         </p>
       ) : null}

@@ -112,6 +112,23 @@ export const ICON_CHOICES = [
   { label: 'قاشق و چنگال (رستوران)', value: 'utensils' },
   { label: 'گفت‌وگو', value: 'chat' },
   { label: 'تیک', value: 'check' },
+  { label: 'سرپوش غذا (کترینگ)', value: 'cloche' },
+  { label: 'تخت (هتل)', value: 'bed' },
+  { label: 'قابلمه (آشپزخانه، مراکز تهیهٔ غذا)', value: 'pot' },
+  { label: 'فروشگاه (کسب‌وکار غذایی)', value: 'store' },
+  { label: 'سبد خرید (فروشگاه زنجیره‌ای)', value: 'cart' },
+  { label: 'جعبه‌های روی هم (عمده‌فروشی)', value: 'boxes' },
+  { label: 'کارخانه (تولید)', value: 'factory' },
+  { label: 'مسیر', value: 'route' },
+  { label: 'خانه‌های کوچک (بسته‌های تک‌نفره)', value: 'grid' },
+  { label: 'درخشش', value: 'sparkle' },
+  { label: 'شعله (پخت)', value: 'flame' },
+  { label: 'تقویم (سابقه، تاریخ)', value: 'calendar' },
+  { label: 'هدف (چشم‌انداز)', value: 'target' },
+  { label: 'نمودار رشد (توسعه)', value: 'trend' },
+  { label: 'دست دادن (همکاری)', value: 'handshake' },
+  { label: 'تلفن', value: 'phone' },
+  { label: 'نقطهٔ مکان', value: 'pin' },
 ] as const
 
 export const iconField = (name = 'icon', label = 'آیکون'): Field => ({
