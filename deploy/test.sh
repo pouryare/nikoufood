@@ -282,6 +282,9 @@ r=0; self || r=$?;  t "a broken kit file is never installed (exit 1)" test "$r" 
 t "and the old nikou stays"                cmp -s ./nikou "$TMP/selfbin/nikou"
 rm -f "$TMP/bin/curl"
 
+echo "Quiet checks while the site starts"
+t "waiting for the site prints no curl error" test -z "$( ( APP_PORT=1; sleep() { :; }; wait_healthy 3 ) 2>&1 )"
+
 echo "Parallel resumable download, small update"
 cat > "$TMP/range-server.py" <<'PY'
 # A small file server that understands Range requests. With DROP_FIRST=1 it cuts its first six answers short
