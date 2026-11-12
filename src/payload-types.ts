@@ -1114,9 +1114,13 @@ export interface SiteSetting {
     magneticButtons?: boolean | null;
     smoothScroll?: boolean | null;
     sound?: boolean | null;
+    /**
+     * مرورگرها اجازه نمی‌دهند سایت پیش از اولین کلیک، لمس یا فشردن کلید صدایی پخش کند؛ پس صدا با اولین کلیک یا لمس بازدیدکننده، آرام شروع می‌شود. بازدیدکننده هر وقت بخواهد با دکمهٔ صدا آن را خاموش می‌کند و انتخابش روی همان دستگاه به خاطر می‌ماند.
+     */
+    soundOnAtStart?: boolean | null;
   };
   /**
-   * فایل کوتاه mp3 یا ogg. اگر جلز یا کلیک خالی باشد، نسخهٔ ملایمی از آن در خود مرورگر ساخته می‌شود. صدای مزرعه و شیر فقط با فایل پخش می‌شوند.
+   * فایل کوتاه mp3. هر صدایی که خالی بماند، نسخهٔ خود سایت پخش می‌شود (مزرعه و ریختن شیر صدای ضبط‌شدهٔ آزاد هستند؛ جلز و کلیک در خود مرورگر ساخته می‌شوند).
    */
   sounds?: {
     sizzle?: (number | null) | Media;
@@ -2070,6 +2074,7 @@ export interface SiteSettingsSelect<T extends boolean = true> {
         magneticButtons?: T;
         smoothScroll?: T;
         sound?: T;
+        soundOnAtStart?: T;
       };
   sounds?:
     | T

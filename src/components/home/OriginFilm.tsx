@@ -238,7 +238,7 @@ export function OriginFilm({ eyebrow, title, intro, plantLabel, animalLabel, fil
     { dependencies: [pinned, count, render], scope: rootRef },
   )
 
-  // Each scene can have its own sound (only heard when the visitor has turned sound on).
+  // Each scene can have its own sound (only heard while sound is on).
   const sceneSound = scenes[current]?.sound
   useEffect(() => {
     if (!inside || !sceneSound) return

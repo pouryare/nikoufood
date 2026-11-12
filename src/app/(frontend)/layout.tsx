@@ -107,7 +107,7 @@ export default async function FrontendLayout({ children }: { children: ReactNode
           </main>
           <Footer settings={settings} columns={columns} channels={channels} ui={ui} />
           <MessengerDock channels={dockChannels} label={ui.contact.dockLabel} closeLabel={ui.common.close} />
-          {fx.sound ? <SoundToggle files={soundFilesOf(settings)} labels={{ on: ui.common.soundOn, off: ui.common.soundOff }} /> : null}
+          {fx.sound ? <SoundToggle files={soundFilesOf(settings)} labels={{ on: ui.common.soundOn, off: ui.common.soundOff }} startOn={fx.soundOnAtStart} /> : null}
         </MotionProvider>
         {fx.pageTransition ? (
           <PageTransition>
