@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { CSSProperties, ReactNode } from 'react'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { breadcrumbLd } from '@/lib/jsonld'
+import { RiseText } from './RiseText'
 
 type Props = {
   eyebrow?: string | null
@@ -48,11 +49,11 @@ export function PageHeader({ eyebrow, title, intro, trail = [], homeLabel, visua
                 {eyebrow}
               </p>
             ) : null}
-            <h1 data-reveal style={{ '--i': 2 } as CSSProperties} className="mt-5 text-h1">
-              {title}
+            <h1 data-reveal style={{ '--i': 2 } as CSSProperties} className="rise mt-5 text-h1">
+              <RiseText text={title} />
             </h1>
             {intro ? (
-              <p data-reveal style={{ '--i': 3 } as CSSProperties} className="mt-7 max-w-2xl text-lead text-muted">
+              <p data-reveal style={{ '--i': 3 } as CSSProperties} className="rise-text mt-7 max-w-2xl text-lead text-muted">
                 {intro}
               </p>
             ) : null}

@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { getBrand, getListingPages, getProducts, getSiteSettings, getUi, mediaOf, productPicture, related } from '@/lib/cms'
 import { pageMetadata } from '@/lib/seo'
 import { absoluteUrl } from '@/lib/site'
+import { productTags } from '@/lib/product-tags'
 
 type Params = Promise<{ slug: string }>
 
@@ -93,7 +94,7 @@ export default async function BrandPage({ params }: { params: Params }) {
                       slug: p.slug,
                       name: p.name,
                       brand: related(p.brand)?.name,
-                      tags: [related(p.category)?.name, related(p.fatType)?.name],
+                      tags: productTags(p),
                       image: productPicture(p, settings).media,
                     }}
                   />

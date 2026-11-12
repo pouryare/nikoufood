@@ -1,4 +1,5 @@
-import { MELT_LINE, TABLE_DISHES, TABLE_PRODUCT_SLUG, TABLE_TEXTS } from '../lib/home-defaults'
+import { BUTTER_STOPS, FINDER_TEXTS, MELT_LINE, ROUTE_STEPS, SIZES_TEXTS, TABLE_DISHES, TABLE_PRODUCT_SLUG, TABLE_TEXTS, TRUST_BIG_WORD } from '../lib/home-defaults'
+import { MARKET_ICONS, TAXONOMY_ICONS } from '../lib/icons'
 /**
  * Starter content for the CMS (Persian). Everything here is an editable first draft:
  * wording follows the project brief, unknown facts are left empty or generic.
@@ -124,6 +125,7 @@ export const homePage = {
     ],
     cta: { label: 'بیشتر دربارهٔ ما', href: '/about' },
   },
+  sizes: { enabled: true, ...SIZES_TEXTS },
   products: {
     eyebrow: 'محصولات',
     title: 'کره و چربی‌های خوراکی، برای هر نیاز',
@@ -131,6 +133,7 @@ export const homePage = {
     ctaLabel: 'مشاهدهٔ همهٔ محصولات',
     showMarkets: true,
   },
+  finder: { enabled: true, ...FINDER_TEXTS },
   // The melt appears only after its clip is uploaded; the line is ready for it.
   melt: { enabled: true, line: MELT_LINE },
   table: {
@@ -138,6 +141,7 @@ export const homePage = {
     ...TABLE_TEXTS,
     // Every dish gets the single-serve butter (Pourya's pick); each can be changed in the CMS.
     dishes: TABLE_DISHES.map((dish) => ({ ...dish, productSlug: TABLE_PRODUCT_SLUG })),
+    butterDish: 1,
   },
   brands: {
     eyebrow: 'برندها',
@@ -152,6 +156,8 @@ export const homePage = {
     tehranText: 'توزیع مستقیم محصولات در تهران از طریق شرکت طعمینو انجام می‌شود.',
     provincesTitle: 'سایر استان‌ها: شبکهٔ نمایندگی',
     provincesText: 'نمایندگان و پخش‌کنندگان منطقه‌ای، محصولات را در شهر و استان خود عرضه می‌کنند.',
+    routeEnabled: true,
+    steps: ROUTE_STEPS,
   },
   map: {
     eyebrow: 'گسترهٔ فعالیت',
@@ -162,6 +168,7 @@ export const homePage = {
   trust: {
     eyebrow: 'چرا نیکو اعتماد',
     title: 'اعتماد، از ساختار شروع می‌شود',
+    bigWord: TRUST_BIG_WORD,
     items: [
       { title: 'سابقهٔ فعالیت', text: 'حدود ۱۵ سال تجربه در صنعت محصولات غذایی.', icon: 'award' },
       { title: 'شبکهٔ توزیع', text: 'پخش مستقیم در تهران و نمایندگی در سایر مناطق ایران.', icon: 'truck' },
@@ -170,6 +177,7 @@ export const homePage = {
       { title: 'همکاری با کسب‌وکارها', text: 'رستوران‌ها، هتل‌ها، کترینگ‌ها و عمده‌فروشان.', icon: 'building' },
     ],
   },
+  butter: { stops: [...BUTTER_STOPS] },
   finalCta: {
     title: 'برای همکاری، از اینجا شروع کنید',
     text: 'چه نماینده و پخش‌کنندهٔ منطقه‌ای باشید، چه عمده‌فروش یا کسب‌وکار غذایی، تیم ما آمادهٔ گفت‌وگوست.',
@@ -360,24 +368,24 @@ export const listingPages = {
 }
 
 export const categories = [
-  { name: 'تک‌نفره', slug: 'single-serve', order: 10, picture: { file: 'butter-pats.webp', alt: 'چند برش کرهٔ تک‌نفره بدون بسته‌بندی' }, description: 'بسته‌های تک‌نفرهٔ فرم‌سیل برای رستوران‌ها، کترینگ‌ها، هتل‌ها و مراکز تهیهٔ غذا.' },
-  { name: 'فله‌ای', slug: 'bulk', order: 20, picture: { file: 'butter-block.webp', alt: 'قالب بزرگ کره بدون بسته‌بندی' }, description: 'بسته‌بندی‌های فله‌ای برای مراکز تهیهٔ غذا، کسب‌وکارهای غذایی و پخش‌کنندگان.' },
+  { name: 'تک‌نفره', slug: 'single-serve', icon: TAXONOMY_ICONS['single-serve'], order: 10, picture: { file: 'butter-pats.webp', alt: 'چند برش کرهٔ تک‌نفره بدون بسته‌بندی' }, description: 'بسته‌های تک‌نفرهٔ فرم‌سیل برای رستوران‌ها، کترینگ‌ها، هتل‌ها و مراکز تهیهٔ غذا.' },
+  { name: 'فله‌ای', slug: 'bulk', icon: TAXONOMY_ICONS.bulk, order: 20, picture: { file: 'butter-block.webp', alt: 'قالب بزرگ کره بدون بسته‌بندی' }, description: 'بسته‌بندی‌های فله‌ای برای مراکز تهیهٔ غذا، کسب‌وکارهای غذایی و پخش‌کنندگان.' },
 ]
 
 export const fatTypes = [
-  { name: 'گیاهی', slug: 'plant', order: 10 },
-  { name: 'حیوانی', slug: 'animal', order: 20 },
-  { name: 'مخلوط', slug: 'blend', order: 30 },
+  { name: 'گیاهی', slug: 'plant', icon: TAXONOMY_ICONS.plant, order: 10 },
+  { name: 'حیوانی', slug: 'animal', icon: TAXONOMY_ICONS.animal, order: 20 },
+  { name: 'مخلوط', slug: 'blend', icon: TAXONOMY_ICONS.blend, order: 30 },
 ]
 
 export const markets = [
-  { name: 'رستوران‌ها', slug: 'restaurants', order: 10 },
-  { name: 'کترینگ‌ها', slug: 'catering', order: 20 },
-  { name: 'هتل‌ها', slug: 'hotels', order: 30 },
-  { name: 'مراکز تهیهٔ غذا', slug: 'food-centers', order: 40 },
-  { name: 'کسب‌وکارهای غذایی', slug: 'food-businesses', order: 50 },
-  { name: 'فروشگاه‌های زنجیره‌ای', slug: 'chain-stores', order: 60 },
-  { name: 'عمده‌فروشان', slug: 'wholesalers', order: 70 },
+  { name: 'رستوران‌ها', slug: 'restaurants', icon: MARKET_ICONS['restaurants'], order: 10 },
+  { name: 'کترینگ‌ها', slug: 'catering', icon: MARKET_ICONS['catering'], order: 20 },
+  { name: 'هتل‌ها', slug: 'hotels', icon: MARKET_ICONS['hotels'], order: 30 },
+  { name: 'مراکز تهیهٔ غذا', slug: 'food-centers', icon: MARKET_ICONS['food-centers'], order: 40 },
+  { name: 'کسب‌وکارهای غذایی', slug: 'food-businesses', icon: MARKET_ICONS['food-businesses'], order: 50 },
+  { name: 'فروشگاه‌های زنجیره‌ای', slug: 'chain-stores', icon: MARKET_ICONS['chain-stores'], order: 60 },
+  { name: 'عمده‌فروشان', slug: 'wholesalers', icon: MARKET_ICONS['wholesalers'], order: 70 },
 ]
 
 export const brands = [

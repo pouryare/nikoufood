@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { getBrands, getCategories, getFatTypes, getListingPages, getProducts, getSiteSettings, getUi, productPicture, related } from '@/lib/cms'
 import { toFa } from '@/lib/format'
 import { pageMetadata } from '@/lib/seo'
+import { productTags } from '@/lib/product-tags'
 
 type Search = Promise<{ category?: string; brand?: string; type?: string }>
 
@@ -74,7 +75,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
                       slug: product.slug,
                       name: product.name,
                       brand: related(product.brand)?.name,
-                      tags: [related(product.category)?.name, related(product.fatType)?.name],
+                      tags: productTags(product),
                       image: productPicture(product, settings).media,
                     }}
                   />

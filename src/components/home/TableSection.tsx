@@ -12,10 +12,10 @@ import { TABLE_DISHES, TABLE_IMAGE, TABLE_PRODUCT_SLUG, TABLE_TEXTS } from '@/li
 import type { HomePage } from '@/payload-types'
 import { SofrehTable, type SofrehDish } from './SofrehTable'
 
-type Props = { table: NonNullable<HomePage['table']> }
+type Props = { table: NonNullable<HomePage['table']>; butterStop?: boolean }
 
 /** «سفرهٔ ایرانی»: the dishes people love, each with the butter that suits it. Everything here comes from the CMS. */
-export async function TableSection({ table }: Props) {
+export async function TableSection({ table, butterStop }: Props) {
   if (table.enabled === false) return null
   const [settings, ui] = await Promise.all([getSiteSettings(), getUi()])
 
@@ -57,6 +57,7 @@ export async function TableSection({ table }: Props) {
             hint={table.hint || (empty ? TABLE_TEXTS.hint : null)}
             pairLabel={table.pairLabel || TABLE_TEXTS.pairLabel}
             viewLabel={ui.products.view}
+            butterDish={butterStop ? Math.min(dishes.length, Math.max(1, table.butterDish ?? 1)) - 1 : null}
           />
         </div>
       </div>

@@ -2893,3 +2893,1558 @@ html.lenis body {
     transform: translate(calc(-100% - 3rem), -50%);
   }
 }
+
+/* ==================================================================
+   Section refresh (round 2 and 3 ideas). Every effect here has its own
+   switch in the CMS (تنظیمات سایت › جلوه‌های ویژه) or its own section toggle.
+   ================================================================== */
+
+/* ---------- 1. Titles rise word by word from behind an invisible line ---------- */
+html[data-fx-rise] .rise[data-reveal] {
+  opacity: 1;
+  transform: none;
+}
+html[data-fx-rise] .rise-w {
+  display: inline-block;
+  /* Room above and below for Persian dots and tails; only the bottom edge hides the rising word. */
+  clip-path: inset(-0.6em -0.4em -0.24em -0.4em);
+}
+html[data-fx-rise] .rise-w > span {
+  display: inline-block;
+  transform: translate3d(0, 128%, 0) rotate(4deg);
+  transform-origin: 100% 100%;
+  transition: transform 1.15s var(--ease-out-expo) calc(var(--wi, 0) * 70ms + 80ms);
+}
+html[data-fx-rise] [data-revealed] .rise-w > span {
+  transform: none;
+}
+/* The small gold line of each label draws itself first. */
+html[data-fx-rise] .eyebrow[data-reveal]::before {
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform 0.8s var(--ease-out-expo) 0.1s;
+}
+html[data-fx-rise] .eyebrow[data-revealed]::before {
+  transform: none;
+}
+/* The short text comes last, slightly blurred, then sharp. */
+html[data-fx-rise] .rise-text[data-reveal] {
+  filter: blur(8px);
+  transition:
+    opacity 0.9s var(--ease-out-expo),
+    transform 0.9s var(--ease-out-expo),
+    filter 1s var(--ease-out-expo);
+  transition-delay: calc(var(--i, 0) * 80ms + 260ms);
+}
+html[data-fx-rise] .rise-text[data-revealed] {
+  filter: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-fx-rise] .rise-w > span {
+    transform: none;
+    transition: none;
+  }
+  html[data-fx-rise] .rise-text[data-reveal] {
+    filter: none;
+  }
+}
+
+/* ---------- 2. Words light up as the paragraph is read ---------- */
+.read-w {
+  opacity: var(--o, 1);
+  transition:
+    opacity 0.15s linear,
+    color 0.45s var(--ease-out-quart);
+}
+.read-w[data-key][data-on] {
+  color: var(--nk-gold);
+}
+.intro-read {
+  font-family: var(--font-display);
+  font-size: clamp(1.3rem, 2.3vw, 2rem);
+  font-weight: 800;
+  line-height: 1.85;
+  color: var(--nk-text);
+  text-wrap: pretty;
+}
+
+/* ---------- 3. Figures that roll like an old counter ---------- */
+.roll {
+  display: inline-block;
+}
+.roll-cols {
+  display: inline-flex;
+  direction: ltr;
+}
+.roll-col {
+  position: relative;
+  display: block;
+  height: 1.2em;
+  /* Clip only top and bottom: each column is as wide as its final digit, wider digits may pass over the sides. */
+  clip-path: inset(0 -0.6em);
+}
+.roll-size {
+  display: block;
+  line-height: 1.2em;
+  visibility: hidden;
+}
+.roll-strip {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  transform: translate3d(-50%, 0, 0);
+  transition: transform 2s cubic-bezier(0.2, 0.85, 0.12, 1) calc(var(--d, 0) * 150ms + var(--i, 0) * 120ms + 250ms);
+}
+.roll-strip > span {
+  display: block;
+  height: 1.2em;
+  line-height: 1.2em;
+  text-align: center;
+  background: linear-gradient(180deg, var(--nk-cream), var(--nk-gold) 58%, color-mix(in oklab, var(--nk-gold) 70%, #7a4a12));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+[data-revealed] .roll-strip {
+  transform: translate3d(-50%, calc(var(--to, 0) * -1.2em), 0);
+}
+.roll-word {
+  position: relative;
+  display: inline-block;
+  background: linear-gradient(100deg, var(--nk-cream), var(--nk-gold) 45%, color-mix(in oklab, var(--nk-gold) 70%, #7a4a12));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.roll-word::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: -0.08em;
+  height: 2px;
+  background: var(--nk-gold);
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform 1.2s var(--ease-out-expo) 0.7s;
+}
+[data-revealed] .roll-word::after {
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .roll-strip {
+    transition: none;
+  }
+}
+
+/* ---------- 4. Showroom: the cards glide sideways while the section holds still ---------- */
+.showroom {
+  position: relative;
+  /* Above the golden thread, so the line passes behind the cards. */
+  z-index: 4;
+  overflow-x: clip;
+}
+.showroom-foot {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .showroom .product-rail {
+    display: flex;
+    width: max-content;
+    gap: 1.5rem;
+    will-change: transform;
+  }
+  .showroom .product-rail > li {
+    flex: none;
+    width: clamp(19rem, 25vw, 24rem);
+  }
+  .showroom[data-pinned] .showroom-stage {
+    position: sticky;
+    display: flex;
+    min-height: 100svh;
+    flex-direction: column;
+    justify-content: center;
+    padding-block: calc(var(--header-h) + 1rem) 2rem;
+  }
+  .showroom[data-pinned] .showroom-foot {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-top: 2.25rem;
+  }
+}
+.showroom-count {
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--nk-muted);
+  font-variant-numeric: tabular-nums;
+}
+.showroom-count b {
+  font-size: 1.5em;
+  color: var(--nk-gold);
+}
+.showroom-bar {
+  flex: 1;
+  max-width: 30rem;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--nk-line);
+}
+.showroom-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(to left, var(--nk-cream), var(--nk-gold));
+  transform: scaleX(var(--p, 0));
+  transform-origin: right center;
+}
+
+/* ---------- 5. Gold-foil shine on product cards ---------- */
+.product-card-foil {
+  display: none;
+}
+html[data-fx-foil] .product-card-foil {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: block;
+  border-radius: inherit;
+  pointer-events: none;
+  mix-blend-mode: soft-light;
+  opacity: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 18%,
+    rgb(255 236 190 / 0.7) calc(var(--gx, 50%) - 9%),
+    rgb(255 255 255 / 0) calc(var(--gx, 50%) + 14%),
+    transparent 88%
+  );
+  transition: opacity 0.5s var(--ease-out-quart);
+}
+html[data-fx-foil] .product-card:hover .product-card-foil {
+  opacity: 1;
+}
+@media (hover: none) {
+  html[data-fx-foil] .product-card-foil {
+    opacity: 0.85;
+    background: linear-gradient(115deg, transparent 38%, rgb(255 236 190 / 0.6) 50%, transparent 62%) 0 0 / 260% 100%;
+    animation: foil-sweep 7s ease-in-out infinite;
+  }
+}
+@keyframes foil-sweep {
+  0%,
+  100% {
+    background-position: 100% 0;
+  }
+  50% {
+    background-position: 0% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-fx-foil] .product-card-foil {
+    animation: none;
+  }
+}
+.product-card-tags li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.product-card-tags li svg {
+  color: var(--nk-gold);
+}
+
+/* ---------- Buttons and footer links carry a small icon ---------- */
+.btn-lead {
+  color: currentColor;
+}
+/* On a phone the two hero buttons share one row: the leading icon stays, the trailing arrow goes. */
+@media (max-width: 639.98px) {
+  .hero-ctas .btn-tail {
+    display: none;
+  }
+  .hero-ctas > a {
+    gap: 0.4rem;
+    padding-inline: 0.75rem;
+  }
+  .hero-ctas .btn-lead {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.footer-link {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+.footer-link svg {
+  flex: none;
+  margin-top: 0.32em;
+  color: color-mix(in oklab, var(--nk-gold) 75%, transparent);
+}
+
+/* ---------- 7 + 14. «کسب‌وکار شما چیست؟»: a big market list that lights up ---------- */
+.finder {
+  display: grid;
+  gap: 2rem;
+}
+.finder-list {
+  position: relative;
+  border-bottom: 1px solid var(--nk-line);
+}
+.finder-row {
+  border-top: 1px solid var(--nk-line);
+}
+.finder-btn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: clamp(0.75rem, 2vw, 1.5rem);
+  padding-block: clamp(0.75rem, 1.6vw, 1.15rem);
+  text-align: start;
+  cursor: pointer;
+}
+.finder-btn:focus-visible {
+  outline: 2px solid var(--nk-gold);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.finder-icon {
+  display: grid;
+  width: 2.9rem;
+  height: 2.9rem;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--nk-line);
+  border-radius: 50%;
+  color: var(--nk-gold);
+  transition:
+    background-color 0.4s var(--ease-out-quart),
+    border-color 0.4s var(--ease-out-quart),
+    color 0.4s var(--ease-out-quart),
+    transform 0.6s var(--ease-out-expo);
+}
+.finder-name {
+  position: relative;
+  min-width: 0;
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: clamp(1.45rem, 3.6vw, 2.9rem);
+  font-weight: 900;
+  line-height: 1.4;
+  color: color-mix(in oklab, var(--nk-text) 36%, transparent);
+  transition: transform 0.6s var(--ease-out-expo);
+}
+/* The gold copy of the name is uncovered from right to left. */
+.finder-name::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  color: var(--nk-gold);
+  clip-path: inset(0 0 0 100%);
+  transition: clip-path 0.65s var(--ease-out-expo);
+}
+.finder-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 2.6rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--nk-muted);
+}
+.finder-count svg {
+  opacity: 0.7;
+}
+.finder-go {
+  flex: none;
+  color: var(--nk-gold);
+  opacity: 0;
+  transform: translateX(0.75rem);
+  transition:
+    opacity 0.4s,
+    transform 0.6s var(--ease-out-expo);
+}
+.finder-row[data-on] .finder-name::after,
+.finder-btn:hover .finder-name::after,
+.finder-btn:focus-visible .finder-name::after {
+  clip-path: inset(0);
+}
+.finder-btn:hover .finder-name {
+  transform: translateX(-0.6rem);
+}
+.finder-row[data-on] .finder-go,
+.finder-btn:hover .finder-go {
+  opacity: 1;
+  transform: none;
+}
+.finder-row[data-on] .finder-icon {
+  border-color: var(--nk-gold);
+  background: var(--nk-gold);
+  color: var(--nk-bg);
+}
+.finder-btn:hover .finder-icon {
+  transform: rotate(-8deg) scale(1.06);
+}
+.finder-float {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  display: grid;
+  width: 6.25rem;
+  height: 6.25rem;
+  margin: -3.125rem 0 0 -3.125rem;
+  place-items: center;
+  border: 1px solid color-mix(in oklab, var(--nk-gold) 55%, transparent);
+  border-radius: 50%;
+  color: var(--nk-cream);
+  background: radial-gradient(
+    circle at 35% 30%,
+    color-mix(in oklab, var(--nk-cream) 30%, transparent),
+    color-mix(in oklab, var(--nk-gold) 12%, transparent) 60%,
+    color-mix(in oklab, var(--nk-gold) 5%, transparent)
+  );
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  opacity: 0;
+  scale: 0.3;
+  transition:
+    opacity 0.3s,
+    scale 0.45s var(--ease-out-expo);
+}
+.finder-float[data-show] {
+  opacity: 1;
+  scale: 1;
+}
+.finder-panel {
+  animation: finder-in 0.6s var(--ease-out-expo) both;
+}
+.finder-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 700;
+  color: var(--nk-gold);
+}
+.finder-inline .finder-panel-head {
+  /* The row above already shows the name and the count. */
+  display: none;
+}
+.finder-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-inline-start: auto;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid color-mix(in oklab, var(--nk-gold) 35%, transparent);
+  border-radius: 999px;
+  font-size: 0.85em;
+}
+.finder-pill b {
+  font-family: var(--font-display);
+}
+.finder-cards {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.finder-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--nk-line);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--nk-raised) 55%, var(--nk-surface)), var(--nk-surface));
+  animation: finder-in 0.6s var(--ease-out-expo) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+  transition:
+    border-color 0.3s,
+    translate 0.5s var(--ease-out-expo);
+}
+.finder-card:hover {
+  border-color: color-mix(in oklab, var(--nk-gold) 50%, var(--nk-line));
+  translate: -4px 0;
+}
+.finder-card-pic {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(closest-side, color-mix(in oklab, var(--nk-gold) 22%, transparent), transparent),
+    var(--nk-raised);
+}
+.finder-card-brand {
+  display: block;
+  font-size: var(--text-micro);
+  font-weight: 700;
+  color: var(--nk-gold);
+}
+.finder-card-link {
+  display: block;
+  font-weight: 800;
+  line-height: 1.6;
+}
+.finder-card-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.finder-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+.finder-card-tags > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding-inline: 0.6rem;
+  border: 1px solid var(--nk-line);
+  border-radius: 999px;
+  font-size: var(--text-micro);
+  color: var(--nk-muted);
+}
+.finder-card-tags svg,
+.finder-card-arrow {
+  color: var(--nk-gold);
+}
+.finder-empty {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 1.25rem;
+  border: 1px dashed var(--nk-line);
+  border-radius: var(--radius-lg);
+  color: var(--nk-muted);
+}
+.finder-empty svg {
+  flex: none;
+  margin-top: 0.3rem;
+  color: var(--nk-gold);
+}
+.finder-inline {
+  padding-bottom: 1.5rem;
+}
+@keyframes finder-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (min-width: 1024px) {
+  .finder {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    align-items: start;
+    gap: 4rem;
+  }
+  .finder-side {
+    position: sticky;
+    top: calc(var(--header-h) + 2rem);
+  }
+  .finder-inline {
+    display: none;
+  }
+}
+@media (max-width: 1023px) {
+  .finder-side {
+    display: none;
+  }
+}
+@media (hover: none) {
+  .finder-float {
+    display: none;
+  }
+}
+
+/* ---------- 16. A giant word that shrinks into the title ---------- */
+.gw-pin {
+  position: relative;
+  height: 230svh;
+}
+.gw-stage {
+  position: sticky;
+  top: 0;
+  display: flex;
+  height: 100svh;
+  align-items: center;
+  overflow: hidden;
+}
+.gw-stage > .wrap {
+  width: 100%;
+}
+.gw-title {
+  text-wrap: balance;
+}
+.gw-word {
+  display: inline-block;
+  padding-inline: 0.06em;
+  background: linear-gradient(180deg, var(--nk-cream), var(--nk-gold) 55%, color-mix(in oklab, var(--nk-gold) 70%, #7a4a12));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  transform-origin: center;
+  will-change: transform;
+}
+.gw-rest,
+.gw-eyebrow {
+  opacity: var(--r, 0);
+}
+.gw-eyebrow {
+  display: flex;
+  margin-bottom: 1.25rem;
+}
+.gw-pin[data-still] {
+  height: auto;
+}
+.gw-pin[data-still] .gw-stage {
+  position: static;
+  height: auto;
+  padding-block: clamp(4.5rem, 10vw, 9.5rem) 3rem;
+}
+.gw-pin[data-still] .gw-rest,
+.gw-pin[data-still] .gw-eyebrow {
+  opacity: 1;
+}
+.trust .gw-pin + .wrap {
+  margin-top: -16svh;
+}
+
+/* ---------- 6. «چرا نیکو اعتماد» as living tiles ---------- */
+.bento {
+  display: grid;
+  grid-auto-flow: dense;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(0.75rem, 1.4vw, 1.1rem);
+}
+@media (min-width: 900px) {
+  .bento {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.bento-tile {
+  --px: 50%;
+  --py: 50%;
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 13.5rem;
+  flex-direction: column;
+  gap: 1rem;
+  overflow: hidden;
+  padding: clamp(1.1rem, 2vw, 1.6rem);
+  border: 1px solid transparent;
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(300px circle at var(--px) var(--py), color-mix(in oklab, var(--nk-gold) 10%, transparent), transparent 70%) padding-box,
+    linear-gradient(180deg, color-mix(in oklab, var(--nk-raised) 60%, var(--nk-surface)), var(--nk-surface)) padding-box,
+    radial-gradient(240px circle at var(--px) var(--py), color-mix(in oklab, var(--nk-cream) 80%, transparent), var(--nk-line) 72%) border-box;
+  box-shadow: var(--shadow-card);
+}
+.bento-tile[data-kind='big'] {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+.bento[data-count='5'] > :nth-child(2) {
+  grid-column: span 2;
+}
+.bento[data-count='5'] > :nth-child(5) {
+  grid-column: 1 / -1;
+}
+.bento-head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 800;
+  color: var(--nk-gold);
+}
+.bento-icon {
+  display: grid;
+  width: 2.3rem;
+  height: 2.3rem;
+  flex: none;
+  place-items: center;
+  border: 1px solid color-mix(in oklab, var(--nk-gold) 40%, transparent);
+  border-radius: 50%;
+}
+.bento-text {
+  margin-top: auto;
+  font-size: var(--text-small);
+  color: var(--nk-muted);
+}
+.bento-big {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-top: auto;
+  font-family: var(--font-display);
+  font-weight: 900;
+  line-height: 1;
+}
+.bento-big-num {
+  font-size: clamp(6rem, 15vw, 13rem);
+  background: linear-gradient(180deg, var(--nk-cream), var(--nk-gold) 55%, color-mix(in oklab, var(--nk-gold) 70%, #7a4a12));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.bento-big-unit {
+  font-size: clamp(1.6rem, 3vw, 2.6rem);
+}
+.bento-tile[data-kind='big'] .bento-text {
+  margin-top: 0;
+  font-size: var(--text-lead);
+}
+.bento-big-icon {
+  margin-block: auto;
+  color: var(--nk-gold);
+}
+.bento-routes {
+  width: 100%;
+  max-height: 5.5rem;
+  margin-block: auto;
+}
+.bento-route-base {
+  fill: none;
+  stroke: color-mix(in oklab, var(--nk-gold) 30%, transparent);
+  stroke-dasharray: 2 4;
+}
+.bento-route {
+  fill: none;
+  stroke: var(--nk-cream);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 8 160;
+  animation: bento-travel 2.8s linear infinite;
+}
+.bento-hub {
+  fill: var(--nk-cream);
+}
+.bento-node {
+  fill: var(--nk-gold);
+}
+@keyframes bento-travel {
+  from {
+    stroke-dashoffset: 168;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.bento-seal {
+  position: relative;
+  display: grid;
+  width: 4.75rem;
+  height: 4.75rem;
+  margin-block: auto;
+  place-items: center;
+  color: var(--nk-cream);
+}
+.bento-seal svg {
+  position: absolute;
+  inset: 0;
+}
+.bento-ring-a,
+.bento-ring-b {
+  fill: none;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.bento-ring-a {
+  stroke: var(--nk-gold);
+  stroke-width: 1.2;
+  stroke-dasharray: 3 4;
+  animation: bento-spin 16s linear infinite;
+}
+.bento-ring-b {
+  stroke: var(--nk-cream);
+  stroke-dasharray: 14 6;
+  animation: bento-spin 22s linear infinite reverse;
+}
+@keyframes bento-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.bento-beam {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block: auto;
+}
+.bento-beam-end {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: none;
+  place-items: center;
+  border: 1px solid color-mix(in oklab, var(--nk-gold) 50%, transparent);
+  border-radius: 50%;
+  color: var(--nk-cream);
+}
+.bento-beam svg {
+  height: 8px;
+  flex: 1;
+}
+.bento-beam-base,
+.bento-beam-light {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+.bento-beam-base {
+  stroke: var(--nk-line);
+  stroke-width: 1.4;
+}
+.bento-beam-light {
+  stroke: var(--nk-gold);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 10 90;
+  animation: bento-beam 1.8s ease-in-out infinite alternate;
+}
+@keyframes bento-beam {
+  from {
+    stroke-dashoffset: 10;
+  }
+  to {
+    stroke-dashoffset: -76;
+  }
+}
+.bento-rot {
+  position: relative;
+  display: grid;
+  height: 1.4em;
+  margin-block: auto;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 3.4vw, 2.8rem);
+  font-weight: 900;
+  line-height: 1.4;
+}
+.bento-rot > span {
+  grid-area: 1 / 1;
+  color: var(--nk-gold);
+  opacity: 0;
+  transform: translateY(100%);
+  transition:
+    transform 0.65s var(--ease-out-expo),
+    opacity 0.5s;
+}
+.bento-rot > span[data-state='in'] {
+  opacity: 1;
+  transform: none;
+}
+.bento-rot > span[data-state='out'] {
+  transform: translateY(-100%);
+}
+.bento-float {
+  margin-block: auto;
+  color: var(--nk-gold);
+  animation: float-slow 7s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bento-route,
+  .bento-ring-a,
+  .bento-ring-b,
+  .bento-beam-light,
+  .bento-float {
+    animation: none;
+  }
+  .bento-route {
+    stroke-dasharray: none;
+  }
+}
+
+/* ---------- 15. From packing to the kitchen, drawn while the section holds still ---------- */
+.route-pin {
+  position: relative;
+  height: 300svh;
+  margin-top: clamp(1rem, 3vw, 2rem);
+}
+.route-stage {
+  position: sticky;
+  top: 0;
+  display: flex;
+  height: 100svh;
+  align-items: center;
+  padding-top: var(--header-h);
+}
+.route-grid {
+  display: grid;
+  width: 100%;
+  gap: 1.25rem;
+}
+.route-steps {
+  display: grid;
+}
+.route-step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem;
+  padding-block: 1rem;
+  border-top: 1px solid var(--nk-line);
+  opacity: 0.35;
+  transition: opacity 0.45s;
+}
+.route-step[data-on] {
+  opacity: 1;
+}
+.route-step-icon {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border: 1px solid var(--nk-line);
+  border-radius: 50%;
+  color: var(--nk-gold);
+  transition:
+    background-color 0.4s,
+    color 0.4s,
+    border-color 0.4s;
+}
+.route-step[data-on] .route-step-icon {
+  border-color: var(--nk-gold);
+  background: var(--nk-gold);
+  color: var(--nk-bg);
+}
+.route-step-num {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--nk-gold);
+}
+.route-step-title {
+  font-size: clamp(1.1rem, 1.6vw, 1.35rem);
+  font-weight: 800;
+  line-height: 1.5;
+}
+.route-step-text {
+  margin-top: 0.25rem;
+  font-size: var(--text-small);
+  color: var(--nk-muted);
+}
+.route-vis svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-inline: auto;
+  overflow: visible;
+}
+.route-ghosts path {
+  fill: none;
+  stroke: var(--nk-line);
+  stroke-width: 1.2;
+  stroke-dasharray: 3 5;
+}
+.route-line {
+  fill: none;
+  stroke: var(--nk-gold);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: var(--d, 1);
+  filter: drop-shadow(0 0 4px color-mix(in oklab, var(--nk-gold) 60%, transparent));
+}
+.route-node {
+  opacity: 0.18;
+  transition: opacity 0.45s;
+}
+.route-node[data-on] {
+  opacity: 1;
+}
+.route-kitchens {
+  color: var(--nk-cream);
+}
+.route-box-top {
+  fill: #f8e2a0;
+}
+.route-box-left {
+  fill: #cf9a36;
+}
+.route-box-right {
+  fill: #e2b350;
+}
+.route-hub {
+  fill: var(--nk-cream);
+}
+.route-hub-ring {
+  fill: none;
+  stroke: var(--nk-gold);
+  stroke-opacity: 0.5;
+}
+.route-dot {
+  fill: var(--nk-gold);
+}
+.route-label {
+  font: 800 13px var(--font-sans);
+  fill: var(--nk-text);
+}
+.route-sub {
+  font: 600 11.5px var(--font-sans);
+  fill: var(--nk-muted);
+}
+.route-runner {
+  fill: #fff3cc;
+  filter: drop-shadow(0 0 6px var(--nk-cream));
+  transition: opacity 0.2s;
+}
+@media (min-width: 1024px) {
+  .route-grid {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    align-items: center;
+    gap: 4rem;
+  }
+}
+@media (max-width: 1023px) {
+  .route-vis {
+    order: -1;
+  }
+  .route-vis svg {
+    max-height: 34svh;
+  }
+  .route-step {
+    padding-block: 0.55rem;
+  }
+  .route-step-text {
+    display: none;
+  }
+  .route-step[data-on] .route-step-text {
+    display: block;
+  }
+}
+.route-pin[data-still] {
+  height: auto;
+}
+.route-pin[data-still] .route-stage {
+  position: static;
+  height: auto;
+  padding-block: 2rem;
+}
+.route-pin[data-still] .route-step-text {
+  display: block;
+}
+
+/* ---------- 12. Bulk or single-serve: one block becomes eight pats ---------- */
+.sizes-pin {
+  position: relative;
+  height: 300svh;
+}
+.sizes-stage {
+  position: sticky;
+  top: 0;
+  display: flex;
+  height: 100svh;
+  align-items: center;
+  overflow: hidden;
+  padding-top: var(--header-h);
+}
+.sizes-grid {
+  display: grid;
+  align-items: center;
+  gap: 1.25rem;
+}
+.sizes-state {
+  position: relative;
+  display: grid;
+  margin-top: 1.5rem;
+}
+.sizes-state > div {
+  grid-area: 1 / 1;
+  transition:
+    opacity 0.5s,
+    transform 0.6s var(--ease-out-expo);
+}
+.sizes-pin[data-phase='bulk'] [data-state='single'] {
+  opacity: 0;
+  transform: translateY(14px);
+}
+.sizes-pin[data-phase='single'] [data-state='bulk'] {
+  opacity: 0;
+  transform: translateY(-14px);
+}
+.sizes-k {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3.8rem);
+  font-weight: 900;
+  line-height: 1.25;
+}
+.sizes-k svg {
+  flex: none;
+  color: var(--nk-gold);
+}
+.sizes-k span {
+  background: linear-gradient(180deg, var(--nk-cream), var(--nk-gold) 55%, color-mix(in oklab, var(--nk-gold) 70%, #7a4a12));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.sizes-t {
+  max-width: 28rem;
+  margin-top: 0.5rem;
+  color: var(--nk-muted);
+}
+.sizes-bar {
+  max-width: 22rem;
+  height: 2px;
+  margin-top: 1.5rem;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--nk-line);
+}
+.sizes-bar i {
+  display: block;
+  height: 100%;
+  background: var(--nk-gold);
+  transform: scaleX(var(--q, 0));
+  transform-origin: right center;
+}
+.sizes-vis {
+  position: relative;
+  width: min(100%, calc(62svh * 7 / 5));
+  aspect-ratio: 7 / 5;
+  margin-inline: auto;
+}
+.sizes-vis canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+@media (min-width: 1024px) {
+  .sizes-grid {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: 4rem;
+  }
+}
+@media (max-width: 1023px) {
+  .sizes-vis {
+    width: min(100%, calc(36svh * 7 / 5));
+  }
+  .sizes-state {
+    margin-top: 0.75rem;
+  }
+}
+.sizes-pin[data-still] {
+  height: auto;
+}
+.sizes-pin[data-still] .sizes-stage {
+  position: static;
+  height: auto;
+  padding-block: clamp(4.5rem, 10vw, 9.5rem);
+}
+.sizes-pin[data-still] .sizes-state {
+  gap: 1.5rem;
+}
+.sizes-pin[data-still] .sizes-state > div {
+  grid-area: auto;
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------- 9. The closing line, huge and drifting, lit under the mouse ---------- */
+.kinetic {
+  position: relative;
+  overflow-x: clip;
+}
+.kinetic-stage {
+  --kl: clamp(3.4rem, 9.5vw, 9rem);
+  --mx: 50%;
+  --my: 50%;
+  position: relative;
+  height: calc(var(--kl) * 1.55);
+  overflow: hidden;
+  touch-action: pan-y;
+}
+.kinetic-track {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  width: max-content;
+  animation: kinetic-drift 44s linear infinite;
+}
+.kinetic-track > span {
+  padding-left: 0.5em;
+  font-family: var(--font-display);
+  font-size: var(--kl);
+  font-weight: 900;
+  line-height: 1.55;
+  white-space: nowrap;
+}
+.kinetic-outline > span {
+  color: color-mix(in oklab, var(--nk-gold) 13%, transparent);
+}
+.kinetic-fill {
+  position: absolute;
+  inset: 0;
+  -webkit-mask-image: radial-gradient(clamp(150px, 19vw, 280px) circle at var(--mx) var(--my), #000 30%, transparent 75%);
+  mask-image: radial-gradient(clamp(150px, 19vw, 280px) circle at var(--mx) var(--my), #000 30%, transparent 75%);
+}
+.kinetic-fill .kinetic-track > span {
+  background: linear-gradient(180deg, var(--nk-cream), var(--nk-gold) 55%, color-mix(in oklab, var(--nk-gold) 70%, #7a4a12));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.kinetic .wrap {
+  margin-top: clamp(1rem, 3vw, 2.5rem);
+}
+@keyframes kinetic-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(50%, 0, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kinetic-track {
+    animation: none;
+  }
+}
+
+/* ---------- 10. The page lifts like a lid; the brand's name waits underneath ---------- */
+.footer-name {
+  overflow: hidden;
+  padding-top: clamp(0.5rem, 2vw, 1.5rem);
+}
+.footer-name > span {
+  display: block;
+  width: max-content;
+  margin-inline: auto;
+  font-family: var(--font-display);
+  font-size: 16vw;
+  font-weight: 900;
+  line-height: 1.3;
+  white-space: nowrap;
+  background: linear-gradient(180deg, var(--nk-cream), var(--nk-gold) 50%, color-mix(in oklab, var(--nk-gold) 70%, #7a4a12));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  opacity: calc(0.35 + 0.65 * var(--fp, 1));
+  transform: translateY(calc((1 - var(--fp, 1)) * 30%)) scale(calc(0.92 + 0.08 * var(--fp, 1)));
+  transform-origin: 50% 100%;
+}
+html[data-lift] #main {
+  position: relative;
+  z-index: 1;
+  border-end-start-radius: clamp(1.5rem, 4vw, 3rem);
+  border-end-end-radius: clamp(1.5rem, 4vw, 3rem);
+  background: var(--nk-bg);
+  box-shadow:
+    0 50px 80px -40px rgb(0 0 0 / 0.9),
+    0 1px 0 0 color-mix(in oklab, var(--nk-gold) 22%, transparent);
+}
+html[data-lift] .site-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 0;
+}
+
+/* ---------- 8. The brands slide over the table like a sheet of paper ---------- */
+.sheets[data-on] > :first-child {
+  position: sticky;
+  top: var(--sheet-top, 0px);
+  z-index: 0;
+  transform: scale(calc(1 - 0.06 * var(--cover, 0)));
+  transform-origin: 50% 0;
+}
+.sheets[data-on] > :first-child::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: calc(0.55 * var(--cover, 0));
+  pointer-events: none;
+}
+.sheets[data-on] > :nth-child(2) {
+  position: relative;
+  z-index: 1;
+  border-start-start-radius: clamp(1.5rem, 4vw, 3rem);
+  border-start-end-radius: clamp(1.5rem, 4vw, 3rem);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--nk-raised) 45%, var(--nk-bg)), var(--nk-bg) 28rem);
+  box-shadow:
+    0 -30px 60px -24px rgb(0 0 0 / 0.85),
+    inset 0 1px 0 color-mix(in oklab, var(--nk-gold) 24%, transparent);
+}
+
+/* ---------- 11. The travelling butter ---------- */
+.butter-stop {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.tb {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 40;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(-300px, -300px, 0);
+  transition: opacity 0.45s;
+  will-change: transform;
+}
+.tb[data-ready]:not([data-hidden], [data-off]) {
+  opacity: 1;
+}
+.tb-in {
+  --pw: clamp(2.9rem, 4.4vw, 4.3rem);
+  position: absolute;
+  bottom: 0;
+  left: calc(var(--pw) / -2);
+  width: var(--pw);
+  transform-origin: 50% 100%;
+}
+.tb-squash {
+  transform-origin: 50% 100%;
+}
+.tb[data-land] .tb-squash {
+  animation: tb-squash 0.5s var(--ease-out-expo);
+}
+@keyframes tb-squash {
+  0% {
+    transform: scale(1.18, 0.78);
+  }
+  45% {
+    transform: scale(0.94, 1.06);
+  }
+  100% {
+    transform: none;
+  }
+}
+.tb svg {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  filter: drop-shadow(0 10px 12px rgb(0 0 0 / 0.45));
+}
+.tb-shadow {
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  width: 120%;
+  height: 12px;
+  translate: -50% 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.55), transparent);
+  opacity: var(--sh, 1);
+}
+/* Where it lands on the table: a glossy pool spreads and the rice steams. */
+.sofreh-puddle {
+  position: absolute;
+  width: 19%;
+  aspect-ratio: 1.6;
+  border-radius: 46% 54% 52% 48% / 55% 45% 55% 45%;
+  background:
+    radial-gradient(ellipse 22% 14% at 40% 36%, rgb(255 255 255 / 0.95), rgb(255 255 255 / 0) 100%),
+    radial-gradient(
+      ellipse at 50% 50%,
+      rgb(255 238 176 / 0.92) 0%,
+      rgb(246 204 96 / 0.78) 34%,
+      rgb(222 160 40 / 0.5) 58%,
+      rgb(200 130 20 / 0.15) 70%,
+      transparent 72%
+    );
+  filter: blur(0.6px) drop-shadow(0 2px 3px rgb(90 50 0 / 0.35));
+  opacity: min(1, calc(var(--m, 0) * 1.6));
+  transform: translate(-50%, -50%) scale(calc(0.35 + 0.65 * var(--m, 0)));
+  pointer-events: none;
+}
+.sofreh-steam {
+  position: absolute;
+  width: 12%;
+  height: 22%;
+  opacity: calc(var(--m, 0) * 0.9);
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+}
+.sofreh-steam i {
+  position: absolute;
+  bottom: 0;
+  width: 22%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(255 255 255 / 0.28), transparent);
+  filter: blur(5px);
+  animation: sofreh-steam 3.2s ease-in infinite;
+}
+.sofreh-steam i:nth-child(1) {
+  left: 12%;
+}
+.sofreh-steam i:nth-child(2) {
+  left: 42%;
+  animation-delay: -1.1s;
+}
+.sofreh-steam i:nth-child(3) {
+  left: 70%;
+  animation-delay: -2.2s;
+}
+@keyframes sofreh-steam {
+  from {
+    opacity: 0;
+    transform: translateY(20%) scaleX(0.7);
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-70%) scaleX(1.4);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tb {
+    display: none;
+  }
+  .sofreh-steam i {
+    animation: none;
+  }
+}
+
+/* ---------- 13. About: the chapter's word stays put and changes as the story passes ---------- */
+.chapters {
+  position: relative;
+  display: grid;
+}
+.chapters-pin {
+  display: none;
+}
+.chapters-k {
+  position: relative;
+  height: 1.4em;
+  margin-top: 0.5rem;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 5.6vw, 5rem);
+  font-weight: 900;
+  line-height: 1.4;
+}
+.chapters-k > span {
+  position: absolute;
+  inset: 0 0 auto 0;
+  white-space: nowrap;
+  background: linear-gradient(180deg, var(--nk-cream), var(--nk-gold) 55%, color-mix(in oklab, var(--nk-gold) 70%, #7a4a12));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  opacity: 0;
+  transform: translateY(100%);
+  transition:
+    transform 0.7s var(--ease-out-expo),
+    opacity 0.5s;
+}
+.chapters-k > span[data-state='on'] {
+  opacity: 1;
+  transform: none;
+}
+.chapters-k > span[data-state='past'] {
+  transform: translateY(-100%);
+}
+.chapters-count {
+  margin-top: 1rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--nk-muted);
+}
+.chapters-count b {
+  font-size: 1.4em;
+  color: var(--nk-gold);
+}
+.chapters-progress {
+  max-width: 16rem;
+  height: 2px;
+  margin-top: 1.25rem;
+  overflow: hidden;
+  background: var(--nk-line);
+}
+.chapters-progress i {
+  display: block;
+  height: 100%;
+  background: var(--nk-gold);
+  transform: scaleX(var(--p, 0));
+  transform-origin: right center;
+  transition: transform 0.6s var(--ease-out-expo);
+}
+.chapters-bar {
+  position: sticky;
+  top: var(--header-h);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 0.5rem;
+  border-bottom: 1px solid var(--nk-line);
+  background: color-mix(in oklab, var(--nk-bg) 86%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.chapters-bar .chapters-k {
+  flex: 1;
+  margin: 0;
+  font-size: 1.6rem;
+}
+.chapters-bar .chapters-count {
+  margin: 0;
+}
+.chapters-list {
+  display: grid;
+}
+.chapter {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-block: 2.5rem;
+  border-top: 1px solid var(--nk-line);
+  opacity: 0.35;
+  transition: opacity 0.5s;
+}
+.chapter[data-on] {
+  opacity: 1;
+}
+.chapter-kicker {
+  margin-bottom: 1rem;
+}
+@media (min-width: 1024px) {
+  .chapters {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: 4rem;
+  }
+  .chapters-bar {
+    display: none;
+  }
+  .chapters-pin {
+    position: sticky;
+    top: 32svh;
+    display: block;
+    align-self: start;
+  }
+  .chapter {
+    min-height: 72svh;
+  }
+  .chapter-kicker {
+    display: none;
+  }
+}

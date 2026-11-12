@@ -4,6 +4,9 @@ import { Icon } from '@/components/ui/Icon'
 import { SmartLink } from '@/components/ui/SmartLink'
 import type { Channel } from '@/lib/channels'
 import { mediaOf } from '@/lib/cms'
+import { effectsOf } from '@/lib/effects'
+import { iconForHref } from '@/lib/icons'
+import { FooterLift } from './FooterLift'
 import type { UiTexts } from '@/lib/ui-defaults'
 import type { Navigation, SiteSetting } from '@/payload-types'
 
@@ -18,12 +21,13 @@ export function Footer({ settings, columns, channels, ui }: Props) {
   const messengers = channels.filter((c) => c.messenger || c.key === 'instagram')
   const direct = channels.filter((c) => c.key === 'phone' || c.key === 'email')
   const wordmark = mediaOf(settings.logoWordmark)
+  const fx = effectsOf(settings)
 
   return (
-    <footer className="relative mt-auto bg-surface/50">
+    <footer className="site-footer relative mt-auto bg-surface/50" data-name={fx.footerName ? '' : undefined}>
       <div className="hairline-brand" />
       <div className="wrap grid gap-14 py-16 lg:grid-cols-12 lg:gap-10 lg:py-20">
-        <div className="lg:col-span-4">
+        <div className="lg:col-span-3">
           <div className="flex items-center gap-3">
             <LogoMark size={44} />
             <div className="flex flex-col leading-none">
@@ -51,18 +55,22 @@ export function Footer({ settings, columns, channels, ui }: Props) {
           ) : null}
         </div>
 
-        <nav aria-label={settings.brandName} className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-4 lg:col-span-5">
+        <nav aria-label={settings.brandName} className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-4 lg:col-span-6">
           {columns.map((col) => (
             <div key={col.id ?? col.title}>
               <h2 className="font-sans text-small font-bold text-ink">{col.title}</h2>
               <ul className="mt-4 space-y-2.5">
-                {(col.links ?? []).map((link) => (
-                  <li key={link.id ?? link.href}>
-                    <SmartLink href={link.href} className="text-small text-muted transition-colors duration-200 hover:text-gold">
-                      {link.label}
-                    </SmartLink>
-                  </li>
-                ))}
+                {(col.links ?? []).map((link) => {
+                  const icon = iconForHref(link.href)
+                  return (
+                    <li key={link.id ?? link.href}>
+                      <SmartLink href={link.href} className="footer-link text-small text-muted transition-colors duration-200 hover:text-gold">
+                        {icon ? <Icon name={icon} size={15} /> : null}
+                        {link.label}
+                      </SmartLink>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           ))}
@@ -105,6 +113,15 @@ export function Footer({ settings, columns, channels, ui }: Props) {
           ) : null}
         </div>
       </div>
+
+      {fx.footerName ? (
+        <>
+          <p aria-hidden className="footer-name wrap">
+            <span>{settings.brandName}</span>
+          </p>
+          <FooterLift />
+        </>
+      ) : null}
 
       <div className="border-t border-line/60">
         <div className="wrap flex flex-col items-center justify-between gap-4 py-6 text-micro text-muted sm:flex-row">

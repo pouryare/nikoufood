@@ -114,6 +114,17 @@ export const SiteSettings: GlobalConfig = {
                 checkbox('pageTransition', 'جاری شدن طلا هنگام رفتن به صفحهٔ دیگر', true),
                 checkbox('magneticButtons', 'دکمه‌هایی که کمی به سمت ماوس می‌آیند', true),
                 checkbox('smoothScroll', 'اسکرول نرم با چرخ ماوس', true),
+                checkbox('titleRise', 'تیترها کلمه‌به‌کلمه از پشت یک خط بالا می‌آیند', true),
+                checkbox('wordLight', 'کلمه‌های متن معرفی با اسکرول روشن می‌شوند', true),
+                checkbox('rollingNumbers', 'عددها مثل شمارنده می‌چرخند و روی عدد درست می‌ایستند', true),
+                checkbox('showroom', 'محصولات صفحهٔ اصلی در یک ردیف افقی که با اسکرول از جلوی چشم می‌گذرد (فقط کامپیوتر)', true),
+                checkbox('foilCards', 'درخشش ورق طلا روی کارت محصولات', true),
+                checkbox('bento', 'دلایل اعتماد به شکل کاشی‌های زنده در اندازه‌های مختلف', true),
+                checkbox('stickyChapters', 'صفحهٔ درباره ما: عنوان فصل‌ها کنار متن ثابت می‌ماند و با اسکرول عوض می‌شود', true),
+                checkbox('kineticCta', 'جملهٔ پایانی بزرگ و روان که زیر ماوس طلایی می‌شود', true),
+                checkbox('footerName', 'نام بزرگ نیکو اعتماد زیر صفحه (فوتر)', true),
+                checkbox('sheetStack', 'بخش برندها مثل یک برگه روی بخش سفره می‌لغزد', true),
+                checkbox('travellingButter', 'کرهٔ مسافر در صفحهٔ اصلی (جاهای توقف در صفحهٔ اصلی انتخاب می‌شوند)', true),
                 checkbox('sound', 'دکمهٔ صدا', true),
                 checkbox('soundOnAtStart', 'صدا از ابتدا روشن باشد', true, {
                   admin: {

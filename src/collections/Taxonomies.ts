@@ -1,6 +1,6 @@
 import type { CollectionConfig, Field } from 'payload'
 import { anyone, isStaff } from '../access'
-import { image, orderField, slugField, text, textarea } from '../fields/helpers'
+import { iconField, image, orderField, slugField, text, textarea } from '../fields/helpers'
 import { revalidateCollectionChange, revalidateCollectionDelete } from '../hooks/revalidate'
 
 const taxonomy = (slug: string, singular: string, plural: string, extra: Field[] = [], group = 'محصولات'): CollectionConfig => ({
@@ -18,10 +18,11 @@ export const ProductCategories = taxonomy('product-categories', 'دسته‌بن
   image('image', 'تصویر پیش‌فرض محصولات این دسته', {
     admin: { description: 'محصولی که تصویر اختصاصی ندارد، این تصویر را نشان می‌دهد. اگر این هم خالی باشد، تصویر پیش‌فرض سایت (در تنظیمات) نمایش داده می‌شود.' },
   }),
+  iconField('icon', 'آیکون (کنار نام دسته روی کارت محصول)'),
 ])
 
 /** e.g. «گیاهی»، «حیوانی»، «مخلوط». */
-export const FatTypes = taxonomy('fat-types', 'نوع چربی', 'انواع چربی')
+export const FatTypes = taxonomy('fat-types', 'نوع چربی', 'انواع چربی', [iconField('icon', 'آیکون (کنار نوع چربی روی کارت محصول)')])
 
 /** Target industries: restaurants, hotels, catering… */
-export const Markets = taxonomy('markets', 'بازار هدف', 'بازارهای هدف')
+export const Markets = taxonomy('markets', 'بازار هدف', 'بازارهای هدف', [iconField('icon', 'آیکون (در فهرست «کسب‌وکار شما چیست؟» و کاشی‌ها)')])

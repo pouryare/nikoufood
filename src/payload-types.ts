@@ -375,6 +375,42 @@ export interface ProductCategory {
    * محصولی که تصویر اختصاصی ندارد، این تصویر را نشان می‌دهد. اگر این هم خالی باشد، تصویر پیش‌فرض سایت (در تنظیمات) نمایش داده می‌شود.
    */
   image?: (number | null) | Media;
+  icon?:
+    | (
+        | 'none'
+        | 'award'
+        | 'truck'
+        | 'shield'
+        | 'headset'
+        | 'users'
+        | 'building'
+        | 'box'
+        | 'layers'
+        | 'leaf'
+        | 'drop'
+        | 'map'
+        | 'utensils'
+        | 'chat'
+        | 'check'
+        | 'cloche'
+        | 'bed'
+        | 'pot'
+        | 'store'
+        | 'cart'
+        | 'boxes'
+        | 'factory'
+        | 'route'
+        | 'grid'
+        | 'sparkle'
+        | 'flame'
+        | 'calendar'
+        | 'target'
+        | 'trend'
+        | 'handshake'
+        | 'phone'
+        | 'pin'
+      )
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -394,6 +430,42 @@ export interface FatType {
    */
   order?: number | null;
   description?: string | null;
+  icon?:
+    | (
+        | 'none'
+        | 'award'
+        | 'truck'
+        | 'shield'
+        | 'headset'
+        | 'users'
+        | 'building'
+        | 'box'
+        | 'layers'
+        | 'leaf'
+        | 'drop'
+        | 'map'
+        | 'utensils'
+        | 'chat'
+        | 'check'
+        | 'cloche'
+        | 'bed'
+        | 'pot'
+        | 'store'
+        | 'cart'
+        | 'boxes'
+        | 'factory'
+        | 'route'
+        | 'grid'
+        | 'sparkle'
+        | 'flame'
+        | 'calendar'
+        | 'target'
+        | 'trend'
+        | 'handshake'
+        | 'phone'
+        | 'pin'
+      )
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -413,6 +485,42 @@ export interface Market {
    */
   order?: number | null;
   description?: string | null;
+  icon?:
+    | (
+        | 'none'
+        | 'award'
+        | 'truck'
+        | 'shield'
+        | 'headset'
+        | 'users'
+        | 'building'
+        | 'box'
+        | 'layers'
+        | 'leaf'
+        | 'drop'
+        | 'map'
+        | 'utensils'
+        | 'chat'
+        | 'check'
+        | 'cloche'
+        | 'bed'
+        | 'pot'
+        | 'store'
+        | 'cart'
+        | 'boxes'
+        | 'factory'
+        | 'route'
+        | 'grid'
+        | 'sparkle'
+        | 'flame'
+        | 'calendar'
+        | 'target'
+        | 'trend'
+        | 'handshake'
+        | 'phone'
+        | 'pin'
+      )
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -787,6 +895,7 @@ export interface ProductCategoriesSelect<T extends boolean = true> {
   order?: T;
   description?: T;
   image?: T;
+  icon?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -799,6 +908,7 @@ export interface FatTypesSelect<T extends boolean = true> {
   slug?: T;
   order?: T;
   description?: T;
+  icon?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -811,6 +921,7 @@ export interface MarketsSelect<T extends boolean = true> {
   slug?: T;
   order?: T;
   description?: T;
+  icon?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1113,6 +1224,17 @@ export interface SiteSetting {
     pageTransition?: boolean | null;
     magneticButtons?: boolean | null;
     smoothScroll?: boolean | null;
+    titleRise?: boolean | null;
+    wordLight?: boolean | null;
+    rollingNumbers?: boolean | null;
+    showroom?: boolean | null;
+    foilCards?: boolean | null;
+    bento?: boolean | null;
+    stickyChapters?: boolean | null;
+    kineticCta?: boolean | null;
+    footerName?: boolean | null;
+    sheetStack?: boolean | null;
+    travellingButter?: boolean | null;
     sound?: boolean | null;
     /**
      * مرورگرها اجازه نمی‌دهند سایت پیش از اولین کلیک، لمس یا فشردن کلید صدایی پخش کند؛ پس صدا با اولین کلیک یا لمس بازدیدکننده، آرام شروع می‌شود. بازدیدکننده هر وقت بخواهد با دکمهٔ صدا آن را خاموش می‌کند و انتخابش روی همان دستگاه به خاطر می‌ماند.
@@ -1496,12 +1618,36 @@ export interface HomePage {
       href?: string | null;
     };
   };
+  sizes?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    text?: string | null;
+    enabled?: boolean | null;
+    bulkLabel?: string | null;
+    bulkText?: string | null;
+    singleLabel?: string | null;
+    singleText?: string | null;
+  };
   products?: {
     eyebrow?: string | null;
     title?: string | null;
     text?: string | null;
     ctaLabel?: string | null;
     showMarkets?: boolean | null;
+  };
+  finder?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    text?: string | null;
+    enabled?: boolean | null;
+    emptyText?: string | null;
+    cta?: {
+      label?: string | null;
+      /**
+       * مثلاً /representation یا https://… یا tel:+98…
+       */
+      href?: string | null;
+    };
   };
   table?: {
     eyebrow?: string | null;
@@ -1514,6 +1660,10 @@ export interface HomePage {
     image?: (number | null) | Media;
     hint?: string | null;
     pairLabel?: string | null;
+    /**
+     * اگر خالی باشد، روی غذای اول.
+     */
+    butterDish?: number | null;
     /**
      * اگر خالی باشد، چهار غذای تصویر نمونه نمایش داده می‌شوند.
      */
@@ -1541,6 +1691,54 @@ export interface HomePage {
     tehranText?: string | null;
     provincesTitle?: string | null;
     provincesText?: string | null;
+    routeEnabled?: boolean | null;
+    /**
+     * چهار مرحله: بسته‌بندی، مرکز پخش، استان‌ها، آشپزخانه‌ها. اگر خالی باشد، چهار مرحلهٔ پیش‌فرض نمایش داده می‌شوند.
+     */
+    steps?:
+      | {
+          title: string;
+          text?: string | null;
+          short?: string | null;
+          icon?:
+            | (
+                | 'none'
+                | 'award'
+                | 'truck'
+                | 'shield'
+                | 'headset'
+                | 'users'
+                | 'building'
+                | 'box'
+                | 'layers'
+                | 'leaf'
+                | 'drop'
+                | 'map'
+                | 'utensils'
+                | 'chat'
+                | 'check'
+                | 'cloche'
+                | 'bed'
+                | 'pot'
+                | 'store'
+                | 'cart'
+                | 'boxes'
+                | 'factory'
+                | 'route'
+                | 'grid'
+                | 'sparkle'
+                | 'flame'
+                | 'calendar'
+                | 'target'
+                | 'trend'
+                | 'handshake'
+                | 'phone'
+                | 'pin'
+              )
+            | null;
+          id?: string | null;
+        }[]
+      | null;
   };
   map?: {
     eyebrow?: string | null;
@@ -1552,6 +1750,10 @@ export interface HomePage {
     eyebrow?: string | null;
     title?: string | null;
     text?: string | null;
+    /**
+     * بهتر است این کلمه در خود تیتر هم باشد. خالی بگذارید تا این جلوه نمایش داده نشود.
+     */
+    bigWord?: string | null;
     items?:
       | {
           title: string;
@@ -1573,11 +1775,34 @@ export interface HomePage {
                 | 'utensils'
                 | 'chat'
                 | 'check'
+                | 'cloche'
+                | 'bed'
+                | 'pot'
+                | 'store'
+                | 'cart'
+                | 'boxes'
+                | 'factory'
+                | 'route'
+                | 'grid'
+                | 'sparkle'
+                | 'flame'
+                | 'calendar'
+                | 'target'
+                | 'trend'
+                | 'handshake'
+                | 'phone'
+                | 'pin'
               )
             | null;
           id?: string | null;
         }[]
       | null;
+  };
+  /**
+   * روشن و خاموش کردن کلی آن در تنظیمات سایت › جلوه‌های ویژه است.
+   */
+  butter?: {
+    stops?: ('hero' | 'intro' | 'sizes' | 'finder' | 'table')[] | null;
   };
   finalCta?: {
     title?: string | null;
@@ -1668,6 +1893,23 @@ export interface AboutPage {
               | 'utensils'
               | 'chat'
               | 'check'
+              | 'cloche'
+              | 'bed'
+              | 'pot'
+              | 'store'
+              | 'cart'
+              | 'boxes'
+              | 'factory'
+              | 'route'
+              | 'grid'
+              | 'sparkle'
+              | 'flame'
+              | 'calendar'
+              | 'target'
+              | 'trend'
+              | 'handshake'
+              | 'phone'
+              | 'pin'
             )
           | null;
         id?: string | null;
@@ -1751,6 +1993,23 @@ export interface NetworkPage {
               | 'utensils'
               | 'chat'
               | 'check'
+              | 'cloche'
+              | 'bed'
+              | 'pot'
+              | 'store'
+              | 'cart'
+              | 'boxes'
+              | 'factory'
+              | 'route'
+              | 'grid'
+              | 'sparkle'
+              | 'flame'
+              | 'calendar'
+              | 'target'
+              | 'trend'
+              | 'handshake'
+              | 'phone'
+              | 'pin'
             )
           | null;
         id?: string | null;
@@ -1812,6 +2071,23 @@ export interface RepresentationPage {
               | 'utensils'
               | 'chat'
               | 'check'
+              | 'cloche'
+              | 'bed'
+              | 'pot'
+              | 'store'
+              | 'cart'
+              | 'boxes'
+              | 'factory'
+              | 'route'
+              | 'grid'
+              | 'sparkle'
+              | 'flame'
+              | 'calendar'
+              | 'target'
+              | 'trend'
+              | 'handshake'
+              | 'phone'
+              | 'pin'
             )
           | null;
         id?: string | null;
@@ -1838,6 +2114,23 @@ export interface RepresentationPage {
               | 'utensils'
               | 'chat'
               | 'check'
+              | 'cloche'
+              | 'bed'
+              | 'pot'
+              | 'store'
+              | 'cart'
+              | 'boxes'
+              | 'factory'
+              | 'route'
+              | 'grid'
+              | 'sparkle'
+              | 'flame'
+              | 'calendar'
+              | 'target'
+              | 'trend'
+              | 'handshake'
+              | 'phone'
+              | 'pin'
             )
           | null;
         id?: string | null;
@@ -1894,6 +2187,23 @@ export interface PartnershipPage {
               | 'utensils'
               | 'chat'
               | 'check'
+              | 'cloche'
+              | 'bed'
+              | 'pot'
+              | 'store'
+              | 'cart'
+              | 'boxes'
+              | 'factory'
+              | 'route'
+              | 'grid'
+              | 'sparkle'
+              | 'flame'
+              | 'calendar'
+              | 'target'
+              | 'trend'
+              | 'handshake'
+              | 'phone'
+              | 'pin'
             )
           | null;
         id?: string | null;
@@ -1920,6 +2230,23 @@ export interface PartnershipPage {
               | 'utensils'
               | 'chat'
               | 'check'
+              | 'cloche'
+              | 'bed'
+              | 'pot'
+              | 'store'
+              | 'cart'
+              | 'boxes'
+              | 'factory'
+              | 'route'
+              | 'grid'
+              | 'sparkle'
+              | 'flame'
+              | 'calendar'
+              | 'target'
+              | 'trend'
+              | 'handshake'
+              | 'phone'
+              | 'pin'
             )
           | null;
         id?: string | null;
@@ -2073,6 +2400,17 @@ export interface SiteSettingsSelect<T extends boolean = true> {
         pageTransition?: T;
         magneticButtons?: T;
         smoothScroll?: T;
+        titleRise?: T;
+        wordLight?: T;
+        rollingNumbers?: T;
+        showroom?: T;
+        foilCards?: T;
+        bento?: T;
+        stickyChapters?: T;
+        kineticCta?: T;
+        footerName?: T;
+        sheetStack?: T;
+        travellingButter?: T;
         sound?: T;
         soundOnAtStart?: T;
       };
@@ -2391,6 +2729,18 @@ export interface HomePageSelect<T extends boolean = true> {
               href?: T;
             };
       };
+  sizes?:
+    | T
+    | {
+        eyebrow?: T;
+        title?: T;
+        text?: T;
+        enabled?: T;
+        bulkLabel?: T;
+        bulkText?: T;
+        singleLabel?: T;
+        singleText?: T;
+      };
   products?:
     | T
     | {
@@ -2399,6 +2749,21 @@ export interface HomePageSelect<T extends boolean = true> {
         text?: T;
         ctaLabel?: T;
         showMarkets?: T;
+      };
+  finder?:
+    | T
+    | {
+        eyebrow?: T;
+        title?: T;
+        text?: T;
+        enabled?: T;
+        emptyText?: T;
+        cta?:
+          | T
+          | {
+              label?: T;
+              href?: T;
+            };
       };
   table?:
     | T
@@ -2410,6 +2775,7 @@ export interface HomePageSelect<T extends boolean = true> {
         image?: T;
         hint?: T;
         pairLabel?: T;
+        butterDish?: T;
         dishes?:
           | T
           | {
@@ -2438,6 +2804,16 @@ export interface HomePageSelect<T extends boolean = true> {
         tehranText?: T;
         provincesTitle?: T;
         provincesText?: T;
+        routeEnabled?: T;
+        steps?:
+          | T
+          | {
+              title?: T;
+              text?: T;
+              short?: T;
+              icon?: T;
+              id?: T;
+            };
       };
   map?:
     | T
@@ -2453,6 +2829,7 @@ export interface HomePageSelect<T extends boolean = true> {
         eyebrow?: T;
         title?: T;
         text?: T;
+        bigWord?: T;
         items?:
           | T
           | {
@@ -2461,6 +2838,11 @@ export interface HomePageSelect<T extends boolean = true> {
               icon?: T;
               id?: T;
             };
+      };
+  butter?:
+    | T
+    | {
+        stops?: T;
       };
   finalCta?:
     | T

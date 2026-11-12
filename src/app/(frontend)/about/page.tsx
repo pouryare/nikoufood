@@ -1,11 +1,14 @@
 import type { CSSProperties } from 'react'
 import { BrandMark } from '@/components/about/BrandMark'
+import { StoryChapters } from '@/components/about/StoryChapters'
 import { CmsImage } from '@/components/ui/CmsImage'
 import { CtaBand } from '@/components/ui/CtaBand'
 import { Icon, iconName } from '@/components/ui/Icon'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { RiseText } from '@/components/ui/RiseText'
 import { TiltCard } from '@/components/ui/TiltCard'
 import { getAboutPage, getSiteSettings, getTheme, getUi } from '@/lib/cms'
+import { effectsOf } from '@/lib/effects'
 import { toFa } from '@/lib/format'
 import { pageMetadata } from '@/lib/seo'
 import { themeColors } from '@/lib/theme'
@@ -22,6 +25,7 @@ export default async function AboutPage() {
   const chapters = (about.chapters ?? []).filter((chapter) => chapter.title)
   const milestones = (about.milestones ?? []).filter((milestone) => milestone.title)
   const values = (about.values ?? []).filter((value) => value.title)
+  const fx = effectsOf(settings)
 
   return (
     <>
@@ -34,7 +38,22 @@ export default async function AboutPage() {
         visual={<BrandMark accentFrom={colors.logoFrom} accentTo={colors.logoTo} enable3D={settings.enable3D !== false} title={settings.brandName} />}
       />
 
-      {chapters.length ? (
+      {chapters.length && fx.stickyChapters ? (
+        <section className="section-y">
+          <div className="wrap">
+            <StoryChapters
+              label={header?.eyebrow}
+              chapters={chapters.map((chapter, i) => ({
+                id: chapter.id ?? String(i),
+                kicker: chapter.kicker,
+                title: chapter.title,
+                text: chapter.text,
+                image: chapter.image ? <CmsImage media={chapter.image} sizes="(max-width: 1023px) 100vw, 48rem" className="size-full object-cover" /> : null,
+              }))}
+            />
+          </div>
+        </section>
+      ) : chapters.length ? (
         <section className="section-y">
           <div className="wrap">
             <ol className="story">
@@ -51,8 +70,8 @@ export default async function AboutPage() {
                     ) : null}
                   </div>
                   <div className="story-body">
-                    <h2 data-reveal style={{ '--i': 1 } as CSSProperties} className="text-h2">
-                      {chapter.title}
+                    <h2 data-reveal style={{ '--i': 1 } as CSSProperties} className="rise text-h2">
+                      <RiseText text={chapter.title} />
                     </h2>
                     {chapter.text ? (
                       <p data-reveal style={{ '--i': 2 } as CSSProperties} className="mt-6 max-w-2xl text-lead text-muted">

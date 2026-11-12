@@ -85,10 +85,11 @@ export default async function FrontendLayout({ children }: { children: ReactNode
       style={style}
       data-fx-pour={fx.pourTitles ? '' : undefined}
       data-fx-thread={fx.goldenThread ? '' : undefined}
+      data-fx-rise={fx.titleRise ? '' : undefined}
+      data-fx-foil={fx.foilCards ? '' : undefined}
     >
       <body className="flex min-h-svh flex-col">
         {css ? <style dangerouslySetInnerHTML={{ __html: css }} /> : null}
-        <Ambience lamp={fx.lamp} pattern={fx.pattern} grain={fx.grain} />
         <a href="#main" className="skip-link">
           {ui.common.skipToContent}
         </a>
@@ -103,6 +104,8 @@ export default async function FrontendLayout({ children }: { children: ReactNode
             phone={phone ? { href: phone.href, display: phone.display } : null}
           />
           <main id="main" className="flex-1">
+            {/* The room's light lives inside the page, so the page can lift off the footer and still carry its light. */}
+            <Ambience lamp={fx.lamp} pattern={fx.pattern} grain={fx.grain} />
             {children}
           </main>
           <Footer settings={settings} columns={columns} channels={channels} ui={ui} />

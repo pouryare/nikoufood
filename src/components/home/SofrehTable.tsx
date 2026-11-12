@@ -21,6 +21,8 @@ type Props = {
   hint?: string | null
   pairLabel: string
   viewLabel: string
+  /** The dish (index) where the travelling butter lands and melts, if it is on. */
+  butterDish?: number | null
 }
 
 const clampPct = (v: number) => Math.min(96, Math.max(4, v))
@@ -29,10 +31,11 @@ const clampPct = (v: number) => Math.min(96, Math.max(4, v))
  * A Persian table seen from above. Touching a dish drops a pat of butter onto it; the butter melts,
  * and a small card names the butter that suits that dish, with a link to it.
  */
-export function SofrehTable({ image, dishes, hint, pairLabel, viewLabel }: Props) {
+export function SofrehTable({ image, dishes, hint, pairLabel, viewLabel, butterDish }: Props) {
   const [open, setOpen] = useState<number | null>(null)
   const [buttered, setButtered] = useState<number[]>([])
   const dish = open === null ? null : dishes[open]
+  const landing = typeof butterDish === 'number' ? dishes[butterDish] : null
 
   const choose = (i: number) => {
     setOpen(i)
@@ -62,6 +65,18 @@ export function SofrehTable({ image, dishes, hint, pairLabel, viewLabel }: Props
           className="object-cover"
         />
         <span aria-hidden className="sofreh-dim" data-on={open !== null ? '' : undefined} />
+        {landing ? (
+          <>
+            {/* Where the travelling butter lands: it melts into a glossy pool while the rice steams. */}
+            <span aria-hidden className="sofreh-puddle" style={{ left: `${landing.x}%`, top: `${landing.y}%` } as CSSProperties} />
+            <span aria-hidden className="sofreh-steam" style={{ left: `${landing.x}%`, top: `${landing.y}%` } as CSSProperties}>
+              <i />
+              <i />
+              <i />
+            </span>
+            <span aria-hidden data-butter-stop="table" className="butter-stop" style={{ left: `${landing.x}%`, top: `${landing.y + 1.5}%` } as CSSProperties} />
+          </>
+        ) : null}
         {dishes.map((d, i) => (
           <div
             key={`${d.name}-${i}`}
