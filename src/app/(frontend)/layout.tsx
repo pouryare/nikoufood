@@ -1,6 +1,11 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import { LogoMark } from '@/components/brand/LogoMark'
+import { Ambience } from '@/components/effects/Ambience'
+import { Magnetic } from '@/components/effects/Magnetic'
+import { PageTransition } from '@/components/effects/PageTransition'
+import { SmoothScroll } from '@/components/effects/SmoothScroll'
+import { SoundToggle } from '@/components/effects/Sound'
 import { Footer } from '@/components/layout/Footer'
 import { Header, type NavItem } from '@/components/layout/Header'
 import { MessengerDock } from '@/components/layout/MessengerDock'
@@ -8,7 +13,9 @@ import { JsonLd } from '@/components/seo/JsonLd'
 import { CmsImage } from '@/components/ui/CmsImage'
 import { MotionProvider } from '@/components/ui/MotionProvider'
 import { RevealObserver } from '@/components/ui/RevealObserver'
+import { BRAND_MARK_PATH, BRAND_MARK_VIEWBOX } from '@/data/brand-mark'
 import { getChannels } from '@/lib/channels'
+import { effectsOf, soundFilesOf } from '@/lib/effects'
 import { articlesEnabled, getNavigation, getSiteSettings, getTheme, getUi, mediaOf } from '@/lib/cms'
 import { organizationLd, websiteLd } from '@/lib/jsonld'
 import { SITE_URL } from '@/lib/site'
@@ -68,11 +75,20 @@ export default async function FrontendLayout({ children }: { children: ReactNode
 
   const dockChannels = channels.filter((c) => c.messenger || c.key === 'phone').filter((c) => settings.showWhatsappButton !== false || c.key !== 'whatsapp')
   const uploadedLogo = settings.useUploadedLogo && mediaOf(settings.logoMark)
+  const fx = effectsOf(settings)
 
   return (
-    <html lang="fa" dir="rtl" className={`${bodyFont.variable} ${displayFont.variable}`} style={style}>
+    <html
+      lang="fa"
+      dir="rtl"
+      className={`${bodyFont.variable} ${displayFont.variable}`}
+      style={style}
+      data-fx-pour={fx.pourTitles ? '' : undefined}
+      data-fx-thread={fx.goldenThread ? '' : undefined}
+    >
       <body className="flex min-h-svh flex-col">
         {css ? <style dangerouslySetInnerHTML={{ __html: css }} /> : null}
+        <Ambience lamp={fx.lamp} pattern={fx.pattern} grain={fx.grain} />
         <a href="#main" className="skip-link">
           {ui.common.skipToContent}
         </a>
@@ -91,7 +107,21 @@ export default async function FrontendLayout({ children }: { children: ReactNode
           </main>
           <Footer settings={settings} columns={columns} channels={channels} ui={ui} />
           <MessengerDock channels={dockChannels} label={ui.contact.dockLabel} closeLabel={ui.common.close} />
+          {fx.sound ? <SoundToggle files={soundFilesOf(settings)} labels={{ on: ui.common.soundOn, off: ui.common.soundOff }} /> : null}
         </MotionProvider>
+        {fx.pageTransition ? (
+          <PageTransition>
+            {uploadedLogo ? (
+              <CmsImage media={settings.logoMark} alt="" sizes="80px" className="size-20 object-contain" />
+            ) : (
+              <svg viewBox={`-8 -8 ${BRAND_MARK_VIEWBOX + 16} ${BRAND_MARK_VIEWBOX + 16}`} width={76} height={76} aria-hidden>
+                <path d={BRAND_MARK_PATH} fill="currentColor" />
+              </svg>
+            )}
+          </PageTransition>
+        ) : null}
+        {fx.magneticButtons ? <Magnetic /> : null}
+        {fx.smoothScroll ? <SmoothScroll /> : null}
         <RevealObserver />
         <JsonLd data={[organizationLd(settings), websiteLd(settings)]} />
       </body>

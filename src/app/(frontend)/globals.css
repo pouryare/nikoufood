@@ -136,8 +136,9 @@
     background: var(--nk-bg);
   }
 
+  /* The page colour lives on <html> only, so the fixed light and glow layers (z-index -1) can show through <body>. */
   body {
-    background: var(--nk-bg);
+    background: transparent;
     color: var(--nk-text);
     font-family: var(--font-sans);
     font-size: var(--text-body);
@@ -2000,3 +2001,895 @@ select.field option { background: var(--nk-surface); color: var(--nk-ink); }
 .contact-row-icon { display: grid; flex: none; width: 2.75rem; height: 2.75rem; place-items: center; border: 1px solid color-mix(in srgb, var(--nk-gold) 40%, transparent); border-radius: 50%; color: var(--nk-gold); }
 .article-card { overflow: hidden; height: 100%; }
 .article-card-cover { position: relative; aspect-ratio: 16 / 9; background: linear-gradient(135deg, color-mix(in srgb, var(--nk-gold) 12%, var(--nk-surface)), var(--nk-surface)); }
+
+/* ------------------------------------------------------------------
+   Effects (each one has a switch in the CMS: تنظیمات سایت → امکانات → جلوه‌های ویژه)
+   ------------------------------------------------------------------ */
+
+/* 1 · The lamp: a warm light that follows the mouse, with a faint Persian pattern only where it falls. */
+.ambience {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+/* A soft vignette makes the room a little darker at the edges, so the lamp has something to warm. */
+.ambience::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(130% 95% at 50% 40%, transparent 55%, rgb(0 0 0 / 0.38));
+}
+.ambience-lamp {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: clamp(30rem, 64vmax, 66rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklab, var(--nk-gold) 15%, transparent),
+    color-mix(in oklab, var(--nk-gold) 6%, transparent) 42%,
+    color-mix(in oklab, var(--nk-gold) 2%, transparent) 70%,
+    transparent
+  );
+  will-change: transform;
+}
+.ambience-window {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 50%;
+  -webkit-mask-image: radial-gradient(closest-side, #000, rgb(0 0 0 / 0.45) 45%, transparent 82%);
+  mask-image: radial-gradient(closest-side, #000, rgb(0 0 0 / 0.45) 45%, transparent 82%);
+}
+.ambience-pattern {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: var(--nk-gold);
+  opacity: 0.13;
+  --girih: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' fill='none' stroke='%23000' stroke-width='1.1'%3E%3Cpath d='M26 26H70V70H26ZM48 15L81 48L48 81L15 48ZM0 0L26 26M96 0L70 26M96 96L70 70M0 96L26 70M48 0V15M96 48H81M48 96V81M0 48H15'/%3E%3Ccircle cx='48' cy='48' r='9'/%3E%3C/svg%3E");
+  -webkit-mask: var(--girih) 0 0 / 96px 96px repeat;
+  mask: var(--girih) 0 0 / 96px 96px repeat;
+  will-change: transform;
+}
+/* 1 · Fine film grain over everything, so the navy reads like a photograph and not a flat colour. */
+.ambience-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  opacity: 0.055;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* 1 · Cards marked data-lit catch the lamp: a warm glow inside and a gold edge nearest the light (mouse only). */
+[data-lit] {
+  isolation: isolate;
+}
+.lit {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s var(--ease-out-quart);
+}
+html[data-lamp] .lit {
+  opacity: 1;
+}
+.lit::before,
+.lit::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.lit::before {
+  background: radial-gradient(
+    26rem circle at var(--lx, -100rem) var(--ly, -100rem),
+    color-mix(in oklab, var(--nk-gold) 8%, transparent),
+    transparent 70%
+  );
+}
+.lit::after {
+  padding: 1px;
+  background: radial-gradient(
+    18rem circle at var(--lx, -100rem) var(--ly, -100rem),
+    color-mix(in oklab, var(--nk-cream) 85%, transparent),
+    color-mix(in oklab, var(--nk-gold) 45%, transparent) 35%,
+    transparent 72%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+
+/* 2 · Pour-in titles: a few key words start as a faint gold ghost and fill with melted butter from the bottom. */
+@property --pour {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 125%;
+}
+@property --pour-wave {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+html[data-fx-pour] .pour {
+  --pour-fill: linear-gradient(100deg, var(--nk-cream), var(--nk-gold) 45%, color-mix(in oklab, var(--nk-gold) 72%, #7a4a12));
+  background-image:
+    radial-gradient(0.64em 0.26em at 50% 100%, var(--nk-cream) 96%, transparent 100%),
+    var(--pour-fill),
+    linear-gradient(color-mix(in oklab, var(--nk-gold) 17%, transparent), color-mix(in oklab, var(--nk-gold) 17%, transparent));
+  background-size:
+    1.15em 0.26em,
+    100% max(0%, var(--pour)),
+    100% 100%;
+  background-position:
+    var(--pour-wave) calc(100% - var(--pour)),
+    0 100%,
+    0 0;
+  background-repeat: repeat-x, no-repeat, no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  transition: --pour 2.3s cubic-bezier(0.45, 0.05, 0.25, 1);
+}
+html[data-fx-pour] .pour:not([data-revealed]) {
+  --pour: -32%;
+}
+html[data-fx-pour] .pour[data-revealed] {
+  animation: pour-wave 0.95s linear 3;
+}
+@keyframes pour-wave {
+  to {
+    --pour-wave: 1.15em;
+  }
+}
+
+/* 4 · Between pages, melted gold pours over the screen with the logo, then flows away. */
+.page-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  visibility: hidden;
+}
+.page-curtain[data-busy] {
+  visibility: visible;
+  pointer-events: auto;
+  cursor: progress;
+}
+.page-curtain-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 22px 34px rgb(0 0 0 / 0.5));
+}
+.page-curtain-logo {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--nk-bg);
+  opacity: 0;
+  transform: scale(0.9);
+  transition:
+    opacity 0.22s var(--ease-out-quart),
+    transform 0.7s var(--ease-out-expo);
+}
+.page-curtain-logo svg {
+  filter: drop-shadow(0 2px 0 color-mix(in oklab, var(--nk-cream) 70%, transparent));
+}
+.page-curtain-logo[data-on] {
+  opacity: 1;
+  transform: none;
+}
+
+/* 8 · The speaker button (sound is off until the visitor turns it on). */
+.sound-toggle {
+  position: fixed;
+  inset-inline-start: 1rem;
+  bottom: 1rem;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 2.75rem;
+  padding-inline: 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--nk-line);
+  background: color-mix(in oklab, var(--nk-surface) 82%, transparent);
+  color: var(--nk-muted);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    opacity 0.35s var(--ease-out-quart),
+    transform 0.5s var(--ease-out-expo);
+}
+.sound-toggle[data-tucked] {
+  opacity: 0;
+  transform: translateY(1.5rem);
+  pointer-events: none;
+}
+@media (min-width: 40rem) {
+  .sound-toggle {
+    inset-inline-start: 1.5rem;
+    bottom: 1.5rem;
+  }
+}
+.sound-toggle:hover,
+.sound-toggle[data-on] {
+  color: var(--nk-gold);
+  border-color: color-mix(in oklab, var(--nk-gold) 55%, var(--nk-line));
+}
+.sound-toggle-bars {
+  display: none;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+.sound-toggle-bars i {
+  width: 2px;
+  height: 3px;
+  border-radius: 1px;
+  background: currentColor;
+  transition: height 0.3s;
+}
+.sound-toggle[data-on] .sound-toggle-bars {
+  display: inline-flex;
+}
+.sound-toggle[data-on] .sound-toggle-bars i {
+  animation: sound-bar 1.1s ease-in-out infinite alternate;
+}
+.sound-toggle[data-on] .sound-toggle-bars i:nth-child(2) {
+  animation-delay: -0.4s;
+}
+.sound-toggle[data-on] .sound-toggle-bars i:nth-child(3) {
+  animation-delay: -0.75s;
+}
+@keyframes sound-bar {
+  from {
+    height: 3px;
+  }
+  to {
+    height: 14px;
+  }
+}
+
+/* Smooth wheel scrolling (Lenis) */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
+}
+.lenis [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+/* 3 · The golden thread down the home page */
+.thread-zone {
+  position: relative;
+}
+.thread-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  width: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.thread-base,
+.thread-glow,
+.thread-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.thread-base {
+  stroke: color-mix(in oklab, var(--nk-gold) 12%, transparent);
+  stroke-width: 1;
+}
+.thread-glow {
+  stroke: color-mix(in oklab, var(--nk-gold) 22%, transparent);
+  stroke-width: 6;
+}
+.thread-line {
+  stroke: var(--nk-gold);
+  stroke-width: 1.6;
+}
+.thread-head {
+  transition: opacity 0.4s var(--ease-out-quart);
+}
+.thread-head-core {
+  fill: var(--nk-cream);
+}
+.thread-drop {
+  fill: var(--nk-gold);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(0.2);
+  transition:
+    opacity 0.5s var(--ease-out-quart),
+    transform 0.9s var(--ease-out-expo);
+}
+.thread-zone[data-thread-done] .thread-drop {
+  opacity: 1;
+  transform: scale(1);
+}
+/* A label the thread has reached lights up: its small dash grows and glows. */
+.eyebrow[data-thread]::before {
+  transition:
+    width 0.7s var(--ease-out-expo),
+    opacity 0.5s var(--ease-out-quart),
+    box-shadow 0.5s var(--ease-out-quart);
+}
+.thread-zone .eyebrow[data-thread-on]::before {
+  width: 3rem;
+  opacity: 1;
+  box-shadow: 0 0 10px color-mix(in oklab, var(--nk-gold) 80%, transparent);
+}
+[data-thread='end'][data-thread-on] {
+  box-shadow:
+    0 14px 40px -14px var(--nk-gold),
+    0 0 0 6px color-mix(in oklab, var(--nk-gold) 14%, transparent);
+}
+.hero-thread {
+  display: none;
+}
+@media (min-width: 64rem) {
+  html[data-fx-thread] .hero-thread {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    z-index: 5;
+    display: block;
+    width: 1.5px;
+    height: 17svh;
+    margin-left: -0.75px;
+    background: linear-gradient(to bottom, transparent, var(--nk-gold) 30%, var(--nk-gold));
+    box-shadow: 0 0 8px color-mix(in oklab, var(--nk-gold) 50%, transparent);
+    transform-origin: top;
+    transform: scaleY(clamp(0, calc(var(--p, 0) * 4), 1));
+  }
+}
+
+/* 9 · Two brands, one screen */
+.brand-split {
+  position: relative;
+  /* Sits above the golden thread: the thread passes behind the brands' screen. */
+  z-index: 4;
+  display: grid;
+  border-block: 1px solid var(--nk-line);
+}
+.brand-half {
+  --brand: var(--nk-gold);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-width: 0;
+  min-height: clamp(30rem, 72svh, 40rem);
+  padding: clamp(1.75rem, 4vw, 3.5rem) clamp(1.25rem, 5vw, 4rem);
+  background: var(--nk-bg);
+}
+.brand-half + .brand-half {
+  border-top: 1px solid var(--nk-line);
+}
+.brand-half-photo {
+  z-index: -2;
+  object-fit: cover;
+  opacity: 0.32;
+  transform: scale(1.04);
+  transition:
+    opacity 0.9s var(--ease-out-quart),
+    transform 1.6s var(--ease-out-expo);
+  -webkit-mask-image: linear-gradient(to bottom, #000 25%, transparent 95%);
+  mask-image: linear-gradient(to bottom, #000 25%, transparent 95%);
+}
+.brand-half-wash {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(110% 80% at 50% 108%, color-mix(in oklab, var(--brand) 42%, transparent), transparent 68%),
+    linear-gradient(180deg, color-mix(in oklab, var(--brand) 6%, var(--nk-bg)), color-mix(in oklab, var(--brand) 14%, var(--nk-bg)));
+  opacity: 0.55;
+  transition: opacity 0.9s var(--ease-out-quart);
+}
+.brand-half-in {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+}
+.brand-half-index {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--brand);
+}
+.brand-half-word {
+  font-size: clamp(3.4rem, 8vw, 8.5rem);
+  font-weight: 900;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.brand-half-link {
+  outline: none;
+  transition: color 0.4s var(--ease-out-quart);
+}
+.brand-half-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.brand-half-link:focus-visible::after {
+  outline: 2px solid var(--nk-gold);
+  outline-offset: -6px;
+}
+.brand-half-products {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  max-width: 30rem;
+  margin-top: 1.75rem;
+}
+.brand-half-product {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: var(--nk-text);
+  transition: color 0.3s;
+}
+.brand-half-product:hover {
+  color: var(--brand);
+}
+.brand-half-thumb {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  border: 1px solid color-mix(in oklab, var(--brand) 30%, var(--nk-line));
+  border-radius: var(--radius-md);
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--brand) 18%, transparent), transparent), color-mix(in oklab, var(--nk-surface) 70%, transparent);
+}
+.brand-half-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid color-mix(in oklab, var(--nk-line) 80%, transparent);
+}
+.brand-half-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 700;
+  transition:
+    color 0.3s var(--ease-out-quart),
+    gap 0.5s var(--ease-out-expo);
+}
+.brand-half:hover .brand-half-cta,
+.brand-half:focus-within .brand-half-cta {
+  gap: 1rem;
+  color: var(--brand);
+}
+
+/* On a computer the two brands sit side by side; the one under the mouse takes more of the screen. */
+@media (min-width: 1024px) and (hover: hover) {
+  .brand-split {
+    display: flex;
+    height: clamp(34rem, 86svh, 50rem);
+  }
+  .brand-half {
+    display: flex;
+    flex: 1 1 0;
+    min-height: 0;
+    transition: flex-grow 1s var(--ease-out-expo);
+    /* The outer edge lines up with the rest of the page; when a half is narrow, its content slides under the seam. */
+    padding-inline-start: calc(max(0px, (100vw - 84rem) / 2) + clamp(1.25rem, 5vw, 4rem));
+  }
+  .brand-half:nth-child(2) {
+    justify-content: flex-end;
+    padding-inline-start: clamp(1.25rem, 5vw, 4rem);
+    padding-inline-end: calc(max(0px, (100vw - 84rem) / 2) + clamp(1.25rem, 5vw, 4rem));
+  }
+  .brand-half + .brand-half {
+    border-top: 0;
+  }
+  .brand-half-in {
+    flex: none;
+    width: min(34rem, calc(50vw - 6rem));
+    height: auto;
+  }
+  .brand-split[data-active='0'] .brand-half:nth-child(1),
+  .brand-split[data-active='1'] .brand-half:nth-child(2) {
+    flex-grow: 1.75;
+  }
+  .brand-split[data-active] .brand-half-wash {
+    opacity: 0.25;
+  }
+  .brand-split[data-active='0'] .brand-half:nth-child(1) .brand-half-wash,
+  .brand-split[data-active='1'] .brand-half:nth-child(2) .brand-half-wash {
+    opacity: 1;
+  }
+  .brand-split[data-active='0'] .brand-half:nth-child(1) .brand-half-photo,
+  .brand-split[data-active='1'] .brand-half:nth-child(2) .brand-half-photo {
+    opacity: 0.5;
+    transform: none;
+  }
+  .brand-split[data-active] .brand-half-word {
+    color: color-mix(in oklab, var(--nk-text) 55%, transparent);
+  }
+  /* The small side notes of the narrow half step back, so nothing looks cut off at the seam. */
+  .brand-half-side {
+    transition: opacity 0.5s var(--ease-out-quart);
+  }
+  .brand-split[data-active='0'] .brand-half:nth-child(2) .brand-half-side,
+  .brand-split[data-active='1'] .brand-half:nth-child(1) .brand-half-side {
+    opacity: 0;
+  }
+  .brand-split[data-active='0'] .brand-half:nth-child(1) .brand-half-word,
+  .brand-split[data-active='1'] .brand-half:nth-child(2) .brand-half-word {
+    color: var(--nk-text);
+  }
+  /* Products appear only in the open half. */
+  .brand-half-products li {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+    transition:
+      opacity 0.45s var(--ease-out-quart),
+      transform 0.7s var(--ease-out-expo);
+  }
+  .brand-split[data-active='0'] .brand-half:nth-child(1) .brand-half-products li,
+  .brand-split[data-active='1'] .brand-half:nth-child(2) .brand-half-products li {
+    opacity: 1;
+    transform: none;
+    transition-delay: calc(0.18s + var(--n, 0) * 70ms);
+  }
+  /* The seam between the halves: a thin gold line that follows the split. */
+  .brand-half:first-child::after {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    z-index: 3;
+    width: 1px;
+    pointer-events: none;
+    background: linear-gradient(to bottom, transparent, color-mix(in oklab, var(--nk-gold) 55%, transparent), transparent);
+  }
+}
+
+/* 5 · The melt: the butter lands on hot rice and melts as the visitor scrolls */
+.melt {
+  position: relative;
+}
+.melt[data-mode='scrub'] {
+  height: 240svh;
+}
+.melt-stage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+}
+.melt-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.melt-plain {
+  width: 100%;
+  border-radius: var(--radius-xl);
+  background: var(--nk-surface);
+}
+/* The clip melts into the page above and below, so there is no hard edge. */
+.melt-fade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to bottom, var(--nk-bg), transparent 16%, transparent 66%, color-mix(in oklab, var(--nk-bg) 85%, transparent) 88%, var(--nk-bg));
+}
+.melt-steam {
+  position: absolute;
+  left: 50%;
+  bottom: 30%;
+  width: min(60vw, 40rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgb(255 248 230 / 0.16), transparent 70%);
+  filter: blur(18px);
+  opacity: clamp(0, calc((var(--m, 0) - 0.18) * 3), 0.9);
+  transform: translate(-50%, calc(var(--m, 0) * -18svh)) scale(calc(0.8 + var(--m, 0) * 0.5));
+}
+.melt-line {
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: var(--text-h2);
+  font-weight: 800;
+  line-height: 1.4;
+}
+.melt-line-float {
+  position: absolute;
+  inset-inline: 1.25rem;
+  bottom: 12svh;
+  text-shadow: 0 4px 30px rgb(0 0 0 / 0.75);
+  opacity: clamp(0, calc((var(--m, 0) - 0.55) * 4), 1);
+  transform: translate3d(0, calc((1 - clamp(0, calc((var(--m, 0) - 0.55) * 4), 1)) * 26px), 0);
+}
+
+/* 7 · The Persian table: touch a dish, butter drops on it and melts, a card names the butter */
+.sofreh {
+  position: relative;
+  /* The whole table fits on one screen. */
+  max-width: min(100%, calc(80svh * 1168 / 880));
+  margin-inline: auto;
+}
+.sofreh-frame {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1168 / 880;
+  border: 1px solid var(--nk-line);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-float);
+  background: var(--nk-surface);
+}
+.sofreh-dim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(38% 46% at var(--cx, 50%) var(--cy, 50%), transparent 40%, rgb(4 7 15 / 0.55));
+  opacity: 0;
+  transition: opacity 0.8s var(--ease-out-quart);
+}
+.sofreh-dim[data-on] {
+  opacity: 1;
+}
+.sofreh-spot {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.sofreh-dot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: clamp(2.75rem, 7vw, 4.5rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+}
+.sofreh-dot::before,
+.sofreh-dot::after {
+  content: '';
+  position: absolute;
+  inset: 26%;
+  border-radius: 50%;
+  border: 2px solid var(--nk-cream);
+  box-shadow: 0 0 18px color-mix(in oklab, var(--nk-gold) 70%, transparent);
+  transition:
+    opacity 0.4s,
+    transform 0.6s var(--ease-out-expo);
+}
+.sofreh-dot::after {
+  animation: sofreh-pulse 3.2s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+  opacity: 0.6;
+}
+@keyframes sofreh-pulse {
+  from {
+    transform: scale(0.6);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+.sofreh-dot:hover::before,
+.sofreh-dot:focus-visible::before {
+  transform: scale(1.2);
+}
+.sofreh-spot[data-buttered] .sofreh-dot::before,
+.sofreh-spot[data-buttered] .sofreh-dot::after {
+  opacity: 0;
+}
+.sofreh-name {
+  position: absolute;
+  top: calc(100% - 0.2rem);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.1rem 0.7rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  font-size: var(--text-micro);
+  font-weight: 700;
+  color: var(--nk-text);
+  background: color-mix(in oklab, var(--nk-bg) 72%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition: background-color 0.3s, color 0.3s;
+}
+.sofreh-spot[data-open] .sofreh-name {
+  color: var(--nk-bg);
+  background: var(--nk-gold);
+}
+@media (max-width: 639px) {
+  .sofreh-name {
+    display: none;
+  }
+}
+/* The butter: falls onto the dish, lands with a little squash, then softens into a glossy pool. */
+.sofreh-butter {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: clamp(1.9rem, 4.6vw, 3.4rem);
+  height: clamp(1.35rem, 3.3vw, 2.4rem);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+}
+.sofreh-butter::before {
+  content: '';
+  position: absolute;
+  inset: -90%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--nk-gold) 55%, transparent), transparent 75%);
+  opacity: 0;
+  transform: scale(0.4);
+}
+.sofreh-butter i {
+  position: absolute;
+  inset: 0;
+  border-radius: 22%;
+  background:
+    radial-gradient(60% 50% at 32% 28%, rgb(255 253 240 / 0.95), transparent 60%),
+    linear-gradient(160deg, #fff3c4, #f6d77a 45%, #e2b23f);
+  box-shadow:
+    inset 0 -3px 6px rgb(150 95 10 / 0.35),
+    0 8px 14px -6px rgb(0 0 0 / 0.55);
+}
+.sofreh-spot[data-buttered] .sofreh-butter {
+  opacity: 1;
+  animation: butter-drop 0.5s cubic-bezier(0.5, 0, 0.9, 0.5) both;
+}
+.sofreh-spot[data-buttered] .sofreh-butter i {
+  animation: butter-melt 2.6s 0.45s cubic-bezier(0.3, 0.7, 0.3, 1) both;
+}
+.sofreh-spot[data-buttered] .sofreh-butter::before {
+  animation: butter-glow 2.6s 0.5s var(--ease-out-quart) both;
+}
+@keyframes butter-drop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -260%) rotate(-14deg) scale(1.15);
+  }
+  70% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(-4deg);
+  }
+}
+@keyframes butter-melt {
+  0% {
+    transform: scale(1, 1);
+    border-radius: 22%;
+  }
+  8% {
+    transform: scale(1.12, 0.8);
+  }
+  20% {
+    transform: scale(1.02, 0.96);
+  }
+  100% {
+    transform: scale(1.55, 0.62);
+    border-radius: 48%;
+    filter: saturate(1.2);
+    opacity: 0.88;
+  }
+}
+@keyframes butter-glow {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.sofreh-card {
+  margin-top: 1.25rem;
+}
+.sofreh-card-in {
+  padding: 1.25rem 1.4rem 1.4rem;
+  border: 1px solid color-mix(in oklab, var(--nk-gold) 35%, var(--nk-line));
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--nk-surface) 88%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-float);
+  animation: sofreh-card-in 0.9s 0.55s var(--ease-out-expo) both;
+}
+@keyframes sofreh-card-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.sofreh-card-thumb {
+  position: relative;
+  flex: none;
+  width: 4.5rem;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--nk-line);
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--nk-gold) 22%, transparent), transparent), var(--nk-raised);
+}
+.sofreh-card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1.1rem;
+  font-weight: 700;
+  color: var(--nk-gold);
+  transition: gap 0.5s var(--ease-out-expo);
+}
+.sofreh-card-link:hover {
+  gap: 1rem;
+}
+.sofreh-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  font-size: var(--text-small);
+  color: var(--nk-muted);
+}
+@media (min-width: 1024px) {
+  /* On a computer the card floats beside the chosen dish. */
+  .sofreh-card[data-on] {
+    position: absolute;
+    left: var(--cx);
+    top: var(--cy);
+    z-index: 4;
+    width: 21rem;
+    margin: 0;
+    transform: translate(3rem, -50%);
+  }
+  .sofreh-card[data-on][data-side='left'] {
+    transform: translate(calc(-100% - 3rem), -50%);
+  }
+}

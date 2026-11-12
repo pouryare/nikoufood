@@ -8,6 +8,7 @@ import {
   image,
   itemsField,
   linkGroup,
+  number,
   pageHeaderField,
   sectionHeadField,
   text,
@@ -38,6 +39,13 @@ function filmSideFields(): GlobalConfig['fields'] {
       type: 'upload',
       relationTo: 'media',
       admin: { description: 'ویدیوی کوتاه mp4 یا webm بدون صدا؛ با اسکرول جلو و عقب می‌رود.' },
+    },
+    {
+      name: 'videoMobile',
+      label: 'ویدیوی عمودی برای موبایل (اختیاری)',
+      type: 'upload',
+      relationTo: 'media',
+      admin: { description: 'اگر خالی باشد، در موبایل وسطِ همان ویدیوی بالا نمایش داده می‌شود.' },
     },
     {
       name: 'art',
@@ -80,6 +88,21 @@ export const HomePage = page('home-page', 'صفحه اصلی', [
       image('image', 'تصویر کره (PNG/WebP بدون پس‌زمینه)', {
         admin: { description: 'اگر خالی باشد، یک کره سه‌بعدی نمونه نمایش داده می‌شود. با آپلود تصویر واقعی، جایگزین می‌شود.' },
       }),
+    ],
+  },
+  {
+    name: 'melt',
+    label: 'ذوب شدن کره روی برنج (بعد از بخش اول)',
+    type: 'group',
+    admin: {
+      description:
+        'کرهٔ بخش اول روی برنج داغ می‌افتد و آب می‌شود؛ ویدیو با اسکرول جلو و عقب می‌رود. این بخش فقط وقتی نمایش داده می‌شود که ویدیو آپلود شده باشد.',
+    },
+    fields: [
+      checkbox('enabled', 'نمایش داده شود', true),
+      { name: 'video', label: 'ویدیوی افقی (۱۶:۹)', type: 'upload', relationTo: 'media' },
+      { name: 'videoMobile', label: 'ویدیوی عمودی برای موبایل (۹:۱۶)', type: 'upload', relationTo: 'media' },
+      text('line', 'جمله‌ای که در پایان ظاهر می‌شود'),
     ],
   },
   {
@@ -131,6 +154,19 @@ export const HomePage = page('home-page', 'صفحه اصلی', [
             ],
           },
           text('kicker', 'عنوان کوتاه صحنه (در نوار پیشرفت)', { required: true }),
+          {
+            name: 'sound',
+            label: 'صدای صحنه (وقتی بازدیدکننده صدا را روشن کرده باشد)',
+            type: 'select',
+            defaultValue: 'none',
+            options: [
+              { label: 'بی‌صدا', value: 'none' },
+              { label: 'مزرعه (باد و پرنده‌ها)', value: 'farm' },
+              { label: 'ریختن شیر', value: 'milk' },
+              { label: 'جلز کره روی برنج داغ', value: 'sizzle' },
+            ],
+            admin: { description: 'فایل صداها در «تنظیمات سایت ← امکانات ← صداها» گذاشته می‌شود.' },
+          },
           { name: 'single', label: 'تک‌تصویر', type: 'group', admin: { condition: (_d: unknown, sibling: { layout?: string }) => sibling?.layout !== 'split' }, fields: filmSideFields() },
           { name: 'plant', label: 'سمت گیاهی', type: 'group', admin: { condition: (_d: unknown, sibling: { layout?: string }) => sibling?.layout === 'split' }, fields: filmSideFields() },
           { name: 'animal', label: 'سمت حیوانی', type: 'group', admin: { condition: (_d: unknown, sibling: { layout?: string }) => sibling?.layout === 'split' }, fields: filmSideFields() },
@@ -149,6 +185,31 @@ export const HomePage = page('home-page', 'صفحه اصلی', [
   sectionHeadField('products', 'بخش محصولات', [
     text('ctaLabel', 'متن دکمه'),
     checkbox('showMarkets', 'نمایش نوار متحرک «مناسب برای» (از فهرست بازارهای هدف)', true),
+  ]),
+  sectionHeadField('table', 'سفرهٔ ایرانی (هر غذا و کرهٔ مناسبش)', [
+    checkbox('enabled', 'نمایش داده شود', true),
+    image('image', 'تصویر سفره از بالا', {
+      admin: { description: 'اگر خالی باشد، تصویر نمونهٔ خود سایت نمایش داده می‌شود.' },
+    }),
+    text('hint', 'راهنمای کوتاه (مثلاً «روی هر غذا بزنید»)'),
+    text('pairLabel', 'عنوان کارت کره (مثلاً «کرهٔ مناسب این غذا»)'),
+    itemsField(
+      'dishes',
+      'غذاها',
+      [
+        text('name', 'نام غذا', { required: true }),
+        {
+          type: 'row',
+          fields: [
+            number('x', 'جای افقی روی تصویر (٪ از چپ)', { required: true, min: 0, max: 100, admin: { width: '50%' } }),
+            number('y', 'جای عمودی روی تصویر (٪ از بالا)', { required: true, min: 0, max: 100, admin: { width: '50%' } }),
+          ],
+        },
+        { name: 'product', label: 'کرهٔ مناسب این غذا', type: 'relationship', relationTo: 'products' },
+        text('note', 'توضیح کوتاه (اختیاری)'),
+      ],
+      { admin: { description: 'اگر خالی باشد، چهار غذای تصویر نمونه نمایش داده می‌شوند.' } },
+    ),
   ]),
   sectionHeadField('brands', 'بخش برندها'),
   sectionHeadField('distribution', 'بخش شبکه توزیع', [

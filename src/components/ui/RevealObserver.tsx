@@ -5,7 +5,7 @@ import { useEffect } from 'react'
 
 /**
  * One observer for the whole page: any element with `data-reveal` fades and rises into place
- * the first time it enters the viewport. Keeps the animated pages as plain server components.
+ * the first time it enters the viewport (and `.pour` titles start filling). Keeps the animated pages as plain server components.
  */
 export function RevealObserver() {
   const pathname = usePathname()
@@ -13,7 +13,7 @@ export function RevealObserver() {
   useEffect(() => {
     const reveal = (el: Element) => el.setAttribute('data-revealed', '')
     if (!('IntersectionObserver' in window)) {
-      document.querySelectorAll('[data-reveal]').forEach(reveal)
+      document.querySelectorAll('[data-reveal], .pour').forEach(reveal)
       return
     }
     const io = new IntersectionObserver(
@@ -27,7 +27,7 @@ export function RevealObserver() {
       },
       { rootMargin: '0px 0px -8% 0px', threshold: 0.08 },
     )
-    const scan = () => document.querySelectorAll('[data-reveal]:not([data-revealed])').forEach((el) => io.observe(el))
+    const scan = () => document.querySelectorAll('[data-reveal]:not([data-revealed]), .pour:not([data-revealed])').forEach((el) => io.observe(el))
     scan()
     // Content that streams in later (or client-rendered lists) is picked up as well.
     const mo = new MutationObserver(scan)

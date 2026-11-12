@@ -31,12 +31,13 @@ const nextConfig: NextConfig = {
     formats: ['image/avif', 'image/webp'],
     // Keep each optimized picture for 31 days instead of the short default, so it is made once and then served from disk.
     minimumCacheTTL: 2678400,
-    localPatterns: [{ pathname: '/api/media/file/**' }, { pathname: '/brand/**' }],
+    localPatterns: [{ pathname: '/api/media/file/**' }, { pathname: '/brand/**' }, { pathname: '/home/**' }],
   },
   async headers() {
     return [
       { source: '/:path*', headers: securityHeaders },
       { source: '/brand/:path*', headers: longCache },
+      { source: '/home/:path*', headers: longCache },
       { source: '/api/media/file/:path*', headers: longCache },
     ]
   },

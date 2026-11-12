@@ -100,6 +100,38 @@ export const SiteSettings: GlobalConfig = {
             },
             checkbox('enable3D', 'فعال بودن صحنه‌های سه‌بعدی', true, { admin: { description: 'در گوشی‌های ضعیف و برای کاربرانی که انیمیشن را خاموش کرده‌اند، خودکار تصویر ساده نمایش داده می‌شود.' } }),
             checkbox('showWhatsappButton', 'دکمه شناور واتساپ', true),
+            {
+              name: 'effects',
+              label: 'جلوه‌های ویژه',
+              type: 'group',
+              admin: { description: 'برای کسانی که در تنظیمات دستگاهشان «کاهش حرکت» را روشن کرده‌اند، جلوه‌های متحرک خودکار خاموش می‌شوند.' },
+              fields: [
+                checkbox('lamp', 'نور گرمی که دنبال ماوس می‌آید (چراغ)', true),
+                checkbox('pattern', 'نقش ایرانی کم‌رنگ زیر نور چراغ', true),
+                checkbox('grain', 'دانهٔ ریز فیلم روی صفحه', true),
+                checkbox('pourTitles', 'پر شدن تیترهای کلیدی با کرهٔ آب‌شده', true),
+                checkbox('goldenThread', 'رشتهٔ طلایی در صفحهٔ اصلی', true),
+                checkbox('pageTransition', 'جاری شدن طلا هنگام رفتن به صفحهٔ دیگر', true),
+                checkbox('magneticButtons', 'دکمه‌هایی که کمی به سمت ماوس می‌آیند', true),
+                checkbox('smoothScroll', 'اسکرول نرم با چرخ ماوس', true),
+                checkbox('sound', 'دکمهٔ صدا (برای بازدیدکننده در ابتدا خاموش است)', true),
+              ],
+            },
+            {
+              name: 'sounds',
+              label: 'صداها (اختیاری)',
+              type: 'group',
+              admin: {
+                description:
+                  'فایل کوتاه mp3 یا ogg. اگر جلز یا کلیک خالی باشد، نسخهٔ ملایمی از آن در خود مرورگر ساخته می‌شود. صدای مزرعه و شیر فقط با فایل پخش می‌شوند.',
+              },
+              fields: [
+                { name: 'sizzle', label: 'جلز کره روی برنج داغ', type: 'upload', relationTo: 'media' },
+                { name: 'farm', label: 'مزرعه (باد و پرنده‌ها، قابل تکرار)', type: 'upload', relationTo: 'media' },
+                { name: 'milk', label: 'ریختن شیر', type: 'upload', relationTo: 'media' },
+                { name: 'click', label: 'کلیک دکمه‌ها', type: 'upload', relationTo: 'media' },
+              ],
+            },
           ],
         },
         {

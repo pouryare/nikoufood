@@ -52,7 +52,7 @@ export function ButtonLink({
 }: Common & { href?: string | null } & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href' | 'className' | 'children'>) {
   if (!children) return null
   return (
-    <SmartLink href={href} className={cn(base, variants[variant], sizes[size], className)} {...rest}>
+    <SmartLink href={href} className={cn(base, variants[variant], sizes[size], className)} data-magnetic="" {...rest}>
       <Content icon={icon}>{children}</Content>
     </SmartLink>
   )
@@ -67,7 +67,7 @@ export function Button({
   ...rest
 }: Common & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className' | 'children'>) {
   return (
-    <button className={cn(base, variants[variant], sizes[size], className)} {...rest}>
+    <button className={cn(base, variants[variant], sizes[size], className)} data-magnetic="" {...rest}>
       <Content icon={icon}>{children}</Content>
     </button>
   )

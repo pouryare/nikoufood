@@ -20,7 +20,7 @@ export function IntroSection({ eyebrow, title, text, highlights, cta }: Props) {
         <div className="grid gap-8 lg:grid-cols-12 lg:gap-x-16">
           <div className="lg:col-span-6">
             {eyebrow ? (
-              <p data-reveal className="eyebrow">
+              <p data-reveal data-thread className="eyebrow">
                 {eyebrow}
               </p>
             ) : null}
@@ -53,7 +53,7 @@ export function IntroSection({ eyebrow, title, text, highlights, cta }: Props) {
                 <dt className="stat-label">{stat.label}</dt>
                 {/* Short figures are set very large; longer wording gets a calmer size so it stays on one line. */}
                 <dd className="stat-value" data-long={stat.value.trim().length > 5 ? '' : undefined}>
-                  <CountUp value={stat.value} className="text-gold-sheen" />
+                  <CountUp value={stat.value} className="text-gold-sheen pour" />
                 </dd>
               </div>
             ))}

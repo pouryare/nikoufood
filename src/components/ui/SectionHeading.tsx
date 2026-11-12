@@ -17,7 +17,7 @@ export function SectionHeading({ eyebrow, title, text, align = 'start', as: Tag 
   return (
     <div className={cn('max-w-3xl', align === 'center' && 'mx-auto text-center', className)}>
       {eyebrow ? (
-        <p data-reveal className="eyebrow">
+        <p data-reveal data-thread className="eyebrow">
           {eyebrow}
         </p>
       ) : null}
