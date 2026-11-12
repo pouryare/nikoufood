@@ -18,11 +18,13 @@ type Engine = {
   lastClick: number
 }
 
-const readPref = () => {
+/** The visitor's own choice on this device: on, off, or null when they never pressed the button. */
+const readPref = (): boolean | null => {
   try {
-    return window.localStorage.getItem(STORE_KEY) === '1'
+    const v = window.localStorage.getItem(STORE_KEY)
+    return v === '1' ? true : v === '0' ? false : null
   } catch {
-    return false
+    return null
   }
 }
 const writePref = (on: boolean) => {
@@ -134,18 +136,48 @@ function playFile(e: Engine, name: SoundName, loop: boolean) {
   return { src, gain }
 }
 
-type Props = { files: SoundFiles; labels: { on: string; off: string } }
+type Props = {
+  files: SoundFiles
+  labels: { on: string; off: string }
+  /** Sound is on for visitors who never pressed the button (set in the CMS). */
+  startOn: boolean
+}
+
+/** Browsers let a page make sound only after one of these: the first one starts the sound. */
+const GESTURES = ['pointerdown', 'pointerup', 'touchend', 'keydown', 'click'] as const
 
 /**
- * The speaker button and the small sound engine behind it. Sound is off until the visitor
- * presses the button (the choice is remembered on that device). Other parts of the page ask
- * for sounds with `emitSound()`; those requests are simply ignored while sound is off.
+ * The speaker button and the small sound engine behind it. Whether sound starts on comes from
+ * the CMS, and the visitor's own choice (remembered on that device) wins over it. Browsers stay
+ * silent until the visitor's first click, tap or key press, so that is when the sound fades in.
+ * Other parts of the page ask for sounds with `emitSound()`; while sound is off they are ignored,
+ * except that the page remembers which looping sound belongs where the visitor is, so it can
+ * start that one as soon as sound comes on.
  */
-export function SoundToggle({ files, labels }: Props) {
+export function SoundToggle({ files, labels, startOn }: Props) {
   const [on, setOn] = useState(false)
   const [tucked, setTucked] = useState(false)
   const engine = useRef<Engine | null>(null)
   const onRef = useRef(false)
+  /** The looping sounds the page is asking for right now (e.g. the farm while its scene is on screen). */
+  const wanted = useRef(new Set<SoundName>())
+
+  const startLoop = (e: Engine, name: SoundName) => {
+    if (e.loops[name] || e.ctx.state !== 'running') return
+    const loop = playFile(e, name, true)
+    if (loop) e.loops[name] = loop
+  }
+
+  const stopLoop = (e: Engine, name: SoundName) => {
+    const loop = e.loops[name]
+    if (!loop) return
+    const now = e.ctx.currentTime
+    loop.gain.gain.cancelScheduledValues(now)
+    loop.gain.gain.setValueAtTime(Math.max(0.0001, loop.gain.gain.value), now)
+    loop.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.9)
+    loop.src.stop(now + 1)
+    delete e.loops[name]
+  }
 
   const ensure = () => {
     if (engine.current) return engine.current
@@ -157,23 +189,42 @@ export function SoundToggle({ files, labels }: Props) {
     const master = ctx.createGain()
     master.gain.value = 0.0001
     master.connect(ctx.destination)
-    engine.current = { ctx, master, buffers: {}, loops: {}, lastClick: 0 }
+    const e: Engine = { ctx, master, buffers: {}, loops: {}, lastClick: 0 }
+    engine.current = e
     for (const name of Object.keys(files) as SoundName[])
-      void load(engine.current, name, files[name])
-    return engine.current
+      void load(e, name, files[name]).then(() => {
+        if (onRef.current && wanted.current.has(name)) startLoop(e, name)
+      })
+    return e
   }
 
+  /** Fades everything in once the browser lets the page play sound, then starts the loops that belong here. */
+  const wake = (e: Engine) =>
+    e.ctx.resume().then(() => {
+      if (!onRef.current || e.ctx.state !== 'running') return
+      const now = e.ctx.currentTime
+      e.master.gain.cancelScheduledValues(now)
+      e.master.gain.setValueAtTime(Math.max(0.0001, e.master.gain.value), now)
+      e.master.gain.exponentialRampToValueAtTime(MASTER, now + 0.9)
+      for (const name of wanted.current) startLoop(e, name)
+    })
+
+  /** The visitor pressed the speaker button. */
   const setEnabled = (next: boolean) => {
     onRef.current = next
     setOn(next)
     writePref(next)
     const e = next ? ensure() : engine.current
     if (!e) return
+    if (next) {
+      void wake(e)
+      return
+    }
     const now = e.ctx.currentTime
-    if (next) void e.ctx.resume()
     e.master.gain.cancelScheduledValues(now)
     e.master.gain.setValueAtTime(Math.max(0.0001, e.master.gain.value), now)
-    e.master.gain.exponentialRampToValueAtTime(next ? MASTER : 0.0001, now + (next ? 0.9 : 0.4))
+    e.master.gain.exponentialRampToValueAtTime(0.0001, now + 0.4)
+    for (const name of Object.keys(e.loops) as SoundName[]) stopLoop(e, name)
   }
 
   // On phones the button waits until the visitor scrolls past the first screen, so it never sits on the hero buttons.
@@ -189,35 +240,41 @@ export function SoundToggle({ files, labels }: Props) {
     }
   }, [])
 
-  // A visitor who turned sound on before gets it back after their first tap or click on the page.
+  // Sound that starts on (from the CMS, or because the visitor left it on) begins with their first click, tap or key.
   useEffect(() => {
-    if (!readPref()) return
-    const resume = () => setEnabled(true)
-    window.addEventListener('pointerdown', resume, { once: true })
-    return () => window.removeEventListener('pointerdown', resume)
+    const begin = () => {
+      onRef.current = true
+      setOn(true)
+    }
+    if (!(readPref() ?? startOn)) return
+    begin()
+    const stop = () => GESTURES.forEach((name) => window.removeEventListener(name, unlock, true))
+    const unlock = () => {
+      if (!onRef.current) return stop()
+      const e = ensure()
+      if (!e) return stop()
+      void wake(e).then(() => {
+        if (e.ctx.state === 'running') stop()
+      })
+    }
+    GESTURES.forEach((name) => window.addEventListener(name, unlock, true))
+    return stop
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [startOn])
 
   useEffect(() => {
     const onRequest = (event: Event) => {
       const { name, action } = (event as CustomEvent<SoundRequest>).detail
       const e = engine.current
-      if (!onRef.current || !e) return
       if (action === 'stop') {
-        const loop = e.loops[name]
-        if (!loop) return
-        const now = e.ctx.currentTime
-        loop.gain.gain.cancelScheduledValues(now)
-        loop.gain.gain.setValueAtTime(Math.max(0.0001, loop.gain.gain.value), now)
-        loop.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.9)
-        loop.src.stop(now + 1)
-        delete e.loops[name]
+        wanted.current.delete(name)
+        if (e) stopLoop(e, name)
         return
       }
+      if (action === 'start') wanted.current.add(name)
+      if (!onRef.current || !e || e.ctx.state !== 'running') return
       if (action === 'start') {
-        if (e.loops[name]) return
-        const loop = playFile(e, name, true)
-        if (loop) e.loops[name] = loop
+        startLoop(e, name)
         return
       }
       if (playFile(e, name, false)) return
@@ -227,7 +284,7 @@ export function SoundToggle({ files, labels }: Props) {
     // Buttons and links tick softly while sound is on.
     const onPress = (event: PointerEvent) => {
       const e = engine.current
-      if (!onRef.current || !e || event.button !== 0) return
+      if (!onRef.current || !e || e.ctx.state !== 'running' || event.button !== 0) return
       if (!(event.target as Element | null)?.closest?.('a[href], button')) return
       const now = performance.now()
       if (now - e.lastClick < 90) return

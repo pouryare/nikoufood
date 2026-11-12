@@ -38,6 +38,7 @@ const nextConfig: NextConfig = {
       { source: '/:path*', headers: securityHeaders },
       { source: '/brand/:path*', headers: longCache },
       { source: '/home/:path*', headers: longCache },
+      { source: '/sounds/:path*', headers: longCache },
       { source: '/api/media/file/:path*', headers: longCache },
     ]
   },

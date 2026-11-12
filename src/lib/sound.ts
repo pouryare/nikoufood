@@ -6,8 +6,8 @@ export type SoundRequest = { name: SoundName; action: SoundAction }
 export const SOUND_EVENT = 'nk-sound'
 
 /**
- * Ask for a sound from anywhere on the page. Nothing plays unless the visitor
- * has turned sound on with the speaker button; then `start`/`stop` fade a looping sound in and out.
+ * Ask for a sound from anywhere on the page. Nothing plays while sound is off (the CMS decides whether
+ * it starts on, and the speaker button lets the visitor change it); `start`/`stop` fade a looping sound in and out.
  */
 export function emitSound(name: SoundName, action: SoundAction = 'play') {
   if (typeof window === 'undefined') return
