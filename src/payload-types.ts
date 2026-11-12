@@ -119,6 +119,7 @@ export interface Config {
     'partnership-page': PartnershipPage;
     'contact-page': ContactPage;
     'listing-pages': ListingPage;
+    'faq-chat': FaqChat;
   };
   globalsSelect: {
     'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
@@ -132,6 +133,7 @@ export interface Config {
     'partnership-page': PartnershipPageSelect<false> | PartnershipPageSelect<true>;
     'contact-page': ContactPageSelect<false> | ContactPageSelect<true>;
     'listing-pages': ListingPagesSelect<false> | ListingPagesSelect<true>;
+    'faq-chat': FaqChatSelect<false> | FaqChatSelect<true>;
   };
   locale: null;
   widgets: {
@@ -243,6 +245,16 @@ export interface Product {
       }[]
     | null;
   markets?: (number | Market)[] | null;
+  /**
+   * محاسبه‌گر به بازدیدکننده می‌گوید با چند بشقاب در روز، در ماه چقدر از این کره لازم دارد. محصولات تک‌نفره خودکار «یک بسته برای هر بشقاب» حساب می‌شوند؛ محصولات فله‌ای فقط وقتی در محاسبه‌گر می‌آیند که «گرم برای هر بشقاب» پر شده باشد.
+   */
+  calculator?: {
+    perPlate?: number | null;
+    gramsPerPlate?: number | null;
+    packsPerCarton?: number | null;
+    packageKg?: number | null;
+  };
+  packView?: boolean | null;
   meta?: {
     title?: string | null;
     description?: string | null;
@@ -848,6 +860,15 @@ export interface ProductsSelect<T extends boolean = true> {
         id?: T;
       };
   markets?: T;
+  calculator?:
+    | T
+    | {
+        perPlate?: T;
+        gramsPerPlate?: T;
+        packsPerCarton?: T;
+        packageKg?: T;
+      };
+  packView?: T;
   meta?:
     | T
     | {
@@ -1213,6 +1234,10 @@ export interface SiteSetting {
   enable3D?: boolean | null;
   showWhatsappButton?: boolean | null;
   /**
+   * برای کرهٔ تک‌نفره: یک بسته برای هر بشقاب. برای کرهٔ فله‌ای فقط وقتی نمایش داده می‌شود که در صفحهٔ آن محصول «گرم کره برای هر بشقاب» پر شده باشد.
+   */
+  needsCalculator?: boolean | null;
+  /**
    * برای کسانی که در تنظیمات دستگاهشان «کاهش حرکت» را روشن کرده‌اند، جلوه‌های متحرک خودکار خاموش می‌شوند.
    */
   effects?: {
@@ -1235,6 +1260,11 @@ export interface SiteSetting {
     footerName?: boolean | null;
     sheetStack?: boolean | null;
     travellingButter?: boolean | null;
+    nooshJan?: boolean | null;
+    goldCursor?: boolean | null;
+    moltenButtons?: boolean | null;
+    sectionMap?: boolean | null;
+    stretchyTitles?: boolean | null;
     sound?: boolean | null;
     /**
      * مرورگرها اجازه نمی‌دهند سایت پیش از اولین کلیک، لمس یا فشردن کلید صدایی پخش کند؛ پس صدا با اولین کلیک یا لمس بازدیدکننده، آرام شروع می‌شود. بازدیدکننده هر وقت بخواهد با دکمهٔ صدا آن را خاموش می‌کند و انتخابش روی همان دستگاه به خاطر می‌ماند.
@@ -1250,6 +1280,32 @@ export interface SiteSetting {
     milk?: (number | null) | Media;
     click?: (number | null) | Media;
   };
+  /**
+   * در روزهای هر مناسبت، یک تبریک کوتاه بالای صفحه نمایش داده می‌شود و دانه‌های انار یا گلبرگ شکوفه آرام از بالای صفحه می‌بارد.
+   */
+  holidaysEnabled?: boolean | null;
+  /**
+   * تاریخ‌ها خورشیدی‌اند و هر سال خودکار تکرار می‌شوند (به وقت تهران). تا وقتی این فهرست خالی است، یلدا (۲۸ آذر تا ۱ دی) و نوروز (۲۵ اسفند تا ۱۳ فروردین) نمایش داده می‌شوند.
+   */
+  holidays?:
+    | {
+        name: string;
+        greeting: string;
+        look?: ('yalda' | 'nowruz' | 'gold') | null;
+        fromMonth: '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12';
+        fromDay: number;
+        toMonth: '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12';
+        toDay: number;
+        link?: {
+          label?: string | null;
+          /**
+           * مثلاً /representation یا https://… یا tel:+98…
+           */
+          href?: string | null;
+        };
+        id?: string | null;
+      }[]
+    | null;
   footerText?: string | null;
   copyright?: string | null;
   trustBadges?:
@@ -1474,6 +1530,54 @@ export interface UiText {
     errorTitle?: string | null;
     errorText?: string | null;
     retry?: string | null;
+    notFoundToy?: string | null;
+  };
+  chat?: {
+    log?: string | null;
+    ask?: string | null;
+    topics?: string | null;
+    restart?: string | null;
+    typing?: string | null;
+    you?: string | null;
+  };
+  calculator?: {
+    product?: string | null;
+    plates?: string | null;
+    days?: string | null;
+    perDay?: string | null;
+    perMonth?: string | null;
+    packs?: string | null;
+    cartons?: string | null;
+    kilos?: string | null;
+    packages?: string | null;
+    plateUnit?: string | null;
+    dayUnit?: string | null;
+    note?: string | null;
+    send?: string | null;
+    messageIntro?: string | null;
+  };
+  toys?: {
+    packTitle?: string | null;
+    packLid?: string | null;
+    packButter?: string | null;
+    packTray?: string | null;
+    peelTitle?: string | null;
+    peelHint?: string | null;
+    peelDone?: string | null;
+    riceTitle?: string | null;
+    riceHint?: string | null;
+    riceDone?: string | null;
+    riceProgress?: string | null;
+    again?: string | null;
+    play?: string | null;
+    pause?: string | null;
+  };
+  touches?: {
+    cursorView?: string | null;
+    cursorDrag?: string | null;
+    mapLabel?: string | null;
+    mapStart?: string | null;
+    holidayClose?: string | null;
   };
   updatedAt?: string | null;
   createdAt?: string | null;
@@ -1627,6 +1731,8 @@ export interface HomePage {
     bulkText?: string | null;
     singleLabel?: string | null;
     singleText?: string | null;
+    packEnabled?: boolean | null;
+    packTitle?: string | null;
   };
   products?: {
     eyebrow?: string | null;
@@ -1649,6 +1755,32 @@ export interface HomePage {
       href?: string | null;
     };
   };
+  kitchenDay?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    text?: string | null;
+    enabled?: boolean | null;
+    seconds?: number | null;
+    /**
+     * سه وعده: اولی صبح (بستهٔ تک‌نفره روی میز صبحانه)، دومی ظهر (چلو با کره) و سومی شب (کرهٔ فله‌ای کنار دیگ بزرگ) نمایش داده می‌شود. اگر خالی باشد، سه وعدهٔ پیش‌فرض نمایش داده می‌شوند.
+     */
+    scenes?:
+      | {
+          time: string;
+          title: string;
+          text?: string | null;
+          market?: (number | null) | Market;
+          link?: {
+            label?: string | null;
+            /**
+             * مثلاً /representation یا https://… یا tel:+98…
+             */
+            href?: string | null;
+          };
+          id?: string | null;
+        }[]
+      | null;
+  };
   table?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -1664,6 +1796,16 @@ export interface HomePage {
      * اگر خالی باشد، روی غذای اول.
      */
     butterDish?: number | null;
+    /**
+     * روشن و خاموش کردنش در تنظیمات سایت › جلوه‌های ویژه است.
+     */
+    nooshJan?: string | null;
+    toy?: {
+      enabled?: boolean | null;
+      title?: string | null;
+      hint?: string | null;
+      doneText?: string | null;
+    };
     /**
      * اگر خالی باشد، چهار غذای تصویر نمونه نمایش داده می‌شوند.
      */
@@ -2016,6 +2158,9 @@ export interface NetworkPage {
       }[]
     | null;
   faqTitle?: string | null;
+  /**
+   * وقتی «گفت‌وگوی پرسش و پاسخ» برای این صفحه روشن است، به‌جای این فهرست همان گفت‌وگو نمایش داده می‌شود.
+   */
   faq?:
     | {
         question: string;
@@ -2252,6 +2397,11 @@ export interface PartnershipPage {
         id?: string | null;
       }[]
     | null;
+  calculator?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    text?: string | null;
+  };
   businessTypes?:
     | {
         label: string;
@@ -2356,6 +2506,68 @@ export interface ListingPage {
   createdAt?: string | null;
 }
 /**
+ * پرسش‌های پرتکرار به شکل یک گفت‌وگو: بازدیدکننده یک پرسش را انتخاب می‌کند، پاسخ را می‌خواند و بعد پرسش‌های بعدیِ همان موضوع را می‌بیند (تا سه سطح).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "faq-chat".
+ */
+export interface FaqChat {
+  id: number;
+  onHome?: boolean | null;
+  onNetwork?: boolean | null;
+  eyebrow?: string | null;
+  title?: string | null;
+  text?: string | null;
+  greeting?: string | null;
+  /**
+   * تا وقتی این فهرست خالی است، گفت‌وگوی پیش‌فرض سایت نمایش داده می‌شود (همهٔ پاسخ‌هایش از متن‌های خود سایت است).
+   */
+  topics?:
+    | {
+        question: string;
+        answer: string;
+        link?: {
+          label?: string | null;
+          /**
+           * مثلاً /representation یا https://… یا tel:+98…
+           */
+          href?: string | null;
+        };
+        followUps?:
+          | {
+              question: string;
+              answer: string;
+              link?: {
+                label?: string | null;
+                /**
+                 * مثلاً /representation یا https://… یا tel:+98…
+                 */
+                href?: string | null;
+              };
+              deeper?:
+                | {
+                    question: string;
+                    answer: string;
+                    link?: {
+                      label?: string | null;
+                      /**
+                       * مثلاً /representation یا https://… یا tel:+98…
+                       */
+                      href?: string | null;
+                    };
+                    id?: string | null;
+                  }[]
+                | null;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "site-settings_select".
  */
@@ -2389,6 +2601,7 @@ export interface SiteSettingsSelect<T extends boolean = true> {
   articlesVisibility?: T;
   enable3D?: T;
   showWhatsappButton?: T;
+  needsCalculator?: T;
   effects?:
     | T
     | {
@@ -2411,6 +2624,11 @@ export interface SiteSettingsSelect<T extends boolean = true> {
         footerName?: T;
         sheetStack?: T;
         travellingButter?: T;
+        nooshJan?: T;
+        goldCursor?: T;
+        moltenButtons?: T;
+        sectionMap?: T;
+        stretchyTitles?: T;
         sound?: T;
         soundOnAtStart?: T;
       };
@@ -2421,6 +2639,25 @@ export interface SiteSettingsSelect<T extends boolean = true> {
         farm?: T;
         milk?: T;
         click?: T;
+      };
+  holidaysEnabled?: T;
+  holidays?:
+    | T
+    | {
+        name?: T;
+        greeting?: T;
+        look?: T;
+        fromMonth?: T;
+        fromDay?: T;
+        toMonth?: T;
+        toDay?: T;
+        link?:
+          | T
+          | {
+              label?: T;
+              href?: T;
+            };
+        id?: T;
       };
   footerText?: T;
   copyright?: T;
@@ -2616,6 +2853,62 @@ export interface UiTextsSelect<T extends boolean = true> {
         errorTitle?: T;
         errorText?: T;
         retry?: T;
+        notFoundToy?: T;
+      };
+  chat?:
+    | T
+    | {
+        log?: T;
+        ask?: T;
+        topics?: T;
+        restart?: T;
+        typing?: T;
+        you?: T;
+      };
+  calculator?:
+    | T
+    | {
+        product?: T;
+        plates?: T;
+        days?: T;
+        perDay?: T;
+        perMonth?: T;
+        packs?: T;
+        cartons?: T;
+        kilos?: T;
+        packages?: T;
+        plateUnit?: T;
+        dayUnit?: T;
+        note?: T;
+        send?: T;
+        messageIntro?: T;
+      };
+  toys?:
+    | T
+    | {
+        packTitle?: T;
+        packLid?: T;
+        packButter?: T;
+        packTray?: T;
+        peelTitle?: T;
+        peelHint?: T;
+        peelDone?: T;
+        riceTitle?: T;
+        riceHint?: T;
+        riceDone?: T;
+        riceProgress?: T;
+        again?: T;
+        play?: T;
+        pause?: T;
+      };
+  touches?:
+    | T
+    | {
+        cursorView?: T;
+        cursorDrag?: T;
+        mapLabel?: T;
+        mapStart?: T;
+        holidayClose?: T;
       };
   updatedAt?: T;
   createdAt?: T;
@@ -2740,6 +3033,8 @@ export interface HomePageSelect<T extends boolean = true> {
         bulkText?: T;
         singleLabel?: T;
         singleText?: T;
+        packEnabled?: T;
+        packTitle?: T;
       };
   products?:
     | T
@@ -2765,6 +3060,30 @@ export interface HomePageSelect<T extends boolean = true> {
               href?: T;
             };
       };
+  kitchenDay?:
+    | T
+    | {
+        eyebrow?: T;
+        title?: T;
+        text?: T;
+        enabled?: T;
+        seconds?: T;
+        scenes?:
+          | T
+          | {
+              time?: T;
+              title?: T;
+              text?: T;
+              market?: T;
+              link?:
+                | T
+                | {
+                    label?: T;
+                    href?: T;
+                  };
+              id?: T;
+            };
+      };
   table?:
     | T
     | {
@@ -2776,6 +3095,15 @@ export interface HomePageSelect<T extends boolean = true> {
         hint?: T;
         pairLabel?: T;
         butterDish?: T;
+        nooshJan?: T;
+        toy?:
+          | T
+          | {
+              enabled?: T;
+              title?: T;
+              hint?: T;
+              doneText?: T;
+            };
         dishes?:
           | T
           | {
@@ -3098,6 +3426,13 @@ export interface PartnershipPageSelect<T extends boolean = true> {
         icon?: T;
         id?: T;
       };
+  calculator?:
+    | T
+    | {
+        eyebrow?: T;
+        title?: T;
+        text?: T;
+      };
   businessTypes?:
     | T
     | {
@@ -3213,6 +3548,60 @@ export interface ListingPagesSelect<T extends boolean = true> {
               label?: T;
               href?: T;
             };
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "faq-chat_select".
+ */
+export interface FaqChatSelect<T extends boolean = true> {
+  onHome?: T;
+  onNetwork?: T;
+  eyebrow?: T;
+  title?: T;
+  text?: T;
+  greeting?: T;
+  topics?:
+    | T
+    | {
+        question?: T;
+        answer?: T;
+        link?:
+          | T
+          | {
+              label?: T;
+              href?: T;
+            };
+        followUps?:
+          | T
+          | {
+              question?: T;
+              answer?: T;
+              link?:
+                | T
+                | {
+                    label?: T;
+                    href?: T;
+                  };
+              deeper?:
+                | T
+                | {
+                    question?: T;
+                    answer?: T;
+                    link?:
+                      | T
+                      | {
+                          label?: T;
+                          href?: T;
+                        };
+                    id?: T;
+                  };
+              id?: T;
+            };
+        id?: T;
       };
   updatedAt?: T;
   createdAt?: T;

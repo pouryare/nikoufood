@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
 import { isStaff, publishedOrStaff } from '../access'
-import { checkbox, image, itemsField, orderField, richText, slugField, text, textarea } from '../fields/helpers'
+import { checkbox, image, itemsField, number, orderField, richText, slugField, text, textarea } from '../fields/helpers'
 import { revalidateCollectionChange, revalidateCollectionDelete } from '../hooks/revalidate'
 
 export const Products: CollectionConfig = {
@@ -46,5 +46,26 @@ export const Products: CollectionConfig = {
       admin: { description: 'مثلاً: کباب، جوجه، پلو' },
     }),
     { name: 'markets', label: 'بازارهای هدف', type: 'relationship', relationTo: 'markets', hasMany: true },
+    {
+      name: 'calculator',
+      label: 'محاسبه‌گر نیاز',
+      type: 'group',
+      admin: {
+        description:
+          'محاسبه‌گر به بازدیدکننده می‌گوید با چند بشقاب در روز، در ماه چقدر از این کره لازم دارد. محصولات تک‌نفره خودکار «یک بسته برای هر بشقاب» حساب می‌شوند؛ محصولات فله‌ای فقط وقتی در محاسبه‌گر می‌آیند که «گرم برای هر بشقاب» پر شده باشد.',
+      },
+      fields: [
+        {
+          type: 'row',
+          fields: [
+            number('perPlate', 'تعداد بسته برای هر بشقاب (تک‌نفره)', { min: 0, admin: { width: '25%', step: 0.5, placeholder: '۱' } }),
+            number('gramsPerPlate', 'گرم کره برای هر بشقاب (فله‌ای)', { min: 0, admin: { width: '25%' } }),
+            number('packsPerCarton', 'تعداد بسته در هر کارتن (اختیاری)', { min: 0, admin: { width: '25%' } }),
+            number('packageKg', 'وزن هر بستهٔ فله‌ای به کیلوگرم (اختیاری)', { min: 0, admin: { width: '25%', step: 0.5 } }),
+          ],
+        },
+      ],
+    },
+    checkbox('packView', 'بستهٔ باز‌شونده و درِ فویلیِ کشیدنی در صفحهٔ محصول (فقط محصولات تک‌نفره)', true, { admin: { position: 'sidebar' } }),
   ],
 }

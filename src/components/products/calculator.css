@@ -1,0 +1,233 @@
+/* «چقدر کره لازم دارید؟» (NeedsCalculator). */
+
+.calc {
+  display: grid;
+  gap: clamp(1.25rem, 3vw, 2.5rem);
+  padding: clamp(1.1rem, 3vw, 2.25rem);
+  border: 1px solid var(--nk-line);
+  border-radius: 1.5rem;
+  background:
+    radial-gradient(70% 90% at 15% 30%, color-mix(in oklab, var(--nk-gold) 8%, transparent), transparent 70%),
+    color-mix(in oklab, var(--nk-surface) 80%, transparent);
+}
+@media (min-width: 56rem) {
+  .calc {
+    grid-template-columns: minmax(0, 6fr) minmax(0, 6fr);
+    align-items: start;
+  }
+}
+
+.calc-inputs {
+  display: grid;
+  gap: 1.6rem;
+}
+.calc-field {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.calc-field legend,
+.calc-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.calc-field legend {
+  margin-bottom: 0.75rem;
+}
+.calc-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.calc-label b {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--nk-gold);
+  white-space: nowrap;
+}
+.calc-label small {
+  font-family: var(--font-body, inherit);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--nk-muted);
+}
+.calc-one {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-self: start;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid color-mix(in oklab, var(--nk-gold) 40%, var(--nk-line));
+  border-radius: 999px;
+  font-weight: 800;
+}
+.calc-one svg {
+  color: var(--nk-gold);
+}
+.calc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.calc-chips button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.6rem;
+  padding: 0.3rem 0.95rem;
+  border: 1px solid var(--nk-line);
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
+}
+.calc-chips button svg {
+  color: var(--nk-gold);
+}
+.calc-chips button[aria-pressed='true'] {
+  border-color: var(--nk-gold);
+  background: color-mix(in oklab, var(--nk-gold) 14%, transparent);
+}
+
+/* The sliders: a gold groove filled up to the knob (the page reads right to left, so it fills from the right). */
+.calc input[type='range'] {
+  width: 100%;
+  height: 2.25rem;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  touch-action: pan-y;
+}
+.calc input[type='range']::-webkit-slider-runnable-track {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: linear-gradient(to left, var(--nk-gold) var(--fill), var(--nk-raised) var(--fill));
+}
+.calc input[type='range']::-moz-range-track {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: linear-gradient(to left, var(--nk-gold) var(--fill), var(--nk-raised) var(--fill));
+}
+.calc input[type='range']::-webkit-slider-thumb {
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-top: -0.58rem;
+  border: 3px solid var(--nk-bg);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff4c8, var(--nk-gold) 60%, #a8741f);
+  box-shadow: 0 0 0 1px var(--nk-gold), 0 6px 14px -4px rgb(0 0 0 / 0.7);
+  -webkit-appearance: none;
+}
+.calc input[type='range']::-moz-range-thumb {
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 3px solid var(--nk-bg);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff4c8, var(--nk-gold) 60%, #a8741f);
+  box-shadow: 0 0 0 1px var(--nk-gold);
+}
+.calc input[type='range']:focus-visible {
+  outline: 2px solid var(--nk-gold);
+  outline-offset: 4px;
+  border-radius: 999px;
+}
+
+.calc-out {
+  display: grid;
+  gap: 0.9rem;
+  justify-items: start;
+}
+.calc-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem 2rem;
+}
+.calc-numbers p {
+  display: grid;
+  gap: 0.1rem;
+}
+.calc-numbers small {
+  color: var(--nk-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.calc-numbers strong {
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 6vw, 3.8rem);
+  font-weight: 900;
+  line-height: 1.15;
+  background: linear-gradient(180deg, #fff3cc, var(--nk-gold) 55%, #a8741f);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-variant-numeric: tabular-nums;
+}
+.calc-numbers span {
+  font-weight: 700;
+}
+.calc-day strong {
+  font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+}
+.calc-extra {
+  color: var(--nk-cream);
+  font-weight: 700;
+}
+
+/* A tray of little butter pats; each pat stands for a round number of packs or kilos. */
+.calc-tray {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 0.35rem;
+  width: 100%;
+  max-width: 26rem;
+  padding: 0.6rem;
+  border-radius: 0.9rem;
+  background: linear-gradient(180deg, #0b1224, #101a33);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04), inset 0 -10px 20px rgb(0 0 0 / 0.35);
+}
+.calc-tray i,
+.calc-legend i {
+  display: block;
+  aspect-ratio: 5 / 3;
+  border-radius: 0.3rem;
+  background: linear-gradient(180deg, #fff4c8, #f2d27a 55%, #d29e3a);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.55),
+    inset 0 -2px 0 rgb(150 96 20 / 0.45),
+    0 3px 6px -3px rgb(0 0 0 / 0.8);
+  animation: calc-pat 0.45s var(--ease-out-expo) both;
+  animation-delay: calc(var(--i, 0) * 12ms);
+}
+@keyframes calc-pat {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.6);
+  }
+}
+.calc-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--nk-muted);
+  font-size: 0.85rem;
+}
+.calc-legend i {
+  width: 1.4rem;
+  animation: none;
+}
+.calc-note {
+  max-width: 28rem;
+  color: var(--nk-muted);
+  font-size: 0.85rem;
+  line-height: 1.9;
+}
+@media (prefers-reduced-motion: reduce) {
+  .calc-tray i {
+    animation: none;
+  }
+}

@@ -2,6 +2,7 @@ import * as migration_20261111_115438_initial from './20261111_115438_initial';
 import * as migration_20261112_000501_wow_effects from './20261112_000501_wow_effects';
 import * as migration_20261112_005019_sound_on_at_start from './20261112_005019_sound_on_at_start';
 import * as migration_20261112_040113_section_refresh from './20261112_040113_section_refresh';
+import * as migration_20261112_211904_round_four from './20261112_211904_round_four';
 
 export const migrations = [
   {
@@ -23,5 +24,10 @@ export const migrations = [
     up: migration_20261112_040113_section_refresh.up,
     down: migration_20261112_040113_section_refresh.down,
     name: '20261112_040113_section_refresh',
+  },
+  {
+    up: migration_20261112_211904_round_four.up,
+    down: migration_20261112_211904_round_four.down,
+    name: '20261112_211904_round_four',
   },
 ];

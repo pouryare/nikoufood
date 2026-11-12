@@ -49,6 +49,13 @@ const PATHS = {
   target: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-4a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0-4a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z',
   trend: 'M3 17l6-6 4 4 8-8m-6 0h6v6',
   handshake: 'M2 12l4-4.5 4 1.5 2.5-1.5L17 9l5 3.5M2 12l5.5 5.5 1.7-1 1.8 1.5 1.8-1 1.7 1.3 1.7-1 4.3-4.3M9.5 10.5l3 2.5',
+  restart: 'M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4',
+  sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0-13v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4',
+  moon: 'M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z',
+  play: 'M8 5.5v13l10.5-6.5L8 5.5Z',
+  pause: 'M8 5v14m8-14v14',
+  calculator: 'M6 3h12v18H6zM9 7h6M9 11h.01M12 11h.01M15 11h.01M9 14h.01M12 14h.01M15 14h.01M9 17h.01M12 17h3',
+  home: 'M4 11 12 4l8 7M6 9.5V20h12V9.5M10 20v-5h4v5',
 } as const
 
 export type IconName = keyof typeof PATHS

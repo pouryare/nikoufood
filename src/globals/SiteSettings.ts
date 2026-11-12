@@ -1,7 +1,17 @@
-import type { GlobalConfig } from 'payload'
+import type { Field, GlobalConfig } from 'payload'
 import { anyone, isStaff } from '../access'
-import { checkbox, image, itemsField, number, text, textarea } from '../fields/helpers'
+import { checkbox, image, itemsField, linkGroup, number, text, textarea } from '../fields/helpers'
+import { PERSIAN_MONTHS } from '../lib/holidays'
 import { revalidateGlobalChange } from '../hooks/revalidate'
+
+const persianMonth = (name: string, label: string): Field => ({
+  name,
+  label,
+  type: 'select',
+  required: true,
+  options: PERSIAN_MONTHS.map((month, i) => ({ label: month, value: String(i + 1) })),
+  admin: { width: '25%' },
+})
 
 export const SiteSettings: GlobalConfig = {
   slug: 'site-settings',
@@ -100,6 +110,9 @@ export const SiteSettings: GlobalConfig = {
             },
             checkbox('enable3D', 'فعال بودن صحنه‌های سه‌بعدی', true, { admin: { description: 'در گوشی‌های ضعیف و برای کاربرانی که انیمیشن را خاموش کرده‌اند، خودکار تصویر ساده نمایش داده می‌شود.' } }),
             checkbox('showWhatsappButton', 'دکمه شناور واتساپ', true),
+            checkbox('needsCalculator', 'محاسبه‌گر نیاز (چند بسته لازم دارم؟) در صفحهٔ همکاری و صفحهٔ محصولات', true, {
+              admin: { description: 'برای کرهٔ تک‌نفره: یک بسته برای هر بشقاب. برای کرهٔ فله‌ای فقط وقتی نمایش داده می‌شود که در صفحهٔ آن محصول «گرم کره برای هر بشقاب» پر شده باشد.' },
+            }),
             {
               name: 'effects',
               label: 'جلوه‌های ویژه',
@@ -125,6 +138,11 @@ export const SiteSettings: GlobalConfig = {
                 checkbox('footerName', 'نام بزرگ نیکو اعتماد زیر صفحه (فوتر)', true),
                 checkbox('sheetStack', 'بخش برندها مثل یک برگه روی بخش سفره می‌لغزد', true),
                 checkbox('travellingButter', 'کرهٔ مسافر در صفحهٔ اصلی (جاهای توقف در صفحهٔ اصلی انتخاب می‌شوند)', true),
+                checkbox('nooshJan', 'بعد از ذوب کره روی برنج، «نوش جان» با طلا نوشته شود (متنش در صفحهٔ اصلی › سفره)', true),
+                checkbox('goldCursor', 'نشانگر طلایی موس که روی کارت‌ها و دکمه‌ها بزرگ می‌شود (فقط کامپیوتر)', true),
+                checkbox('moltenButtons', 'طلای مذاب که با رفتن موس روی دکمه‌ها در آن‌ها جاری می‌شود', true),
+                checkbox('sectionMap', 'نقشهٔ کوچک بخش‌های صفحهٔ اصلی (کنار صفحه در کامپیوتر، دکمهٔ پایین صفحه در گوشی)', true),
+                checkbox('stretchyTitles', 'تیترهای بزرگ با اسکرول تند کمی کش می‌آیند و نرم برمی‌گردند', true),
                 checkbox('sound', 'دکمهٔ صدا', true),
                 checkbox('soundOnAtStart', 'صدا از ابتدا روشن باشد', true, {
                   admin: {
@@ -149,6 +167,52 @@ export const SiteSettings: GlobalConfig = {
                 { name: 'click', label: 'کلیک دکمه‌ها', type: 'upload', relationTo: 'media' },
               ],
             },
+          ],
+        },
+        {
+          label: 'مناسبت‌ها',
+          fields: [
+            checkbox('holidaysEnabled', 'حال‌وهوای مناسبت‌ها (یلدا، نوروز و …)', true, {
+              admin: {
+                description:
+                  'در روزهای هر مناسبت، یک تبریک کوتاه بالای صفحه نمایش داده می‌شود و دانه‌های انار یا گلبرگ شکوفه آرام از بالای صفحه می‌بارد.',
+              },
+            }),
+            itemsField(
+              'holidays',
+              'مناسبت‌ها',
+              [
+                text('name', 'نام مناسبت (فقط برای شما)', { required: true }),
+                text('greeting', 'متن تبریک', { required: true }),
+                {
+                  name: 'look',
+                  label: 'حال‌وهوا',
+                  type: 'select',
+                  defaultValue: 'gold',
+                  options: [
+                    { label: 'یلدا: دانهٔ انار و نور سرخ', value: 'yalda' },
+                    { label: 'نوروز: گلبرگ شکوفه و نور سبز', value: 'nowruz' },
+                    { label: 'جشن: ذره‌های طلایی', value: 'gold' },
+                  ],
+                },
+                {
+                  type: 'row',
+                  fields: [
+                    persianMonth('fromMonth', 'از ماه'),
+                    number('fromDay', 'روز', { required: true, min: 1, max: 31, admin: { width: '25%' } }),
+                    persianMonth('toMonth', 'تا ماه'),
+                    number('toDay', 'روز', { required: true, min: 1, max: 31, admin: { width: '25%' } }),
+                  ],
+                },
+                linkGroup('link', 'دکمهٔ کنار تبریک (اختیاری)'),
+              ],
+              {
+                admin: {
+                  description:
+                    'تاریخ‌ها خورشیدی‌اند و هر سال خودکار تکرار می‌شوند (به وقت تهران). تا وقتی این فهرست خالی است، یلدا (۲۸ آذر تا ۱ دی) و نوروز (۲۵ اسفند تا ۱۳ فروردین) نمایش داده می‌شوند.',
+                },
+              },
+            ),
           ],
         },
         {

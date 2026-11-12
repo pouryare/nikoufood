@@ -117,7 +117,7 @@ export function Footer({ settings, columns, channels, ui }: Props) {
       {fx.footerName ? (
         <>
           <p aria-hidden className="footer-name wrap">
-            <span>{settings.brandName}</span>
+            <span data-stretch="0.6">{settings.brandName}</span>
           </p>
           <FooterLift />
         </>

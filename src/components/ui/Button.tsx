@@ -35,9 +35,17 @@ type Common = {
 }
 
 /** The arrow points left because in a right-to-left page "forward" is to the left. */
-function Content({ children, icon, lead }: { children: ReactNode; icon: IconName | false; lead?: IconName | false | null }) {
+function Content({ children, icon, lead, melt }: { children: ReactNode; icon: IconName | false; lead?: IconName | false | null; melt: boolean }) {
   return (
     <>
+      {/* Molten gold that pours in on hover (تنظیمات سایت › جلوه‌های ویژه); hidden by CSS when switched off. */}
+      {melt ? (
+        <span aria-hidden className="btn-melt">
+          <i />
+          <i />
+          <i />
+        </span>
+      ) : null}
       {lead ? <Icon name={lead} size={18} className="btn-lead shrink-0 opacity-85" /> : null}
       <span>{children}</span>
       {icon ? (
@@ -63,8 +71,14 @@ export function ButtonLink({
 }: Common & { href?: string | null } & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href' | 'className' | 'children'>) {
   if (!children) return null
   return (
-    <SmartLink href={href} className={cn(base, variants[variant], sizes[size], className)} data-magnetic="" {...rest}>
-      <Content icon={icon} lead={lead === undefined ? iconForHref(href) : lead}>
+    <SmartLink
+      href={href}
+      className={cn(base, variants[variant], sizes[size], variant !== 'ghost' && 'btn-molten', className)}
+      data-magnetic=""
+      data-variant={variant}
+      {...rest}
+    >
+      <Content icon={icon} lead={lead === undefined ? iconForHref(href) : lead} melt={variant !== 'ghost'}>
         {children}
       </Content>
     </SmartLink>
@@ -81,8 +95,13 @@ export function Button({
   ...rest
 }: Common & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className' | 'children'>) {
   return (
-    <button className={cn(base, variants[variant], sizes[size], className)} data-magnetic="" {...rest}>
-      <Content icon={icon} lead={lead}>
+    <button
+      className={cn(base, variants[variant], sizes[size], variant !== 'ghost' && 'btn-molten', className)}
+      data-magnetic=""
+      data-variant={variant}
+      {...rest}
+    >
+      <Content icon={icon} lead={lead} melt={variant !== 'ghost'}>
         {children}
       </Content>
     </button>

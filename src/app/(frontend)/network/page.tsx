@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import { ChatSection } from '@/components/chat/ChatSection'
 import { NetworkSection } from '@/components/home/NetworkSection'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { CtaBand } from '@/components/ui/CtaBand'
@@ -6,7 +7,7 @@ import { FeatureRows } from '@/components/ui/FeatureRows'
 import { Icon } from '@/components/ui/Icon'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { SectionHeading } from '@/components/ui/SectionHeading'
-import { getNetworkPage, getUi } from '@/lib/cms'
+import { getFaqChat, getNetworkPage, getUi } from '@/lib/cms'
 import { faqLd } from '@/lib/jsonld'
 import { pageMetadata } from '@/lib/seo'
 
@@ -16,10 +17,12 @@ export async function generateMetadata() {
 }
 
 export default async function NetworkPage() {
-  const [page, ui] = await Promise.all([getNetworkPage(), getUi()])
+  const [page, ui, chat] = await Promise.all([getNetworkPage(), getUi(), getFaqChat()])
   const header = page.header
   const steps = (page.steps ?? []).filter((s) => s.title)
-  const faq = (page.faq ?? []).filter((f) => f.question && f.answer)
+  // The chat takes the place of the plain question list while it is switched on for this page.
+  const chatOn = chat.onNetwork !== false
+  const faq = chatOn ? [] : (page.faq ?? []).filter((f) => f.question && f.answer)
 
   return (
     <>
@@ -71,6 +74,8 @@ export default async function NetworkPage() {
           </div>
         </section>
       ) : null}
+
+      {chatOn ? <ChatSection place="network" /> : null}
 
       <CtaBand title={page.cta?.title} text={page.cta?.text} actions={[{ label: page.cta?.label, href: '/representation' }]} />
     </>

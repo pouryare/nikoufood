@@ -1,0 +1,380 @@
+/* Small touches that work across the site: gold cursor, molten buttons, stretchy titles, the home page map. */
+
+/* ---------- Gold cursor (computers only; switched on by GoldCursor) ---------- */
+html[data-gold-cursor] body,
+html[data-gold-cursor] body * {
+  cursor: none !important;
+}
+/* Typing places keep the normal text cursor, so nobody hunts for the caret. */
+html[data-gold-cursor] input,
+html[data-gold-cursor] textarea,
+html[data-gold-cursor] select,
+html[data-gold-cursor] [contenteditable='true'] {
+  cursor: auto !important;
+}
+.gc-dot,
+.gc-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 95;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+html[data-gold-cursor] .gc-dot,
+html[data-gold-cursor] .gc-ring {
+  opacity: 1;
+}
+html[data-gold-cursor][data-gc-away] .gc-dot,
+html[data-gold-cursor][data-gc-away] .gc-ring,
+html[data-gold-cursor][data-gc-text] .gc-dot,
+html[data-gold-cursor][data-gc-text] .gc-ring {
+  opacity: 0;
+}
+.gc-dot {
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  background: #f7dc92;
+  box-shadow: 0 0 10px rgb(227 176 75 / 0.6);
+}
+.gc-ring {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  border: 1.5px solid color-mix(in oklab, var(--nk-gold) 85%, transparent);
+  transition:
+    opacity 0.25s,
+    width 0.35s var(--ease-out-expo),
+    height 0.35s var(--ease-out-expo),
+    margin 0.35s var(--ease-out-expo),
+    background-color 0.3s,
+    border-color 0.3s;
+}
+.gc-ring span {
+  color: var(--nk-bg);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity 0.2s,
+    transform 0.3s var(--ease-out-expo);
+}
+.gc-ring[data-state='hover'] {
+  width: 58px;
+  height: 58px;
+  margin: -29px 0 0 -29px;
+  background: color-mix(in oklab, var(--nk-gold) 14%, transparent);
+}
+.gc-ring[data-state='label'] {
+  width: 84px;
+  height: 84px;
+  margin: -42px 0 0 -42px;
+  border-color: transparent;
+  background: color-mix(in oklab, var(--nk-gold) 92%, transparent);
+  box-shadow: 0 12px 30px -10px rgb(0 0 0 / 0.6);
+}
+.gc-ring[data-state='label'] span {
+  opacity: 1;
+  transform: none;
+}
+html[data-gc-down] .gc-ring {
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+}
+
+/* ---------- Molten gold buttons ---------- */
+.btn-melt {
+  display: none;
+}
+html[data-fx-molten] .btn-molten {
+  isolation: isolate;
+  overflow: hidden;
+}
+html[data-fx-molten] .btn-melt {
+  position: absolute;
+  inset: -2px;
+  z-index: -1;
+  display: block;
+  pointer-events: none;
+  filter: url(#nk-goo);
+}
+.btn-melt::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #fff1c2, var(--nk-gold) 72%);
+  transform: translateY(-104%);
+  transition: transform 0.6s cubic-bezier(0.6, 0, 0.2, 1);
+}
+.btn-melt i {
+  position: absolute;
+  top: 0;
+  width: 16px;
+  height: 18px;
+  border-radius: 50%;
+  background: #f3c862;
+  transform: translateY(-30px);
+}
+.btn-melt i:nth-child(1) {
+  left: 18%;
+}
+.btn-melt i:nth-child(2) {
+  left: 48%;
+  width: 20px;
+}
+.btn-melt i:nth-child(3) {
+  left: 76%;
+}
+/* On a gold button the molten gold is a deeper caramel, so the words turn light. */
+.btn-molten[data-variant='primary'] .btn-melt::before {
+  background: linear-gradient(180deg, #a8741f, #7c4d10);
+}
+.btn-molten[data-variant='primary'] .btn-melt i {
+  background: #96661a;
+}
+@media (hover: hover) {
+  html[data-fx-molten] .btn-molten:hover .btn-melt::before {
+    transform: translateY(0);
+  }
+  html[data-fx-molten] .btn-molten:hover .btn-melt i {
+    animation: btn-drip 0.9s cubic-bezier(0.5, 0, 0.3, 1) both;
+  }
+  html[data-fx-molten] .btn-molten:hover .btn-melt i:nth-child(2) {
+    animation-delay: 0.08s;
+  }
+  html[data-fx-molten] .btn-molten:hover .btn-melt i:nth-child(3) {
+    animation-delay: 0.16s;
+  }
+  html[data-fx-molten] .btn-molten[data-variant='outline']:hover {
+    color: var(--nk-bg);
+    border-color: transparent;
+  }
+  html[data-fx-molten] .btn-molten[data-variant='primary']:hover {
+    color: #fff6dc;
+  }
+}
+/* A tap on a phone pours the gold once. */
+html[data-fx-molten] .btn-molten[data-pour] .btn-melt::before {
+  transform: translateY(0);
+}
+html[data-fx-molten] .btn-molten[data-pour] .btn-melt i {
+  animation: btn-drip 0.9s cubic-bezier(0.5, 0, 0.3, 1) both;
+}
+html[data-fx-molten] .btn-molten[data-variant='outline'][data-pour] {
+  color: var(--nk-bg);
+}
+html[data-fx-molten] .btn-molten[data-variant='primary'][data-pour] {
+  color: #fff6dc;
+}
+@keyframes btn-drip {
+  0% {
+    transform: translateY(-30px) scaleY(1);
+  }
+  55% {
+    transform: translateY(34px) scaleY(1.9);
+  }
+  100% {
+    transform: translateY(70px) scaleY(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-melt::before {
+    transition: none;
+  }
+  .btn-melt i {
+    display: none;
+  }
+}
+
+/* ---------- Stretchy titles ---------- */
+[data-stretch] {
+  display: inline-block;
+  transform-origin: 50% 100%;
+}
+
+/* ---------- Map of the home page ---------- */
+.map-mark {
+  display: block;
+  height: 0;
+}
+.smap-rail {
+  position: fixed;
+  top: 50%;
+  inset-inline-end: 1rem;
+  z-index: 30;
+  display: none;
+  gap: 0.25rem;
+  padding: 0.45rem 0.35rem;
+  border: 1px solid var(--nk-line);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--nk-bg) 78%, transparent);
+  backdrop-filter: blur(8px);
+  transform: translate(0, -50%);
+  transition:
+    opacity 0.4s,
+    transform 0.5s var(--ease-out-expo);
+}
+.smap-rail[data-hidden] {
+  opacity: 0;
+  transform: translate(-1.5rem, -50%);
+  pointer-events: none;
+}
+@media (min-width: 64rem) and (min-height: 36rem) {
+  .smap-rail {
+    display: grid;
+  }
+}
+.smap-rail button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  color: var(--nk-muted);
+  transition:
+    background-color 0.3s,
+    color 0.3s;
+}
+.smap-rail button:hover {
+  color: var(--nk-gold);
+}
+.smap-rail button[aria-current='true'] {
+  background: linear-gradient(160deg, #f7dc92, var(--nk-gold) 60%, #c8902f);
+  color: var(--nk-bg);
+}
+.smap-rail button span {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: calc(100% + 0.7rem);
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--nk-line);
+  border-radius: 0.5rem;
+  background: var(--nk-raised);
+  color: var(--nk-text);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(0.4rem, -50%);
+  transition:
+    opacity 0.2s,
+    transform 0.25s var(--ease-out-expo);
+}
+.smap-rail button:hover span,
+.smap-rail button:focus-visible span {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+.smap-pill-wrap {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  z-index: 35;
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  transform: translateX(-50%);
+  transition:
+    opacity 0.35s,
+    transform 0.45s var(--ease-out-expo);
+}
+.smap-pill-wrap[data-hidden] {
+  opacity: 0;
+  transform: translate(-50%, 1.5rem);
+  pointer-events: none;
+}
+@media (min-width: 64rem) and (min-height: 36rem) {
+  .smap-pill-wrap {
+    display: none;
+  }
+}
+.smap-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  max-width: calc(100vw - 9.5rem);
+  height: 2.75rem;
+  padding: 0 0.95rem 0 0.45rem;
+  border: 1px solid var(--nk-line);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--nk-bg) 86%, transparent);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 14px 34px -14px rgb(0 0 0 / 0.8);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.smap-pill b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.smap-pill small {
+  flex: none;
+  color: var(--nk-muted);
+  font-weight: 600;
+}
+.smap-ring {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  color: var(--nk-gold);
+}
+.smap-ring svg.smap-arc {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+.smap-list {
+  display: grid;
+  gap: 0.15rem;
+  width: min(18rem, calc(100vw - 2rem));
+  max-height: min(60svh, 26rem);
+  padding: 0.4rem;
+  overflow-y: auto;
+  border: 1px solid var(--nk-line);
+  border-radius: 1rem;
+  background: color-mix(in oklab, var(--nk-surface) 96%, transparent);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 24px 50px -20px rgb(0 0 0 / 0.85);
+  animation: smap-in 0.3s var(--ease-out-expo) both;
+}
+.smap-list button {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border-radius: 0.7rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: start;
+}
+.smap-list button svg {
+  flex: none;
+  color: var(--nk-gold);
+}
+.smap-list button[aria-current='true'] {
+  background: color-mix(in oklab, var(--nk-gold) 14%, transparent);
+  color: var(--nk-gold);
+}
+@keyframes smap-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}

@@ -19,6 +19,7 @@ import { Provinces } from './collections/Provinces'
 import { Representatives } from './collections/Representatives'
 import { FatTypes, Markets, ProductCategories } from './collections/Taxonomies'
 import { Users } from './collections/Users'
+import { FaqChat } from './globals/FaqChat'
 import { Navigation } from './globals/Navigation'
 import {
   AboutPage,
@@ -70,6 +71,7 @@ export default buildConfig({
     PartnershipPage,
     ContactPage,
     ListingPages,
+    FaqChat,
   ],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',

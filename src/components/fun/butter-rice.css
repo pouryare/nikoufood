@@ -1,0 +1,115 @@
+/* ButterRice toy: plate photo with a butter layer drawn on top. */
+.butter-rice {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  container-type: size;
+  display: grid;
+  place-items: center;
+}
+
+/* faint warm lamp glow from the top-left, on the navy page.
+   It is a pseudo-element because cq units do not work on the container itself. */
+.butter-rice::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(150cqh, 100cqw);
+  height: 100cqh;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side at 42% 44%, rgba(227, 176, 75, 0.13), rgba(227, 176, 75, 0));
+  pointer-events: none;
+}
+
+.butter-rice__plate {
+  position: relative;
+  width: min(94cqw, 94cqh);
+  aspect-ratio: 1;
+  /* drawing area only: the page still scrolls beside the plate */
+  touch-action: none;
+  cursor: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* soft shadow under the plate; the photo is cut out along the rim */
+.butter-rice__plate::before {
+  content: '';
+  position: absolute;
+  inset: 5% 3% 4% 3%;
+  border-radius: 50%;
+  box-shadow:
+    4cqh 7cqh 12cqh rgba(0, 0, 0, 0.6),
+    1cqh 2cqh 3cqh rgba(0, 0, 0, 0.55);
+}
+
+.butter-rice__food {
+  position: absolute;
+  inset: 0;
+  /* a touch warmer than the original studio light */
+  filter: saturate(1.1) brightness(1.07) contrast(1.02);
+}
+
+.butter-rice__photo,
+.butter-rice__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+/* the butter knob that follows the pointer */
+.butter-rice__knob {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 34px;
+  height: 25px;
+  pointer-events: none;
+  transform: translate3d(var(--kx, 0px), var(--ky, 0px), 0) translate(-50%, -62%) rotate(-14deg) scale(var(--ks, 1));
+  transition: opacity 0.2s;
+  will-change: transform;
+}
+
+.butter-rice__knob i {
+  position: absolute;
+  inset: 0;
+  border-radius: 7px 8px 7px 9px;
+  background:
+    linear-gradient(100deg, rgba(255, 255, 255, 0.55) 0 14%, rgba(255, 255, 255, 0) 30%),
+    repeating-linear-gradient(96deg, rgba(190, 140, 40, 0) 0 5px, rgba(190, 140, 40, 0.1) 5px 6px),
+    linear-gradient(150deg, #fff4c8 10%, #f2d27a 90%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset -2px -2px 3px rgba(210, 158, 58, 0.5),
+    0 1px 0 #e6b752,
+    0 3px 0 #e0b04c,
+    0 5px 0 #d29e3a,
+    0 6px 1px #b9862c,
+    3px 12px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* the melting underside: a soft wet edge */
+.butter-rice__knob::after {
+  content: '';
+  position: absolute;
+  inset: 70% -8% -42% -6%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 226, 130, 0.55), rgba(255, 226, 130, 0));
+  z-index: -1;
+}
+
+.butter-rice__knob[data-down='1'] {
+  --ks: 0.9;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .butter-rice__knob {
+    transition: none;
+  }
+}

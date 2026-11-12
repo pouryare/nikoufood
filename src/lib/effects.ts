@@ -25,6 +25,11 @@ export type Effects = {
   footerName: boolean
   sheetStack: boolean
   travellingButter: boolean
+  nooshJan: boolean
+  goldCursor: boolean
+  moltenButtons: boolean
+  sectionMap: boolean
+  stretchyTitles: boolean
 }
 
 export function effectsOf(settings: Pick<SiteSetting, 'effects'>): Effects {
@@ -52,6 +57,11 @@ export function effectsOf(settings: Pick<SiteSetting, 'effects'>): Effects {
     footerName: on(e.footerName),
     sheetStack: on(e.sheetStack),
     travellingButter: on(e.travellingButter),
+    nooshJan: on(e.nooshJan),
+    goldCursor: on(e.goldCursor),
+    moltenButtons: on(e.moltenButtons),
+    sectionMap: on(e.sectionMap),
+    stretchyTitles: on(e.stretchyTitles),
   }
 }
 

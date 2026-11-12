@@ -99,7 +99,12 @@ async function main() {
     image: sofreh,
     dishes: c.homePage.table.dishes.map(({ productSlug, ...dish }) => ({ ...dish, product: idBySlug[`products:${productSlug}`] })),
   }
-  await payload.updateGlobal({ slug: 'home-page', data: { ...c.homePage, film: { ...c.homePage.film, scenes }, table } as never })
+  const kitchenDay = {
+    ...c.homePage.kitchenDay,
+    scenes: c.homePage.kitchenDay.scenes.map(({ market, ...scene }) => ({ ...scene, market: idBySlug[`markets:${market}`] })),
+  }
+  await payload.updateGlobal({ slug: 'home-page', data: { ...c.homePage, film: { ...c.homePage.film, scenes }, table, kitchenDay } as never })
+  await payload.updateGlobal({ slug: 'faq-chat', data: c.faqChat as never })
   await payload.updateGlobal({ slug: 'about-page', data: c.aboutPage as never })
   await payload.updateGlobal({ slug: 'network-page', data: c.networkPage as never })
   await payload.updateGlobal({ slug: 'representation-page', data: c.representationPage as never })

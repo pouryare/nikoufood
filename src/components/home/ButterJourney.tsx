@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { emitSound } from '@/lib/sound'
+import './butter-art.css'
 
 type Rest = { hold: number; rot: number; spin: number }
 
@@ -31,6 +32,29 @@ type Stop = {
 }
 
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v))
+
+/** A closed path through the points with every corner rounded by r (butter has no sharp corners). */
+const roundPoly = (pts: [number, number][], r: number) => {
+  const n = pts.length
+  let d = ''
+  for (let i = 0; i < n; i++) {
+    const p = pts[i]
+    const a = pts[(i + n - 1) % n]
+    const b = pts[(i + 1) % n]
+    const la = Math.hypot(a[0] - p[0], a[1] - p[1])
+    const lb = Math.hypot(b[0] - p[0], b[1] - p[1])
+    const ra = Math.min(r, la / 2) / la
+    const rb = Math.min(r, lb / 2) / lb
+    const f = (v: number) => v.toFixed(2)
+    d += `${i ? 'L' : 'M'}${f(p[0] + (a[0] - p[0]) * ra)} ${f(p[1] + (a[1] - p[1]) * ra)}`
+    d += `Q${f(p[0])} ${f(p[1])} ${f(p[0] + (b[0] - p[0]) * rb)} ${f(p[1] + (b[1] - p[1]) * rb)}`
+  }
+  return `${d}Z`
+}
+// The pat seen from above at an angle: its top, its whole outline, and the patch it stands on.
+const PAT_TOP = roundPoly([[34, 3], [65, 18], [34, 33], [3, 18]], 6)
+const PAT_BODY = roundPoly([[3, 18], [34, 3], [65, 18], [65, 31], [34, 46], [3, 31]], 5)
+const PAT_FOOT = roundPoly([[34, 16], [65, 31], [34, 46], [3, 31]], 6)
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 
 /**
@@ -169,6 +193,8 @@ export function ButterJourney({ stops: enabled }: { stops: string[] }) {
       inner.style.transform = `rotate(${rot.toFixed(2)}deg) scale(${(scale * sx).toFixed(3)}, ${(scale * sy).toFixed(3)})`
       inner.style.opacity = op.toFixed(3)
       tb.style.setProperty('--sh', clamp(shadow).toFixed(3))
+      // Only for the look: the pat softens and turns glossy as it melts.
+      tb.style.setProperty('--melt', melt.toFixed(3))
       if (last.melt) last.el.parentElement?.style.setProperty('--m', melt.toFixed(3))
       // It hides while it is over a film, a full-screen clip, the showroom or a sheet sliding over the table.
       const hidden = hides.some((el) => {
@@ -226,36 +252,91 @@ export function ButterJourney({ stops: enabled }: { stops: string[] }) {
         <div className="tb-squash">
           <svg viewBox="0 0 68 50">
             <defs>
-              <linearGradient id="tb-top" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stopColor="#fff6cf" />
-                <stop offset="0.55" stopColor="#f9e19a" />
-                <stop offset="1" stopColor="#f0cd6e" />
+              <linearGradient id="tb-top" x1="0.1" y1="0.15" x2="0.9" y2="0.85">
+                <stop offset="0" stopColor="#fff8d9" />
+                <stop offset="0.5" stopColor="#fbe7a6" />
+                <stop offset="1" stopColor="#f1d27c" />
               </linearGradient>
-              <linearGradient id="tb-left" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#ecc25e" />
-                <stop offset="1" stopColor="#d6a23d" />
+              {/* Across the two visible sides: lit left side, soft front corner, shaded right side. */}
+              <linearGradient id="tb-side" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stopColor="#dcaa48" />
+                <stop offset="0.07" stopColor="#efc869" />
+                <stop offset="0.42" stopColor="#eabf5d" />
+                <stop offset="0.5" stopColor="#e2b450" />
+                <stop offset="0.58" stopColor="#d19b3a" />
+                <stop offset="0.93" stopColor="#c58e30" />
+                <stop offset="1" stopColor="#ad7a24" />
               </linearGradient>
-              <linearGradient id="tb-right" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#dcab45" />
-                <stop offset="1" stopColor="#bf8a2a" />
+              <linearGradient id="tb-ao" gradientUnits="userSpaceOnUse" x1="0" y1="24" x2="0" y2="47">
+                <stop offset="0" stopColor="#8a4f08" stopOpacity="0" />
+                <stop offset="0.6" stopColor="#8a4f08" stopOpacity="0.1" />
+                <stop offset="1" stopColor="#7a4204" stopOpacity="0.5" />
               </linearGradient>
+              <radialGradient id="tb-spec" cx="0.5" cy="0.5" r="0.5">
+                <stop offset="0" stopColor="#fffef6" stopOpacity="0.95" />
+                <stop offset="1" stopColor="#fffef6" stopOpacity="0" />
+              </radialGradient>
+              <filter id="tb-soft" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="0.7" />
+              </filter>
+              <filter id="tb-blur" x="-40%" y="-80%" width="180%" height="260%">
+                <feGaussianBlur stdDeviation="2.4" />
+              </filter>
+              <clipPath id="tb-clip-top">
+                <path d={PAT_TOP} />
+              </clipPath>
+              <clipPath id="tb-clip-all">
+                <path d={PAT_BODY} />
+              </clipPath>
             </defs>
-            <g strokeLinejoin="round" strokeWidth="3">
-              <path d="M2 17L34 33V48L2 32Z" fill="url(#tb-left)" stroke="#d9a641" />
-              <path d="M34 33L66 17V32L34 48Z" fill="url(#tb-right)" stroke="#c9952f" />
-              <path d="M34 2L66 17L34 33L2 17Z" fill="url(#tb-top)" stroke="#f6dc8e" />
+            {/* Contact shadow: the footprint, pushed a little away from the light. */}
+            <g className="tb-shadow">
+              <path d={PAT_FOOT} fill="#000" opacity="0.5" filter="url(#tb-blur)" transform="translate(3 3.5)" />
+              <path d={PAT_FOOT} fill="#1c0d00" opacity="0.55" filter="url(#tb-soft)" transform="translate(0.8 1.2)" />
             </g>
-            <path
-              d="M12 16L34 5.5L48 12"
-              fill="none"
-              stroke="#fffbe9"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              opacity="0.8"
-            />
-            <ellipse cx="40" cy="19" rx="9" ry="3" fill="#fffdf2" opacity="0.35" />
+            <g className="tb-body">
+              <path d={PAT_BODY} fill="url(#tb-side)" />
+              <path d={PAT_BODY} fill="url(#tb-ao)" />
+              <g clipPath="url(#tb-clip-all)">
+                {/* The rounded front corner and the rounded top edge catch the light. */}
+                <path d="M34 33V46" stroke="#f8dc92" strokeWidth="2.6" opacity="0.4" filter="url(#tb-soft)" />
+                <path d={PAT_TOP} fill="url(#tb-top)" />
+                <path
+                  d={PAT_TOP}
+                  fill="none"
+                  stroke="#fffbe6"
+                  strokeWidth="2.6"
+                  opacity="0.6"
+                  filter="url(#tb-soft)"
+                />
+              </g>
+              <g clipPath="url(#tb-clip-top)">
+                {/* Soft marks left by the knife. */}
+                <g fill="none" strokeLinecap="round">
+                  <path
+                    d="M15 14.6Q27 19.2 40.6 26.4M22.6 10.9Q36 16 48.4 22.7M30 7.4Q42 12.6 55.6 19.4"
+                    stroke="#c9983a"
+                    strokeWidth="0.8"
+                    opacity="0.38"
+                  />
+                  <path
+                    d="M14.6 15.5Q26.6 20.1 40.2 27.3M22.2 11.8Q35.6 16.9 48 23.6M29.6 8.3Q41.6 13.5 55.2 20.3"
+                    stroke="#fffdf0"
+                    strokeWidth="0.7"
+                    opacity="0.7"
+                  />
+                </g>
+                <ellipse cx="26" cy="14" rx="13" ry="5" fill="url(#tb-spec)" opacity="0.75" transform="rotate(25 26 14)" />
+                <ellipse cx="21" cy="12.6" rx="3.4" ry="1" fill="#fff" opacity="0.8" transform="rotate(25 21 12.6)" filter="url(#tb-soft)" />
+              </g>
+              {/* The sheen that comes up as it melts. */}
+              <g className="tb-wet" clipPath="url(#tb-clip-all)">
+                <ellipse cx="38" cy="19" rx="17" ry="5" fill="url(#tb-spec)" transform="rotate(25 38 19)" />
+                <path d="M9 24Q20 30 31 35.5" fill="none" stroke="#fffdf0" strokeWidth="1.8" strokeLinecap="round" opacity="0.75" filter="url(#tb-soft)" />
+                <path d="M38 36.5Q50 31 60 25.5" fill="none" stroke="#fff3c9" strokeWidth="1.4" strokeLinecap="round" opacity="0.55" filter="url(#tb-soft)" />
+              </g>
+            </g>
           </svg>
-          <span className="tb-shadow" />
         </div>
       </div>
     </div>

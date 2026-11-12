@@ -1,12 +1,15 @@
+import { ChatSection } from '@/components/chat/ChatSection'
 import { GoldenThread } from '@/components/effects/GoldenThread'
 import { BrandsSection } from '@/components/home/BrandsSection'
 import { ButterJourney } from '@/components/home/ButterJourney'
 import { FinderSection } from '@/components/home/FinderSection'
 import { Hero } from '@/components/home/Hero'
 import { IntroSection } from '@/components/home/IntroSection'
+import { KitchenDaySection } from '@/components/home/KitchenDaySection'
 import { MeltStep } from '@/components/home/MeltStep'
 import { NetworkSection } from '@/components/home/NetworkSection'
 import { ProductsSection } from '@/components/home/ProductsSection'
+import { MapMark, SectionMap } from '@/components/home/SectionMap'
 import { SheetStack } from '@/components/home/SheetStack'
 import { SizesSection } from '@/components/home/SizesSection'
 import { TableSection } from '@/components/home/TableSection'
@@ -14,10 +17,11 @@ import { TrustSection } from '@/components/home/TrustSection'
 import { isFilmArt } from '@/components/home/FilmArt'
 import { OriginFilm, type FilmScene, type FilmSide } from '@/components/home/OriginFilm'
 import { CtaBand } from '@/components/ui/CtaBand'
-import { getHomePage, getSiteSettings, getTheme, getUi, mediaOf } from '@/lib/cms'
+import { getFaqChat, getHomePage, getSiteSettings, getTheme, getUi, mediaOf } from '@/lib/cms'
 import { effectsOf } from '@/lib/effects'
-import { BUTTER_STOPS, MELT_LINE, ROUTE_STEPS, TRUST_BIG_WORD } from '@/lib/home-defaults'
-import { iconName } from '@/components/ui/Icon'
+import { BUTTER_STOPS, FINDER_TEXTS, KITCHEN_TEXTS, MELT_LINE, ROUTE_STEPS, SIZES_TEXTS, TABLE_TEXTS, TRUST_BIG_WORD } from '@/lib/home-defaults'
+import { CHAT_TEXTS } from '@/lib/chat-defaults'
+import { iconName, type IconName } from '@/components/ui/Icon'
 import { pageMetadata } from '@/lib/seo'
 import { themeColors } from '@/lib/theme'
 
@@ -29,11 +33,12 @@ export async function generateMetadata() {
 }
 
 export default async function HomePage() {
-  const [home, settings, theme, ui] = await Promise.all([
+  const [home, settings, theme, ui, chat] = await Promise.all([
     getHomePage(),
     getSiteSettings(),
     getTheme(),
     getUi(),
+    getFaqChat(),
   ])
   const colors = themeColors(theme)
   const hero = home.hero ?? {}
@@ -103,18 +108,25 @@ export default async function HomePage() {
   const trustWord =
     home.trust?.bigWord ?? (home.trust?.title?.includes(TRUST_BIG_WORD) ? TRUST_BIG_WORD : null)
 
-  const table = <TableSection table={home.table ?? {}} butterStop={stopAt('table')} />
-  const brands = <BrandsSection head={home.brands ?? {}} />
+  // The page map: a mark where each section starts, named after the section's small title.
+  const mark = (label: string | null | undefined, icon: IconName) =>
+    fx.sectionMap ? <MapMark label={label} icon={icon} /> : null
+  const tableOn = home.table?.enabled !== false
+  const table = <TableSection table={home.table ?? {}} butterStop={stopAt('table')} nooshJan={fx.nooshJan} />
+  const brands = <BrandsSection head={home.brands ?? {}} mark={mark(home.brands?.eyebrow || home.brands?.title, 'award')} />
 
   const afterFilm = (
     <>
+      {mark(home.intro?.eyebrow || home.intro?.title, 'sparkle')}
       <IntroSection
         {...(home.intro ?? {})}
         wordLight={fx.wordLight}
         rollingNumbers={fx.rollingNumbers}
         butterStop={stopAt('intro')}
       />
+      {home.sizes?.enabled !== false ? mark(home.sizes?.title || SIZES_TEXTS.title, 'grid') : null}
       <SizesSection sizes={home.sizes ?? {}} butterStop={stopAt('sizes')} />
+      {mark(home.products?.eyebrow || home.products?.title, 'box')}
       <ProductsSection
         head={home.products ?? {}}
         ctaLabel={home.products?.ctaLabel}
@@ -122,7 +134,11 @@ export default async function HomePage() {
         showMarkets={home.products?.showMarkets !== false && !finderOn}
         showroom={fx.showroom}
       />
+      {finderOn ? mark(home.finder?.title || FINDER_TEXTS.title, 'store') : null}
       <FinderSection finder={home.finder ?? {}} butterStop={stopAt('finder')} />
+      {home.kitchenDay?.enabled !== false ? mark(home.kitchenDay?.eyebrow || KITCHEN_TEXTS.eyebrow, 'sun') : null}
+      <KitchenDaySection day={home.kitchenDay ?? {}} />
+      {tableOn ? mark(home.table?.eyebrow || TABLE_TEXTS.eyebrow, 'utensils') : null}
       {fx.sheetStack ? (
         <SheetStack>
           {table}
@@ -134,6 +150,7 @@ export default async function HomePage() {
           {brands}
         </>
       )}
+      {mark(dist.eyebrow || dist.title, 'truck')}
       <NetworkSection
         head={dist}
         tehran={{ title: dist.tehranTitle, text: dist.tehranText }}
@@ -148,12 +165,15 @@ export default async function HomePage() {
             : null
         }
       />
+      {mark(home.trust?.eyebrow || home.trust?.title, 'shield')}
       <TrustSection
         head={home.trust ?? {}}
         items={home.trust?.items}
         bigWord={trustWord}
         bento={fx.bento}
       />
+      {chat.onHome !== false ? mark(chat.eyebrow || CHAT_TEXTS.eyebrow, 'chat') : null}
+      <ChatSection place="home" />
       <CtaBand
         title={home.finalCta?.title}
         text={home.finalCta?.text}
@@ -164,6 +184,7 @@ export default async function HomePage() {
 
   return (
     <>
+      {mark(ui.touches.mapStart, 'home')}
       <Hero
         brandName={settings.brandName}
         eyebrow={hero.eyebrow}
@@ -194,6 +215,7 @@ export default async function HomePage() {
       ) : null}
       {film.enabled !== false && scenes.length > 0 ? (
         <div data-butter-hide="">
+          {mark(film.eyebrow || film.title, 'leaf')}
           <OriginFilm
             eyebrow={film.eyebrow}
             title={film.title}
@@ -208,6 +230,7 @@ export default async function HomePage() {
       ) : null}
       {fx.goldenThread ? <GoldenThread>{afterFilm}</GoldenThread> : afterFilm}
       {butterStops.length ? <ButterJourney stops={butterStops} /> : null}
+      {fx.sectionMap ? <SectionMap labels={{ mapLabel: ui.touches.mapLabel }} /> : null}
     </>
   )
 }

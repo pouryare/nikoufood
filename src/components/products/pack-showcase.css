@@ -1,0 +1,104 @@
+/* The single-serve pack up close (PackShowcase.tsx) and the pack at the end of the home sizes section. */
+
+.packshow {
+  display: grid;
+  gap: 1.25rem;
+}
+@media (min-width: 56rem) {
+  .packshow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.packshow-card {
+  display: grid;
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid var(--nk-line);
+  border-radius: 1.5rem;
+  background:
+    radial-gradient(80% 70% at 50% 35%, rgb(227 176 75 / 0.09), transparent 70%),
+    var(--nk-raised);
+}
+.packshow-stage {
+  position: relative;
+  height: 300px;
+}
+@media (min-width: 48rem) {
+  .packshow-stage {
+    height: 380px;
+  }
+}
+.packshow-card figcaption {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.9rem 1.25rem 1.1rem;
+  border-top: 1px solid var(--nk-line);
+  font-weight: 800;
+}
+.packshow-card figcaption svg {
+  color: var(--nk-gold);
+}
+
+.packshow-done {
+  color: #f7dc92;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 900;
+  animation: packshow-in 0.5s var(--ease-out-expo) both;
+}
+.packshow-again {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-inline-start: auto;
+  padding: 0.35rem 0.9rem;
+  border: 1px solid var(--nk-gold);
+  border-radius: 999px;
+  color: var(--nk-gold);
+  font-size: 0.85rem;
+  font-weight: 800;
+  animation: packshow-in 0.5s var(--ease-out-expo) both;
+}
+.packshow-again:hover {
+  background: var(--nk-gold);
+  color: var(--nk-bg);
+}
+.packshow-card figcaption {
+  min-height: 3.6rem;
+}
+@keyframes packshow-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Home page: a short line beside the pack that opens on scroll. */
+.packhome {
+  display: grid;
+  gap: 1rem;
+  align-items: center;
+}
+@media (min-width: 56rem) {
+  .packhome {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: 2.5rem;
+  }
+}
+.packhome-stage {
+  position: relative;
+  height: 300px;
+}
+@media (min-width: 48rem) {
+  .packhome-stage {
+    height: 420px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .packshow-done,
+  .packshow-again {
+    animation: none;
+  }
+}

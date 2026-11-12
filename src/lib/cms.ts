@@ -28,6 +28,7 @@ export const getRepresentationPage = () => cached(['representation-page'], (p) =
 export const getPartnershipPage = () => cached(['partnership-page'], (p) => p.findGlobal({ slug: 'partnership-page' }))
 export const getContactPage = () => cached(['contact-page'], (p) => p.findGlobal({ slug: 'contact-page' }))
 export const getListingPages = () => cached(['listing-pages'], (p) => p.findGlobal({ slug: 'listing-pages' }))
+export const getFaqChat = () => cached(['faq-chat'], (p) => p.findGlobal({ slug: 'faq-chat' }))
 
 /* ---------- brands & products ---------- */
 export const getBrands = (opts: { featured?: boolean } = {}) =>

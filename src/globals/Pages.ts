@@ -188,6 +188,8 @@ export const HomePage = page('home-page', 'صفحه اصلی', [
     textarea('bulkText', 'توضیح اندازهٔ بزرگ'),
     text('singleLabel', 'نام اندازهٔ کوچک (مثلاً «تک‌نفره»)'),
     textarea('singleText', 'توضیح اندازهٔ کوچک'),
+    checkbox('packEnabled', 'در پایان این بخش، یک بستهٔ تک‌نفره با اسکرول باز شود و اجزایش دیده شود', true),
+    text('packTitle', 'جملهٔ کنار بستهٔ باز‌شونده'),
   ]),
   sectionHeadField('products', 'بخش محصولات', [
     text('ctaLabel', 'متن دکمه'),
@@ -198,6 +200,28 @@ export const HomePage = page('home-page', 'صفحه اصلی', [
     textarea('emptyText', 'متن وقتی برای یک بازار محصولی انتخاب نشده'),
     linkGroup('cta', 'دکمه'),
   ]),
+  sectionHeadField('kitchenDay', 'یک روز در آشپزخانه (صبح تا شب در چند ثانیه، خودکار پخش می‌شود)', [
+    checkbox('enabled', 'نمایش داده شود', true),
+    number('seconds', 'طول یک روز کامل (ثانیه)', { defaultValue: 21, min: 8, max: 60 }),
+    itemsField(
+      'scenes',
+      'وعده‌ها (به ترتیب: صبح، ظهر، شب)',
+      [
+        text('time', 'زمان (مثلاً «صبح»)', { required: true }),
+        text('title', 'عنوان', { required: true }),
+        textarea('text', 'توضیح'),
+        { name: 'market', label: 'بازار', type: 'relationship', relationTo: 'markets' },
+        linkGroup('link', 'دکمه (مثلاً به محصول مناسب)'),
+      ],
+      {
+        maxRows: 3,
+        admin: {
+          description:
+            'سه وعده: اولی صبح (بستهٔ تک‌نفره روی میز صبحانه)، دومی ظهر (چلو با کره) و سومی شب (کرهٔ فله‌ای کنار دیگ بزرگ) نمایش داده می‌شود. اگر خالی باشد، سه وعدهٔ پیش‌فرض نمایش داده می‌شوند.',
+        },
+      },
+    ),
+  ]),
   sectionHeadField('table', 'سفرهٔ ایرانی (هر غذا و کرهٔ مناسبش)', [
     checkbox('enabled', 'نمایش داده شود', true),
     image('image', 'تصویر سفره از بالا', {
@@ -206,6 +230,15 @@ export const HomePage = page('home-page', 'صفحه اصلی', [
     text('hint', 'راهنمای کوتاه (مثلاً «روی هر غذا بزنید»)'),
     text('pairLabel', 'عنوان کارت کره (مثلاً «کرهٔ مناسب این غذا»)'),
     number('butterDish', 'کرهٔ مسافر روی کدام غذا فرود بیاید (شمارهٔ غذا در فهرست، از ۱)', { min: 1, admin: { description: 'اگر خالی باشد، روی غذای اول.' } }),
+    text('nooshJan', 'نوشته‌ای که بعد از ذوب کره با طلا روی تصویر نوشته می‌شود (مثلاً «نوش جان»)', {
+      admin: { description: 'روشن و خاموش کردنش در تنظیمات سایت › جلوه‌های ویژه است.' },
+    }),
+    {
+      name: 'toy',
+      label: 'بازی کوچک پایان بخش: کره را روی برنج بکشید',
+      type: 'group',
+      fields: [checkbox('enabled', 'نمایش داده شود', true), text('title', 'عنوان'), text('hint', 'راهنما'), text('doneText', 'پیام پایان')],
+    },
     itemsField(
       'dishes',
       'غذاها',
@@ -318,7 +351,9 @@ export const NetworkPage = page('network-page', 'شبکه توزیع و نمای
   text('stepsTitle', 'عنوان بخش مراحل'),
   cardsField('steps', 'مراحل همکاری به‌عنوان نماینده'),
   text('faqTitle', 'عنوان بخش پرسش‌های پرتکرار'),
-  itemsField('faq', 'پرسش‌های پرتکرار', [text('question', 'پرسش', { required: true }), textarea('answer', 'پاسخ', { required: true })]),
+  itemsField('faq', 'پرسش‌های پرتکرار', [text('question', 'پرسش', { required: true }), textarea('answer', 'پاسخ', { required: true })], {
+    admin: { description: 'وقتی «گفت‌وگوی پرسش و پاسخ» برای این صفحه روشن است، به‌جای این فهرست همان گفت‌وگو نمایش داده می‌شود.' },
+  }),
   { name: 'cta', label: 'دعوت به اقدام', type: 'group', fields: [text('title', 'تیتر'), textarea('text', 'متن'), text('label', 'متن دکمه')] },
 ])
 
@@ -326,6 +361,7 @@ export const PartnershipPage = page('partnership-page', 'همکاری با ما'
   pageHeaderField,
   cardsField('audiences', 'مخاطبان همکاری'),
   cardsField('benefits', 'مزایای همکاری'),
+  sectionHeadField('calculator', 'محاسبه‌گر نیاز (روشن و خاموش کردنش در تنظیمات سایت › امکانات است)'),
   itemsField('businessTypes', 'گزینه‌های نوع کسب‌وکار در فرم', [text('label', 'عنوان', { required: true })]),
   formCopyField(),
 ])
