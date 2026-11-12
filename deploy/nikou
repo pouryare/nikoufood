@@ -560,7 +560,7 @@ wait_healthy() {   # wait_healthy [seconds]
   local i max=${1:-90}
   for ((i = 0; i < max; i += 3)); do
     # robots.txt needs no database, so a slow or empty database cannot make a healthy site look dead.
-    if curl -fsS -o /dev/null --max-time 8 "http://127.0.0.1:$APP_PORT/robots.txt"; then return 0; fi
+    if curl -fs -o /dev/null --max-time 8 "http://127.0.0.1:$APP_PORT/robots.txt"; then return 0; fi
     sleep 3
   done
   return 1
@@ -1172,8 +1172,8 @@ s_content() {
 s_final() {
   step "Final check"
   local ok=1
-  curl -fsS -o /dev/null --max-time 10 "http://127.0.0.1:$APP_PORT/robots.txt" || { warn "the site does not answer locally"; ok=0; }
-  curl -fsS -o /dev/null --max-time 10 --resolve "$DOMAIN:443:127.0.0.1" -k "https://$DOMAIN/robots.txt" || { warn "HTTPS on this server does not answer yet (the certificate may still be requested; check the DNS record)"; ok=0; }
+  curl -fs -o /dev/null --max-time 10 "http://127.0.0.1:$APP_PORT/robots.txt" || { warn "the site does not answer locally"; ok=0; }
+  curl -fs -o /dev/null --max-time 10 --resolve "$DOMAIN:443:127.0.0.1" -k "https://$DOMAIN/robots.txt" || { warn "HTTPS on this server does not answer yet (the certificate may still be requested; check the DNS record)"; ok=0; }
   printf '\n==================================================\n Nikoo Etemad website is installed\n==================================================\n'
   printf ' Site:   https://%s\n Admin:  https://%s/admin\n' "$DOMAIN" "$DOMAIN"
   if [ -f "$CONF_DIR/.first-login-own-password" ]; then printf ' Login:  %s (the password you chose)\n' "$ADMIN_EMAIL"; else printf ' Login:  %s\n Password (shown once, also in %s/first-login): %s\n' "$ADMIN_EMAIL" "$CONF_DIR" "$(sed -n 's/^Password: //p' "$CONF_DIR/first-login")"; fi
@@ -1259,7 +1259,7 @@ cmd_status() {
   local v
   if [ "$MODE" = docker ]; then v=$(image_ref nikoufood); else v=$(current_version); fi
   printf 'Site:        https://%s\nRun as:      %s (%s)\nVersion:     %s\nDatabase:    %s\n' "$DOMAIN" "$MODE" "$(app_running && echo running || echo STOPPED)" "${v:-unknown}" "$DB_MODE"
-  curl -fsS -o /dev/null --max-time 8 "http://127.0.0.1:$APP_PORT/robots.txt" && echo "Answers:     yes (port $APP_PORT)" || echo "Answers:     NO"
+  curl -fs -o /dev/null --max-time 8 "http://127.0.0.1:$APP_PORT/robots.txt" && echo "Answers:     yes (port $APP_PORT)" || echo "Answers:     NO"
   [ ! -f "$CONF_DIR/maintenance.on" ] || echo "Maintenance: ON (nikou maintenance off)"
   if [ "$MODE" = docker ]; then [ ! -f "$ROOT/incoming/pending-tag" ] || echo "Waiting:     a new version, applied tonight at $UPGRADE_AT (or: nikou upgrade-scheduled)"
   else
@@ -1278,9 +1278,9 @@ cmd_doctor() {
   wn() { printf '  warn  %s\n' "$*"; }
   printf 'Checking this server:\n'
   app_running && ok "the site is running ($MODE)" || no "the site is not running (nikou logs)"
-  curl -fsS -o /dev/null --max-time 8 "http://127.0.0.1:$APP_PORT/robots.txt" && ok "answers on port $APP_PORT" || no "does not answer on port $APP_PORT"
-  if curl -fsS -o /dev/null --max-time 15 "http://127.0.0.1:$APP_PORT/"; then ok "the home page renders"; elif [ "$LOAD_SEED" = 1 ]; then no "the home page does not render (nikou logs)"; else wn "the home page does not render yet (normal for an empty database: fill it in /admin)"; fi
-  curl -fsS -o /dev/null --max-time 10 --resolve "$DOMAIN:443:127.0.0.1" -k "https://$DOMAIN/robots.txt" && ok "HTTPS through Caddy works on this server" || no "HTTPS through Caddy does not answer"
+  curl -fs -o /dev/null --max-time 8 "http://127.0.0.1:$APP_PORT/robots.txt" && ok "answers on port $APP_PORT" || no "does not answer on port $APP_PORT"
+  if curl -fs -o /dev/null --max-time 15 "http://127.0.0.1:$APP_PORT/"; then ok "the home page renders"; elif [ "$LOAD_SEED" = 1 ]; then no "the home page does not render (nikou logs)"; else wn "the home page does not render yet (normal for an empty database: fill it in /admin)"; fi
+  curl -fs -o /dev/null --max-time 10 --resolve "$DOMAIN:443:127.0.0.1" -k "https://$DOMAIN/robots.txt" && ok "HTTPS through Caddy works on this server" || no "HTTPS through Caddy does not answer"
   if [ "$DB_MODE" = builtin ]; then compose exec -T db pg_isready -U "$DB_USER" >/dev/null 2>&1 && ok "PostgreSQL container is ready" || no "PostgreSQL container is not ready"
   else test_db && ok "PostgreSQL login works ($DB_USER@$DB_HOST:$DB_PORT/$DB_NAME)" || no "cannot log in to PostgreSQL"; fi
   caddy validate --config "$CADDY_DIR/Caddyfile" >/dev/null 2>&1 && ok "Caddy configuration is valid" || no "Caddy configuration is not valid"
