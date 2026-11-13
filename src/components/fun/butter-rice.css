@@ -113,3 +113,59 @@
     transition: none;
   }
 }
+
+/* The dotted guide: a fingertip travels over the rice until the visitor starts. */
+.butter-rice__guide {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: opacity 0.45s;
+}
+.butter-rice__guide[data-gone] {
+  opacity: 0;
+}
+.butter-rice__guide svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.butter-rice__guide path {
+  fill: none;
+  stroke: #f7dc92;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 1 14;
+  opacity: 0.95;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
+}
+.butter-rice__finger circle:first-child {
+  fill: rgba(255, 244, 200, 0.22);
+  stroke: #fff3cc;
+  stroke-width: 3;
+}
+.butter-rice__finger circle:last-child {
+  fill: #fff3cc;
+}
+.butter-rice__guide-label {
+  position: absolute;
+  padding: 0.18rem 0.7rem;
+  border: 1px solid rgba(227, 176, 75, 0.7);
+  border-radius: 999px;
+  background: rgba(7, 11, 22, 0.82);
+  color: #f7dc92;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.7;
+  white-space: nowrap;
+  direction: rtl;
+}
+
+/* With a finger the butter is drawn above the fingertip, and it is bigger to follow. */
+.butter-rice[data-touch] .butter-rice__knob {
+  --ks: 1.55;
+}
+.butter-rice[data-touch] .butter-rice__knob[data-down='1'] {
+  --ks: 1.4;
+}

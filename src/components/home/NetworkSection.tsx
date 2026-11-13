@@ -43,7 +43,7 @@ export async function NetworkSection({
   ].filter((card) => card.title)
 
   return (
-    <section className="section-y">
+    <section className="section-y" data-mood="network">
       <div className="wrap">
         <SectionHeading {...head} as={as} />
         {route && route.steps.length ? (

@@ -45,7 +45,7 @@ export async function TableSection({ table, butterStop, nooshJan }: Props) {
 
   const empty = !table.eyebrow && !table.title && !table.text
   return (
-    <section className="section-y">
+    <section className="section-y" data-mood="table">
       <div className="wrap">
         <SectionHeading
           eyebrow={empty ? TABLE_TEXTS.eyebrow : table.eyebrow}
@@ -69,8 +69,12 @@ export async function TableSection({ table, butterStop, nooshJan }: Props) {
               title={table.toy?.title || ui.toys.riceTitle}
               hint={table.toy?.hint || ui.toys.riceHint}
               doneText={table.toy?.doneText || ui.toys.riceDone}
+              steps={[ui.toys.riceStep1, ui.toys.riceStep2, ui.toys.riceStep3]}
               progressLabel={ui.toys.riceProgress}
               againLabel={ui.toys.again}
+              guideLabel={ui.toys.riceGuide}
+              startLabel={ui.toys.riceStart}
+              closeLabel={ui.toys.riceClose}
             />
           </div>
         ) : null}

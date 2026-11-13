@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { emitSound } from '@/lib/sound'
 import { PEEL_STILL, peelPadding, hasWebGL, placeStill } from './packLayout'
 import type { PeelStage } from './packStage'
 import stillTop from './still-top.webp'
@@ -124,6 +125,7 @@ export function PeelLid({ hint = 'بکشید', onDone, resetKey, className }: Pr
         className="pack-grab"
         data-cursor="drag"
         aria-label={hint}
+        onPointerDown={() => emitSound('peel')}
         onClick={(e) => {
           if (e.detail === 0) stage.current?.peelNow()
         }}

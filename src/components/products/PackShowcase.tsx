@@ -46,7 +46,7 @@ export function PackShowcase({ labels }: { labels: Labels }) {
             resetKey={resetKey}
             onDone={() => {
               setOpen(true)
-              emitSound('click')
+              emitSound('success')
             }}
           />
         </div>

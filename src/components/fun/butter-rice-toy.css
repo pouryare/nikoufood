@@ -115,3 +115,194 @@
     height: 320px;
   }
 }
+
+/* The three steps. On the page they sit under the hint; in the phone sheet they are tighter and follow along. */
+.brt-steps {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.brt-steps li {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--nk-muted);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.6;
+  transition: color 0.3s;
+}
+.brt-steps b {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 1px solid color-mix(in oklab, var(--nk-gold) 45%, var(--nk-line));
+  border-radius: 50%;
+  color: var(--nk-gold);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 900;
+  transition:
+    background 0.3s,
+    color 0.3s;
+}
+.brt-steps li[data-state='now'] {
+  color: var(--nk-text);
+}
+.brt-steps li[data-state='now'] b {
+  border-color: var(--nk-gold);
+  background: var(--nk-gold);
+  color: var(--nk-bg);
+}
+.brt-steps li[data-state='done'] {
+  color: color-mix(in oklab, var(--nk-text) 70%, var(--nk-muted));
+}
+.brt-steps li[data-state='done'] b {
+  background: color-mix(in oklab, var(--nk-gold) 22%, transparent);
+}
+.brt-steps[data-compact] {
+  gap: 0.4rem;
+}
+.brt-steps[data-compact] li {
+  font-size: 0.88rem;
+}
+.brt-steps[data-compact] b {
+  width: 1.6rem;
+  height: 1.6rem;
+  font-size: 0.8rem;
+}
+.brt[data-layout='stack'] .brt-steps {
+  justify-items: start;
+  text-align: start;
+}
+
+/* Phones: the page shows the plate with a button; the game opens in its own sheet. */
+.brt-preview {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 15rem;
+  border: 1px dashed color-mix(in oklab, var(--nk-gold) 45%, var(--nk-line));
+  border-radius: 1.25rem;
+  background: color-mix(in oklab, var(--nk-bg) 40%, transparent);
+  -webkit-tap-highlight-color: transparent;
+}
+.brt-preview img {
+  width: min(78vw, 17rem);
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+  filter: saturate(1.1) brightness(0.92);
+}
+.brt-start {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: max-content;
+  margin-inline: auto;
+  padding: 0.7rem 1.6rem;
+  border-radius: 999px;
+  background: linear-gradient(160deg, #f7dc92, var(--nk-gold) 55%, #c8902f);
+  box-shadow: 0 10px 30px -10px rgb(0 0 0 / 0.8);
+  color: var(--nk-bg);
+  font-size: 1.02rem;
+  font-weight: 900;
+}
+
+.brt-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: max(0.8rem, env(safe-area-inset-top)) 1.1rem max(1rem, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(90% 50% at 50% 38%, color-mix(in oklab, var(--nk-gold) 9%, transparent), transparent 75%),
+    var(--nk-bg);
+  overscroll-behavior: contain;
+  /* Nothing in here scrolls the page: the plate takes the drawing, the rest is buttons. */
+  touch-action: none;
+  animation: brt-sheet-in 0.4s var(--ease-out-expo) both;
+}
+@keyframes brt-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+.brt-sheet-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.brt-sheet-bar strong {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 1.5;
+}
+.brt-close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--nk-line);
+  border-radius: 50%;
+  color: var(--nk-text);
+}
+.brt-sheet-plate {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.brt-sheet-foot {
+  display: grid;
+  gap: 0.6rem;
+  justify-items: center;
+}
+.brt-sheet-foot .brt-meter {
+  width: 100%;
+  max-width: none;
+}
+.brt-sheet-foot .brt-status {
+  min-height: 2.4rem;
+  font-size: 1rem;
+}
+.brt-sheet-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+.brt-sheet-actions .brt-again {
+  height: 2.9rem;
+  padding: 0 1.3rem;
+  font-size: 0.95rem;
+}
+.brt-again[data-primary] {
+  border-color: var(--nk-gold);
+  background: var(--nk-gold);
+  color: var(--nk-bg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .brt-sheet {
+    animation: none;
+  }
+}
+
+/* Phones: a wide empty stretch under the game, so the page can always be scrolled on from there
+   without a swipe landing on the plate. */
+@media (max-width: 47.99rem) {
+  .brt {
+    margin-bottom: clamp(5.5rem, 26svh, 10rem);
+  }
+}

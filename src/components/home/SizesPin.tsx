@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { RiseText } from '@/components/ui/RiseText'
+import { emitSound } from '@/lib/sound'
 
 type Props = {
   eyebrow?: string | null
@@ -552,6 +553,8 @@ export function SizesPin({ eyebrow, title, text, bulk, single, butterStop, pictu
       sec.style.setProperty('--q', q.toFixed(4))
       const next = q > 0.62 ? 'single' : 'bulk'
       if (next !== phase) {
+        // a soft pop when the big pack turns into single portions (and back), never on the first look
+        if (phase) emitSound('pop')
         phase = next
         sec.dataset.phase = next
       }
@@ -571,7 +574,7 @@ export function SizesPin({ eyebrow, title, text, bulk, single, butterStop, pictu
   }, [])
 
   return (
-    <section ref={ref} className="sizes-pin" data-phase="bulk" data-butter-pin="">
+    <section ref={ref} className="sizes-pin" data-phase="bulk" data-butter-pin="" data-mood="sizes">
       <div className="sizes-stage">
         <div className="wrap sizes-grid">
           <div className="sizes-copy">

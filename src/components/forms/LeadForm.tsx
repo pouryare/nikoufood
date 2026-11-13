@@ -5,6 +5,7 @@ import { submitLead } from '@/app/actions/submit-lead'
 import { Icon } from '@/components/ui/Icon'
 import { cn } from '@/lib/cn'
 import type { FormState, LeadType } from '@/lib/forms'
+import { emitSound } from '@/lib/sound'
 
 export type LeadFormProps = {
   type: LeadType
@@ -50,6 +51,10 @@ function Form({ type, fields, provinces = [], defaultProvince, businessTypes = [
   useEffect(() => {
     startedAt.current = Date.now()
   }, [])
+  // A bell when the request has gone through.
+  useEffect(() => {
+    if (state.status === 'success') emitSound('success')
+  }, [state.status])
   // The timestamp is added when sending, because React empties uncontrolled hidden inputs after each submit.
   const send = (formData: FormData) => {
     formData.set('startedAt', String(startedAt.current))

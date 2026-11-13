@@ -1,21 +1,31 @@
 'use client'
 
+import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
-import type { SoundFiles, SoundName } from '@/lib/effects'
-import { SOUND_EVENT, type SoundRequest } from '@/lib/sound'
+import type { MusicFiles, SoundFiles } from '@/lib/effects'
+import { isMood, moodOfPath, type Mood } from '@/lib/moods'
+import { Music } from '@/lib/music'
+import { FILE_LEVEL, MIN_GAP, SYNTHS } from '@/lib/sfx'
+import { SOUND_EVENT, emitSound, type SoundRequest } from '@/lib/sound'
+import { MICRO_SOUNDS, type SoundName } from '@/lib/sound-names'
 
 const STORE_KEY = 'nk-sound'
 /** Everything is quiet on purpose: the loudest sound peaks well below full volume and always fades in. */
 const MASTER = 0.55
-const LEVEL: Record<SoundName, number> = { sizzle: 0.5, farm: 0.35, milk: 0.45, click: 0.18 }
 
 type Engine = {
   ctx: AudioContext
   master: GainNode
+  /** The small sounds and the looping scenes (farm, milk) go through here: the CMS sets how loud. */
+  sfx: GainNode
+  /** The background music (null while it is switched off in the CMS). */
+  music: Music | null
   buffers: Partial<Record<SoundName, AudioBuffer | null>>
   loops: Partial<Record<SoundName, { src: AudioBufferSourceNode; gain: GainNode }>>
-  lastClick: number
+  lastAt: Partial<Record<SoundName, number>>
+  /** The moods whose uploaded song has been asked for already. */
+  songs: Set<Mood>
 }
 
 /** The visitor's own choice on this device: on, off, or null when they never pressed the button. */
@@ -33,75 +43,6 @@ const writePref = (on: boolean) => {
   } catch {
     /* private mode: the choice just isn't remembered */
   }
-}
-
-function noise(ctx: AudioContext, seconds: number) {
-  const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * seconds), ctx.sampleRate)
-  const data = buffer.getChannelData(0)
-  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
-  return buffer
-}
-
-/** A soft sizzle made in the browser: it swells in slowly, crackles quietly, and fades away. */
-function synthSizzle(e: Engine) {
-  const { ctx } = e
-  const now = ctx.currentTime
-  const dur = 3.4
-  const buf = noise(ctx, dur + 0.3)
-  const src = ctx.createBufferSource()
-  src.buffer = buf
-  const hp = ctx.createBiquadFilter()
-  hp.type = 'highpass'
-  hp.frequency.value = 2300
-  const shelf = ctx.createBiquadFilter()
-  shelf.type = 'highshelf'
-  shelf.frequency.value = 7000
-  shelf.gain.value = -6
-  const g = ctx.createGain()
-  const peak = 0.09 * LEVEL.sizzle * 2
-  g.gain.setValueAtTime(0.0001, now)
-  g.gain.exponentialRampToValueAtTime(peak, now + 0.8)
-  g.gain.setValueAtTime(peak, now + 1.8)
-  g.gain.exponentialRampToValueAtTime(0.0001, now + dur)
-  src.connect(hp).connect(shelf).connect(g).connect(e.master)
-  src.start(now)
-  src.stop(now + dur + 0.1)
-  for (let i = 0; i < 90; i++) {
-    const t = now + 0.15 + Math.random() * (dur - 0.5)
-    const into = (t - now) / dur
-    const pop = ctx.createBufferSource()
-    pop.buffer = buf
-    const bp = ctx.createBiquadFilter()
-    bp.type = 'bandpass'
-    bp.frequency.value = 2600 + Math.random() * 4200
-    const pg = ctx.createGain()
-    const amp = Math.max(
-      0.0002,
-      (0.012 + Math.random() * 0.03) * Math.min(1, into / 0.25) * (1 - into),
-    )
-    pg.gain.setValueAtTime(0.0001, t)
-    pg.gain.exponentialRampToValueAtTime(amp, t + 0.003)
-    pg.gain.exponentialRampToValueAtTime(0.0001, t + 0.012 + Math.random() * 0.025)
-    pop.connect(bp).connect(pg).connect(e.master)
-    pop.start(t, Math.random() * dur, 0.05)
-  }
-}
-
-/** A tiny wooden tick for buttons. */
-function synthClick(e: Engine) {
-  const { ctx } = e
-  const now = ctx.currentTime
-  const o = ctx.createOscillator()
-  o.type = 'sine'
-  o.frequency.setValueAtTime(1250, now)
-  o.frequency.exponentialRampToValueAtTime(760, now + 0.045)
-  const g = ctx.createGain()
-  g.gain.setValueAtTime(0.0001, now)
-  g.gain.exponentialRampToValueAtTime(0.03 * LEVEL.click * 5, now + 0.004)
-  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.07)
-  o.connect(g).connect(e.master)
-  o.start(now)
-  o.stop(now + 0.09)
 }
 
 async function load(e: Engine, name: SoundName, url: string | undefined) {
@@ -125,42 +66,74 @@ function playFile(e: Engine, name: SoundName, loop: boolean) {
   src.loop = loop
   const gain = ctx.createGain()
   gain.gain.setValueAtTime(0.0001, now)
-  gain.gain.exponentialRampToValueAtTime(LEVEL[name], now + (loop ? 1.4 : 0.25))
-  src.connect(gain).connect(e.master)
+  gain.gain.exponentialRampToValueAtTime(FILE_LEVEL[name], now + (loop ? 1.4 : 0.25))
+  src.connect(gain).connect(e.sfx)
   src.start(now)
   if (!loop) {
     const end = now + buffer.duration
-    gain.gain.setValueAtTime(LEVEL[name], Math.max(now + 0.3, end - 0.6))
+    gain.gain.setValueAtTime(FILE_LEVEL[name], Math.max(now + 0.3, end - 0.6))
     gain.gain.exponentialRampToValueAtTime(0.0001, end)
   }
   return { src, gain }
 }
 
+/** Fetches the song an editor uploaded for a mood, once, and hands it to the music. */
+function loadSong(e: Engine, mood: Mood, songs: MusicFiles) {
+  const url = songs[mood]
+  if (!url || !e.music || e.songs.has(mood)) return
+  e.songs.add(mood)
+  fetch(url)
+    .then((res) => res.arrayBuffer())
+    .then((data) => e.ctx.decodeAudioData(data))
+    .then((buffer) => e.music?.setFile(mood, buffer))
+    .catch(() => e.songs.delete(mood))
+}
+
 type Props = {
   files: SoundFiles
+  /** Songs the editor uploaded for a part of the page; a part without one gets the generated music. */
+  musicFiles: MusicFiles
   labels: { on: string; off: string }
   /** Sound is on for visitors who never pressed the button (set in the CMS). */
   startOn: boolean
+  /** Background music that follows the section on screen (CMS switch). */
+  music: boolean
+  /** The small sound for each interaction (CMS switch). */
+  micro: boolean
+  /** 0 to 100, from the CMS. */
+  musicVolume: number
+  sfxVolume: number
 }
 
 /** Browsers let a page make sound only after one of these: the first one starts the sound. */
 const GESTURES = ['pointerdown', 'pointerup', 'touchend', 'keydown', 'click'] as const
+/** What counts as something to touch: links, buttons and the like. */
+const TOUCHABLE = 'a[href], button, [role="button"], summary'
 
 /**
  * The speaker button and the small sound engine behind it. Whether sound starts on comes from
  * the CMS, and the visitor's own choice (remembered on that device) wins over it. Browsers stay
  * silent until the visitor's first click, tap or key press, so that is when the sound fades in.
- * Other parts of the page ask for sounds with `emitSound()`; while sound is off they are ignored,
- * except that the page remembers which looping sound belongs where the visitor is, so it can
- * start that one as soon as sound comes on.
+ *
+ * Three kinds of sound live here:
+ * - the background music, which follows the section in the middle of the screen (sections carry
+ *   `data-mood`; a page without any gets the mood of its address) and changes by crossfading;
+ * - the small sounds for little interactions: touching a link or button, the mouse reaching one, a slider,
+ *   a menu or sheet opening and closing (whenever the page is locked from scrolling), moving to another page;
+ * - the scenes other parts of the page ask for with `emitSound()` (a looping farm, the sizzle, a success …).
+ * While sound is off all of them are ignored, except that the page remembers which looping sound belongs
+ * where the visitor is, so it can start that one as soon as sound comes on.
  */
-export function SoundToggle({ files, labels, startOn }: Props) {
+export function SoundToggle({ files, musicFiles, labels, startOn, music, micro, musicVolume, sfxVolume }: Props) {
+  const pathname = usePathname()
   const [on, setOn] = useState(false)
   const [tucked, setTucked] = useState(false)
   const engine = useRef<Engine | null>(null)
   const onRef = useRef(false)
   /** The looping sounds the page is asking for right now (e.g. the farm while its scene is on screen). */
   const wanted = useRef(new Set<SoundName>())
+  /** The mood of the part of the page the visitor is on. */
+  const moodRef = useRef<Mood>(moodOfPath(pathname))
 
   const startLoop = (e: Engine, name: SoundName) => {
     if (e.loops[name] || e.ctx.state !== 'running') return
@@ -179,6 +152,16 @@ export function SoundToggle({ files, labels, startOn }: Props) {
     delete e.loops[name]
   }
 
+  /** Plays one short sound: an uploaded file if there is one, otherwise the one the browser makes. */
+  const playSfx = (e: Engine, name: SoundName) => {
+    if (!micro && MICRO_SOUNDS.includes(name)) return
+    const now = performance.now()
+    if (now - (e.lastAt[name] ?? -1e9) < (MIN_GAP[name] ?? 0)) return
+    e.lastAt[name] = now
+    if (playFile(e, name, false)) return
+    SYNTHS[name]?.(e.ctx, e.sfx)
+  }
+
   const ensure = () => {
     if (engine.current) return engine.current
     const Ctor =
@@ -189,8 +172,15 @@ export function SoundToggle({ files, labels, startOn }: Props) {
     const master = ctx.createGain()
     master.gain.value = 0.0001
     master.connect(ctx.destination)
-    const e: Engine = { ctx, master, buffers: {}, loops: {}, lastClick: 0 }
+    const sfx = ctx.createGain()
+    sfx.gain.value = sfxVolume / 70
+    sfx.connect(master)
+    const bed = music ? new Music(ctx, master) : null
+    bed?.setLevel((musicVolume / 100) * 1.15)
+    bed?.setMood(moodRef.current)
+    const e: Engine = { ctx, master, sfx, music: bed, buffers: {}, loops: {}, lastAt: {}, songs: new Set() }
     engine.current = e
+    loadSong(e, moodRef.current, musicFiles)
     for (const name of Object.keys(files) as SoundName[])
       void load(e, name, files[name]).then(() => {
         if (onRef.current && wanted.current.has(name)) startLoop(e, name)
@@ -207,6 +197,7 @@ export function SoundToggle({ files, labels, startOn }: Props) {
       e.master.gain.setValueAtTime(Math.max(0.0001, e.master.gain.value), now)
       e.master.gain.exponentialRampToValueAtTime(MASTER, now + 0.9)
       for (const name of wanted.current) startLoop(e, name)
+      if (!document.hidden) e.music?.start()
     })
 
   /** The visitor pressed the speaker button. */
@@ -217,13 +208,15 @@ export function SoundToggle({ files, labels, startOn }: Props) {
     const e = next ? ensure() : engine.current
     if (!e) return
     if (next) {
-      void wake(e)
+      // a small "on" blip so they know it worked
+      void wake(e).then(() => onRef.current && e.ctx.state === 'running' && playSfx(e, 'pop'))
       return
     }
     const now = e.ctx.currentTime
     e.master.gain.cancelScheduledValues(now)
     e.master.gain.setValueAtTime(Math.max(0.0001, e.master.gain.value), now)
     e.master.gain.exponentialRampToValueAtTime(0.0001, now + 0.4)
+    e.music?.stop()
     for (const name of Object.keys(e.loops) as SoundName[]) stopLoop(e, name)
   }
 
@@ -262,7 +255,12 @@ export function SoundToggle({ files, labels, startOn }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startOn])
 
+  // The scenes and small sounds other parts of the page ask for, and the little sounds of touching things.
   useEffect(() => {
+    const running = () => {
+      const e = engine.current
+      return onRef.current && e && e.ctx.state === 'running' ? e : null
+    }
     const onRequest = (event: Event) => {
       const { name, action } = (event as CustomEvent<SoundRequest>).detail
       const e = engine.current
@@ -272,31 +270,122 @@ export function SoundToggle({ files, labels, startOn }: Props) {
         return
       }
       if (action === 'start') wanted.current.add(name)
-      if (!onRef.current || !e || e.ctx.state !== 'running') return
-      if (action === 'start') {
-        startLoop(e, name)
-        return
-      }
-      if (playFile(e, name, false)) return
-      if (name === 'sizzle') synthSizzle(e)
-      else if (name === 'click') synthClick(e)
+      const live = running()
+      if (!live) return
+      if (action === 'start') startLoop(live, name)
+      else playSfx(live, name)
     }
     // Buttons and links tick softly while sound is on.
     const onPress = (event: PointerEvent) => {
-      const e = engine.current
-      if (!onRef.current || !e || e.ctx.state !== 'running' || event.button !== 0) return
-      if (!(event.target as Element | null)?.closest?.('a[href], button')) return
-      const now = performance.now()
-      if (now - e.lastClick < 90) return
-      e.lastClick = now
-      if (!playFile(e, 'click', false)) synthClick(e)
+      const e = running()
+      if (!e || event.button !== 0 || !(event.target as Element | null)?.closest?.(TOUCHABLE)) return
+      playSfx(e, 'click')
     }
+    // The mouse arriving at a button or link (never with a finger: it has no "arriving").
+    let over: Element | null = null
+    const onOver = (event: PointerEvent) => {
+      if (event.pointerType !== 'mouse') return
+      const target = (event.target as Element | null)?.closest?.(TOUCHABLE) ?? null
+      if (target === over) return
+      over = target
+      const e = running()
+      if (e && target && !target.matches('[disabled], [aria-disabled="true"]')) playSfx(e, 'hover')
+    }
+    // Sliders, tick boxes, choice lists.
+    const onTick = (event: Event) => {
+      const input = event.target as HTMLInputElement | null
+      if (!input?.matches?.('input[type="range"], input[type="checkbox"], input[type="radio"], select')) return
+      if (event.type === 'input' && input.type !== 'range') return
+      const e = running()
+      if (e) playSfx(e, 'tick')
+    }
+    // A menu or a game sheet locks the page from scrolling: that is when it opens, and when it closes.
+    let locked = document.body.style.overflow === 'hidden'
+    const watch = new MutationObserver(() => {
+      const now = document.body.style.overflow === 'hidden'
+      if (now === locked) return
+      locked = now
+      emitSound(now ? 'open' : 'close')
+    })
+    watch.observe(document.body, { attributes: true, attributeFilter: ['style'] })
     window.addEventListener(SOUND_EVENT, onRequest)
     document.addEventListener('pointerdown', onPress, true)
+    document.addEventListener('pointerover', onOver, true)
+    document.addEventListener('input', onTick, true)
+    document.addEventListener('change', onTick, true)
     return () => {
+      watch.disconnect()
       window.removeEventListener(SOUND_EVENT, onRequest)
       document.removeEventListener('pointerdown', onPress, true)
+      document.removeEventListener('pointerover', onOver, true)
+      document.removeEventListener('input', onTick, true)
+      document.removeEventListener('change', onTick, true)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [micro, sfxVolume])
+
+  // Moving to another page: air passing (not on the first page the visitor lands on).
+  const lastPath = useRef(pathname)
+  useEffect(() => {
+    if (lastPath.current === pathname) return
+    lastPath.current = pathname
+    emitSound('whoosh')
+  }, [pathname])
+
+  // The music follows the part of the page in the middle of the screen.
+  useEffect(() => {
+    if (!music) return
+    document.documentElement.dataset.soundMood = moodRef.current
+    let frame = 0
+    let seen = false
+    const probe = () => {
+      frame = 0
+      const middle = window.innerHeight * 0.5
+      let found: Mood | null = null
+      // Later elements are inside or after earlier ones, so the last match is the most specific one.
+      for (const el of document.querySelectorAll<HTMLElement>('[data-mood]')) {
+        const box = el.getBoundingClientRect()
+        const id = el.dataset.mood
+        if (box.top <= middle && box.bottom > middle && isMood(id)) found = id
+      }
+      // Below the last section (the footer) the music simply stays as it was; a page with no tagged section at
+      // all takes its mood from its address.
+      if (found) seen = true
+      const mood = found ?? (seen ? moodRef.current : moodOfPath(pathname))
+      if (mood === moodRef.current) return
+      moodRef.current = mood
+      document.documentElement.dataset.soundMood = mood
+      const e = engine.current
+      if (!e) return
+      e.music?.setMood(mood)
+      loadSong(e, mood, musicFiles)
+    }
+    const ask = () => {
+      if (!frame) frame = requestAnimationFrame(probe)
+    }
+    ask()
+    // A page can grow after it loads (images, fonts), so look again every so often too.
+    const again = window.setInterval(ask, 800)
+    window.addEventListener('scroll', ask, { passive: true })
+    window.addEventListener('resize', ask)
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      window.clearInterval(again)
+      window.removeEventListener('scroll', ask)
+      window.removeEventListener('resize', ask)
+    }
+  }, [music, pathname, musicFiles])
+
+  // A tab in the background goes quiet and comes back when the visitor does.
+  useEffect(() => {
+    const change = () => {
+      const e = engine.current
+      if (!e?.music || !onRef.current || e.ctx.state !== 'running') return
+      if (document.hidden) e.music.stop()
+      else e.music.start()
+    }
+    document.addEventListener('visibilitychange', change)
+    return () => document.removeEventListener('visibilitychange', change)
   }, [])
 
   return (

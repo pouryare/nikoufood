@@ -16,7 +16,7 @@ export async function ChatSection({ place }: { place: 'home' | 'network' }) {
   const head = own ? { eyebrow: chat.eyebrow, title: chat.title, text: chat.text } : CHAT_TEXTS
 
   return (
-    <section className="section-y">
+    <section className="section-y" data-mood="trust">
       {place === 'network' ? <JsonLd data={faqLd(flattenChat(topics))} /> : null}
       <div className="wrap grid items-center gap-10 lg:grid-cols-12 lg:gap-14">
         <div className="lg:col-span-5">

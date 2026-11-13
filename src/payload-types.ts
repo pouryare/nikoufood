@@ -1260,6 +1260,7 @@ export interface SiteSetting {
     footerName?: boolean | null;
     sheetStack?: boolean | null;
     travellingButter?: boolean | null;
+    butterEverywhere?: boolean | null;
     nooshJan?: boolean | null;
     goldCursor?: boolean | null;
     moltenButtons?: boolean | null;
@@ -1270,15 +1271,53 @@ export interface SiteSetting {
      * مرورگرها اجازه نمی‌دهند سایت پیش از اولین کلیک، لمس یا فشردن کلید صدایی پخش کند؛ پس صدا با اولین کلیک یا لمس بازدیدکننده، آرام شروع می‌شود. بازدیدکننده هر وقت بخواهد با دکمهٔ صدا آن را خاموش می‌کند و انتخابش روی همان دستگاه به خاطر می‌ماند.
      */
     soundOnAtStart?: boolean | null;
+    /**
+     * هر بخش صفحه حال‌وهوای موسیقی خودش را دارد و وقتی بازدیدکننده به آن بخش می‌رسد، موسیقی آرام در هم می‌رود. موسیقی را خود مرورگر می‌سازد؛ برای هر بخش می‌توانید پایین‌تر آهنگ خودتان را بگذارید. با دکمهٔ صدا خاموش می‌شود.
+     */
+    music?: boolean | null;
+    microSounds?: boolean | null;
+    /**
+     * پیشنهاد: ۶۰. صفر یعنی بی‌صدا.
+     */
+    musicVolume?: number | null;
+    /**
+     * پیشنهاد: ۷۰. صفر یعنی بی‌صدا.
+     */
+    sfxVolume?: number | null;
   };
   /**
-   * فایل کوتاه mp3. هر صدایی که خالی بماند، نسخهٔ خود سایت پخش می‌شود (مزرعه و ریختن شیر صدای ضبط‌شدهٔ آزاد هستند؛ جلز و کلیک در خود مرورگر ساخته می‌شوند).
+   * فایل کوتاه mp3. هر صدایی که خالی بماند، نسخهٔ خود سایت پخش می‌شود (مزرعه و ریختن شیر صدای ضبط‌شدهٔ آزاد هستند؛ جلز و صداهای کوچک دیگر در خود مرورگر ساخته می‌شوند).
    */
   sounds?: {
     sizzle?: (number | null) | Media;
     farm?: (number | null) | Media;
     milk?: (number | null) | Media;
     click?: (number | null) | Media;
+    hover?: (number | null) | Media;
+    tick?: (number | null) | Media;
+    pop?: (number | null) | Media;
+    open?: (number | null) | Media;
+    close?: (number | null) | Media;
+    success?: (number | null) | Media;
+    whoosh?: (number | null) | Media;
+    scrape?: (number | null) | Media;
+    peel?: (number | null) | Media;
+  };
+  /**
+   * فایل mp3 که بی‌وقفه تکرار می‌شود. هر بخشی که خالی بماند، موسیقی ساختهٔ خود سایت پخش می‌شود. فایل‌های سنگین دیرتر بار می‌شوند؛ بهتر است هر آهنگ زیر چند مگابایت باشد.
+   */
+  musicFiles?: {
+    hero?: (number | null) | Media;
+    melt?: (number | null) | Media;
+    film?: (number | null) | Media;
+    intro?: (number | null) | Media;
+    sizes?: (number | null) | Media;
+    products?: (number | null) | Media;
+    finder?: (number | null) | Media;
+    kitchen?: (number | null) | Media;
+    table?: (number | null) | Media;
+    network?: (number | null) | Media;
+    trust?: (number | null) | Media;
   };
   /**
    * در روزهای هر مناسبت، یک تبریک کوتاه بالای صفحه نمایش داده می‌شود و دانه‌های انار یا گلبرگ شکوفه آرام از بالای صفحه می‌بارد.
@@ -1566,6 +1605,12 @@ export interface UiText {
     peelDone?: string | null;
     riceTitle?: string | null;
     riceHint?: string | null;
+    riceStep1?: string | null;
+    riceStep2?: string | null;
+    riceStep3?: string | null;
+    riceGuide?: string | null;
+    riceStart?: string | null;
+    riceClose?: string | null;
     riceDone?: string | null;
     riceProgress?: string | null;
     again?: string | null;
@@ -2624,6 +2669,7 @@ export interface SiteSettingsSelect<T extends boolean = true> {
         footerName?: T;
         sheetStack?: T;
         travellingButter?: T;
+        butterEverywhere?: T;
         nooshJan?: T;
         goldCursor?: T;
         moltenButtons?: T;
@@ -2631,6 +2677,10 @@ export interface SiteSettingsSelect<T extends boolean = true> {
         stretchyTitles?: T;
         sound?: T;
         soundOnAtStart?: T;
+        music?: T;
+        microSounds?: T;
+        musicVolume?: T;
+        sfxVolume?: T;
       };
   sounds?:
     | T
@@ -2639,6 +2689,30 @@ export interface SiteSettingsSelect<T extends boolean = true> {
         farm?: T;
         milk?: T;
         click?: T;
+        hover?: T;
+        tick?: T;
+        pop?: T;
+        open?: T;
+        close?: T;
+        success?: T;
+        whoosh?: T;
+        scrape?: T;
+        peel?: T;
+      };
+  musicFiles?:
+    | T
+    | {
+        hero?: T;
+        melt?: T;
+        film?: T;
+        intro?: T;
+        sizes?: T;
+        products?: T;
+        finder?: T;
+        kitchen?: T;
+        table?: T;
+        network?: T;
+        trust?: T;
       };
   holidaysEnabled?: T;
   holidays?:
@@ -2895,6 +2969,12 @@ export interface UiTextsSelect<T extends boolean = true> {
         peelDone?: T;
         riceTitle?: T;
         riceHint?: T;
+        riceStep1?: T;
+        riceStep2?: T;
+        riceStep3?: T;
+        riceGuide?: T;
+        riceStart?: T;
+        riceClose?: T;
         riceDone?: T;
         riceProgress?: T;
         again?: T;

@@ -32,7 +32,7 @@ export async function BrandsSection({ head, mark }: Props) {
       }),
     ) as [BrandSplitItem, BrandSplitItem]
     return (
-      <section className="section-y">
+      <section className="section-y" data-mood="trust">
         {mark}
         <div className="wrap">
           <SectionHeading {...head} />
@@ -45,7 +45,7 @@ export async function BrandsSection({ head, mark }: Props) {
   }
 
   return (
-    <section className="section-y">
+    <section className="section-y" data-mood="trust">
       {mark}
       <div className="wrap">
         <SectionHeading {...head} />

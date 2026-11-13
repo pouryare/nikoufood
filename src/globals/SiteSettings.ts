@@ -2,6 +2,8 @@ import type { Field, GlobalConfig } from 'payload'
 import { anyone, isStaff } from '../access'
 import { checkbox, image, itemsField, linkGroup, number, text, textarea } from '../fields/helpers'
 import { PERSIAN_MONTHS } from '../lib/holidays'
+import { MOODS } from '../lib/moods'
+import { SOUNDS } from '../lib/sound-names'
 import { revalidateGlobalChange } from '../hooks/revalidate'
 
 const persianMonth = (name: string, label: string): Field => ({
@@ -138,6 +140,7 @@ export const SiteSettings: GlobalConfig = {
                 checkbox('footerName', 'نام بزرگ نیکو اعتماد زیر صفحه (فوتر)', true),
                 checkbox('sheetStack', 'بخش برندها مثل یک برگه روی بخش سفره می‌لغزد', true),
                 checkbox('travellingButter', 'کرهٔ مسافر در صفحهٔ اصلی (جاهای توقف در صفحهٔ اصلی انتخاب می‌شوند)', true),
+                checkbox('butterEverywhere', 'کرهٔ مسافر روی همهٔ بخش‌ها دیده شود (روی فیلم، ویترین محصولات و برگهٔ برندها هم)؛ اگر خاموش باشد، روی آن‌ها پنهان می‌شود', true),
                 checkbox('nooshJan', 'بعد از ذوب کره روی برنج، «نوش جان» با طلا نوشته شود (متنش در صفحهٔ اصلی › سفره)', true),
                 checkbox('goldCursor', 'نشانگر طلایی موس که روی کارت‌ها و دکمه‌ها بزرگ می‌شود (فقط کامپیوتر)', true),
                 checkbox('moltenButtons', 'طلای مذاب که با رفتن موس روی دکمه‌ها در آن‌ها جاری می‌شود', true),
@@ -150,6 +153,25 @@ export const SiteSettings: GlobalConfig = {
                       'مرورگرها اجازه نمی‌دهند سایت پیش از اولین کلیک، لمس یا فشردن کلید صدایی پخش کند؛ پس صدا با اولین کلیک یا لمس بازدیدکننده، آرام شروع می‌شود. بازدیدکننده هر وقت بخواهد با دکمهٔ صدا آن را خاموش می‌کند و انتخابش روی همان دستگاه به خاطر می‌ماند.',
                   },
                 }),
+                checkbox('music', 'موسیقی پس‌زمینه که با هر بخش عوض می‌شود', true, {
+                  admin: {
+                    description:
+                      'هر بخش صفحه حال‌وهوای موسیقی خودش را دارد و وقتی بازدیدکننده به آن بخش می‌رسد، موسیقی آرام در هم می‌رود. موسیقی را خود مرورگر می‌سازد؛ برای هر بخش می‌توانید پایین‌تر آهنگ خودتان را بگذارید. با دکمهٔ صدا خاموش می‌شود.',
+                  },
+                }),
+                checkbox('microSounds', 'صدای کوچک برای هر تعامل (لمس دکمه، باز شدن منو، موفقیت و …)', true),
+                number('musicVolume', 'بلندی موسیقی (۰ تا ۱۰۰)', {
+                  defaultValue: 60,
+                  min: 0,
+                  max: 100,
+                  admin: { description: 'پیشنهاد: ۶۰. صفر یعنی بی‌صدا.' },
+                }),
+                number('sfxVolume', 'بلندی صداهای کوچک (۰ تا ۱۰۰)', {
+                  defaultValue: 70,
+                  min: 0,
+                  max: 100,
+                  admin: { description: 'پیشنهاد: ۷۰. صفر یعنی بی‌صدا.' },
+                }),
               ],
             },
             {
@@ -158,14 +180,19 @@ export const SiteSettings: GlobalConfig = {
               type: 'group',
               admin: {
                 description:
-                  'فایل کوتاه mp3. هر صدایی که خالی بماند، نسخهٔ خود سایت پخش می‌شود (مزرعه و ریختن شیر صدای ضبط‌شدهٔ آزاد هستند؛ جلز و کلیک در خود مرورگر ساخته می‌شوند).',
+                  'فایل کوتاه mp3. هر صدایی که خالی بماند، نسخهٔ خود سایت پخش می‌شود (مزرعه و ریختن شیر صدای ضبط‌شدهٔ آزاد هستند؛ جلز و صداهای کوچک دیگر در خود مرورگر ساخته می‌شوند).',
               },
-              fields: [
-                { name: 'sizzle', label: 'جلز کره روی برنج داغ', type: 'upload', relationTo: 'media' },
-                { name: 'farm', label: 'مزرعه (باد و پرنده‌ها، قابل تکرار)', type: 'upload', relationTo: 'media' },
-                { name: 'milk', label: 'ریختن شیر', type: 'upload', relationTo: 'media' },
-                { name: 'click', label: 'کلیک دکمه‌ها', type: 'upload', relationTo: 'media' },
-              ],
+              fields: SOUNDS.map(({ id, label }) => ({ name: id, label, type: 'upload', relationTo: 'media' }) as Field),
+            },
+            {
+              name: 'musicFiles',
+              label: 'آهنگ هر بخش (اختیاری)',
+              type: 'group',
+              admin: {
+                description:
+                  'فایل mp3 که بی‌وقفه تکرار می‌شود. هر بخشی که خالی بماند، موسیقی ساختهٔ خود سایت پخش می‌شود. فایل‌های سنگین دیرتر بار می‌شوند؛ بهتر است هر آهنگ زیر چند مگابایت باشد.',
+              },
+              fields: MOODS.map(({ id, label }) => ({ name: id, label, type: 'upload', relationTo: 'media' }) as Field),
             },
           ],
         },

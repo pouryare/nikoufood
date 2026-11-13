@@ -19,7 +19,7 @@ import { MotionProvider } from '@/components/ui/MotionProvider'
 import { RevealObserver } from '@/components/ui/RevealObserver'
 import { BRAND_MARK_PATH, BRAND_MARK_VIEWBOX } from '@/data/brand-mark'
 import { getChannels } from '@/lib/channels'
-import { effectsOf, soundFilesOf } from '@/lib/effects'
+import { effectsOf, musicFilesOf, soundFilesOf } from '@/lib/effects'
 import { activeHoliday } from '@/lib/holidays'
 import { articlesEnabled, getNavigation, getSiteSettings, getTheme, getUi, mediaOf } from '@/lib/cms'
 import { organizationLd, websiteLd } from '@/lib/jsonld'
@@ -118,7 +118,18 @@ export default async function FrontendLayout({ children }: { children: ReactNode
           </main>
           <Footer settings={settings} columns={columns} channels={channels} ui={ui} />
           <MessengerDock channels={dockChannels} label={ui.contact.dockLabel} closeLabel={ui.common.close} />
-          {fx.sound ? <SoundToggle files={soundFilesOf(settings)} labels={{ on: ui.common.soundOn, off: ui.common.soundOff }} startOn={fx.soundOnAtStart} /> : null}
+          {fx.sound ? (
+            <SoundToggle
+              files={soundFilesOf(settings)}
+              musicFiles={musicFilesOf(settings)}
+              labels={{ on: ui.common.soundOn, off: ui.common.soundOff }}
+              startOn={fx.soundOnAtStart}
+              music={fx.music}
+              micro={fx.microSounds}
+              musicVolume={fx.musicVolume}
+              sfxVolume={fx.sfxVolume}
+            />
+          ) : null}
         </MotionProvider>
         {fx.pageTransition ? (
           <PageTransition>

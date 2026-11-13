@@ -1,7 +1,9 @@
 'use client'
 
+import { useReducedMotion } from 'motion/react'
 import { useEffect, useRef } from 'react'
 import type { JSX } from 'react'
+import { emitSound } from '@/lib/sound'
 import { GRID, PLATE, buildMasks, drawPat, makeBrush, makePat, seeded } from './butter-rice-paint'
 import type { Masks, Pat } from './butter-rice-paint'
 import './butter-rice.css'
@@ -12,10 +14,23 @@ const BRUSH = 38 // brush radius in plate space (560 px wide)
 const MELT_MS = 2200
 const MAX_PATS = 18
 const DONE_AT = 70
+// With a finger the butter is drawn this far above the fingertip (in screen px), so the hand never hides it,
+// and the brush is a little wider because a fingertip is less exact than a mouse.
+const LIFT = 58
+const TOUCH_BRUSH = 1.3
+// Where the dotted guide leads over the rice, in plate space (560 px wide), and where its label sits.
+const GUIDE = 'M268 300 C 236 352, 160 372, 104 322 C 66 286, 78 214, 118 168 C 156 126, 214 96, 276 98'
+const GUIDE_FROM: [number, number] = [268, 300]
 
 type Props = {
   onProgress?: (percent: number) => void
   onDone?: () => void
+  /** Called once per plate, the first time a finger or the mouse touches it. */
+  onStart?: () => void
+  /** The label that points at where to start; the dotted guide shows until the first touch. */
+  guide?: string
+  /** A finger is drawing: the butter is drawn above the fingertip and the brush is wider. */
+  touch?: boolean
   resetKey?: number
   className?: string
   label?: string
@@ -31,14 +46,16 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   })
 }
 
-export function ButterRice({ onProgress, onDone, resetKey = 0, className, label = 'کره را روی برنج بمالید' }: Props): JSX.Element {
+export function ButterRice({ onProgress, onDone, onStart, guide, touch = false, resetKey = 0, className, label = 'کره را روی برنج بمالید' }: Props): JSX.Element {
+  const still = useReducedMotion()
+  const guideRef = useRef<HTMLDivElement>(null)
   const plateRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const knobRef = useRef<HTMLSpanElement>(null)
   // keep the latest callbacks without re-running the canvas setup
-  const cb = useRef({ onProgress, onDone })
+  const cb = useRef({ onProgress, onDone, onStart })
   useEffect(() => {
-    cb.current = { onProgress, onDone }
+    cb.current = { onProgress, onDone, onStart }
   })
   const resetRef = useRef<() => void>(() => {})
 
@@ -57,6 +74,9 @@ export function ButterRice({ onProgress, onDone, resetKey = 0, className, label 
     let drawing = false
     let prev: [number, number] | null = null
     let done = false
+    let touched = false
+    // the brush of the stroke in progress: wider with a finger
+    let radius = BRUSH
     let lastSent = 0
     let lastPercent = -1
     let pats: Pat[] = []
@@ -87,7 +107,7 @@ export function ButterRice({ onProgress, onDone, resetKey = 0, className, label 
     const cover = (x: number, y: number) => {
       if (!masks) return
       const cell = PLATE / GRID
-      const rad = BRUSH * 0.62
+      const rad = radius * 0.62
       const x0 = Math.max(0, Math.floor((x - rad) / cell))
       const x1 = Math.min(GRID - 1, Math.floor((x + rad) / cell))
       const y0 = Math.max(0, Math.floor((y - rad) / cell))
@@ -105,12 +125,12 @@ export function ButterRice({ onProgress, onDone, resetKey = 0, className, label 
 
     const stamp = (a: [number, number], b: [number, number]) => {
       const d = Math.hypot(b[0] - a[0], b[1] - a[1])
-      const n = Math.max(1, Math.ceil(d / (BRUSH * 0.28)))
+      const n = Math.max(1, Math.ceil(d / (radius * 0.28)))
       for (let i = 0; i <= n; i++) {
         const x = a[0] + ((b[0] - a[0]) * i) / n
         const y = a[1] + ((b[1] - a[1]) * i) / n
         // uneven pressure, so the edge of a stroke is not a perfect tube
-        const s = BRUSH * (0.86 + rnd() * 0.3)
+        const s = radius * (0.86 + rnd() * 0.3)
         wctx.drawImage(brush, x - s, y - s, s * 2, s * 2)
         cover(x, y)
       }
@@ -186,6 +206,9 @@ export function ButterRice({ onProgress, onDone, resetKey = 0, className, label 
       coveredRice = 0
       pats = []
       done = false
+      touched = false
+      radius = BRUSH
+      guideRef.current?.removeAttribute('data-gone')
       lastPercent = -1
       rnd = seeded(7)
       // one short stroke already on the rice, so the idea reads at a glance
@@ -207,12 +230,20 @@ export function ButterRice({ onProgress, onDone, resetKey = 0, className, label 
 
     const pos = (e: PointerEvent): [number, number] => {
       const r = plate.getBoundingClientRect()
-      return [((e.clientX - r.left) / r.width) * PLATE, ((e.clientY - r.top) / r.height) * PLATE]
+      const lift = e.pointerType === 'touch' ? LIFT : 0
+      return [((e.clientX - r.left) / r.width) * PLATE, ((e.clientY - r.top - lift) / r.height) * PLATE]
     }
 
+    let lastScrape = 0
     const down = (e: PointerEvent) => {
       if (!masks || (e.pointerType === 'mouse' && e.button !== 0)) return
       drawing = true
+      radius = e.pointerType === 'touch' ? BRUSH * TOUCH_BRUSH : BRUSH
+      if (!touched) {
+        touched = true
+        guideRef.current?.setAttribute('data-gone', '')
+        cb.current.onStart?.()
+      }
       try {
         plate.setPointerCapture(e.pointerId)
       } catch {
@@ -224,6 +255,8 @@ export function ButterRice({ onProgress, onDone, resetKey = 0, className, label 
       knob.dataset.down = '1'
       addPats(p[0], p[1], performance.now())
       stamp(p, p)
+      lastScrape = performance.now()
+      emitSound('scrape')
       schedule()
       report(false)
     }
@@ -235,6 +268,12 @@ export function ButterRice({ onProgress, onDone, resetKey = 0, className, label 
       prev = p
       schedule()
       report(false)
+      // a few grains of rice under the butter, now and then while the finger drags
+      const now = performance.now()
+      if (now - lastScrape > 140) {
+        lastScrape = now
+        emitSound('scrape')
+      }
     }
     const up = () => {
       if (!drawing) return
@@ -279,13 +318,30 @@ export function ButterRice({ onProgress, onDone, resetKey = 0, className, label 
   }, [resetKey])
 
   return (
-    <div className={className ? `butter-rice ${className}` : 'butter-rice'}>
+    <div className={className ? `butter-rice ${className}` : 'butter-rice'} data-touch={touch ? '' : undefined}>
       <div ref={plateRef} className="butter-rice__plate" dir="ltr" role="img" aria-label={label}>
         <div className="butter-rice__food">
           {/* eslint-disable-next-line @next/next/no-img-element -- the canvas layer must line up pixel for pixel */}
           <img className="butter-rice__photo" src={PHOTO} alt="" width={560} height={560} draggable={false} />
           <canvas ref={canvasRef} className="butter-rice__canvas" width={PLATE} height={PLATE} aria-hidden="true" />
         </div>
+        {guide ? (
+          // The dotted guide: a fingertip travels along it until the visitor starts, then it fades away.
+          <div ref={guideRef} className="butter-rice__guide" aria-hidden="true">
+            <svg viewBox={`0 0 ${PLATE} ${PLATE}`}>
+              <path d={GUIDE} />
+              <g className="butter-rice__finger">
+                <circle r="19" />
+                <circle r="7" />
+                {still ? null : <animateMotion dur="3.2s" repeatCount="indefinite" path={GUIDE} keyPoints="0;1;1" keyTimes="0;0.8;1" calcMode="linear" />}
+              </g>
+              {still ? <g transform={`translate(${GUIDE_FROM[0]} ${GUIDE_FROM[1]})`} className="butter-rice__finger"><circle r="19" /><circle r="7" /></g> : null}
+            </svg>
+            <span className="butter-rice__guide-label" style={{ left: `${((GUIDE_FROM[0] + 20) / PLATE) * 100}%`, top: `${((GUIDE_FROM[1] + 14) / PLATE) * 100}%` }}>
+              {guide}
+            </span>
+          </div>
+        ) : null}
         <span ref={knobRef} className="butter-rice__knob" style={{ opacity: 0 }} aria-hidden="true">
           <i />
         </span>

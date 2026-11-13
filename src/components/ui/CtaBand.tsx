@@ -41,7 +41,7 @@ export async function CtaBand({ title, text, actions, as: Tag = 'h2' }: Props) {
 
   if (fx.kineticCta && title) {
     return (
-      <section className="kinetic section-y">
+      <section className="kinetic section-y" data-mood="trust">
         <Tag className="sr-only">{title}</Tag>
         <KineticLine text={title} />
         <div className="wrap">
@@ -57,7 +57,7 @@ export async function CtaBand({ title, text, actions, as: Tag = 'h2' }: Props) {
   const v = BRAND_MARK_VIEWBOX
   const id = 'cta-band-gradient'
   return (
-    <section className="section-y">
+    <section className="section-y" data-mood="trust">
       <div className="wrap">
         <div className="cta-band grain" data-reveal data-lit>
           <LitEdge />

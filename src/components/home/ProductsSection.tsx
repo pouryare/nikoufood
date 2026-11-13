@@ -85,7 +85,7 @@ export async function ProductsSection({ head, ctaLabel, showMarkets = true, show
   }
 
   return (
-    <section className="pt-[clamp(4.5rem,10vw,9.5rem)]">
+    <section className="pt-[clamp(4.5rem,10vw,9.5rem)]" data-mood="products">
       <div className="wrap">
         {heading}
         {cards}
