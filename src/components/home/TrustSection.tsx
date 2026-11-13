@@ -22,7 +22,7 @@ export async function TrustSection({ head, items, bigWord, bento }: Props) {
 
   if (!bento) {
     return (
-      <section className="section-y border-y border-line/50 bg-surface/40">
+      <section className="section-y border-y border-line/50 bg-surface/40" data-mood="trust">
         {giant ? <GiantWord eyebrow={head.eyebrow} title={head.title!} word={word!} /> : null}
         <div className="wrap grid gap-12 lg:grid-cols-12 lg:gap-x-16">
           <div className="lg:sticky lg:top-[calc(var(--header-h)+3rem)] lg:col-span-4 lg:self-start">
@@ -38,7 +38,7 @@ export async function TrustSection({ head, items, bigWord, bento }: Props) {
 
   const markets = (await getMarkets()).map((m) => m.name)
   return (
-    <section className="trust pb-[clamp(4.5rem,10vw,9.5rem)]">
+    <section className="trust pb-[clamp(4.5rem,10vw,9.5rem)]" data-mood="trust">
       {giant ? (
         <GiantWord eyebrow={head.eyebrow} title={head.title!} word={word!} />
       ) : (

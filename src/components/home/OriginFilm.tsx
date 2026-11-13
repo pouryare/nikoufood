@@ -264,6 +264,7 @@ export function OriginFilm({ eyebrow, title, intro, plantLabel, animalLabel, fil
     <section
       ref={rootRef}
       className="film"
+      data-mood="film"
       data-mode={pinned ? 'pinned' : 'list'}
       data-baked={baked ? '' : undefined}
       aria-labelledby="film-title"
@@ -289,7 +290,7 @@ export function OriginFilm({ eyebrow, title, intro, plantLabel, animalLabel, fil
         </div>
       </div>
 
-      <div ref={trackRef} className="film-track" style={pinned ? { height: `calc(${count * SCENE_SCROLL} * 100svh + 100svh)` } : undefined}>
+      <div ref={trackRef} className="film-track" style={pinned ? { height: `calc(${count * SCENE_SCROLL} * 100svh * var(--run, 1) + 100svh)` } : undefined}>
         <div className="film-stage">
           {baked ? <video ref={bakedRef} className="film-baked" muted playsInline preload="auto" controls={!pinned} src={pinned ? undefined : (film?.url ?? filmMobile?.url)} aria-hidden={pinned} tabIndex={pinned ? -1 : undefined} /> : null}
           <ol className="film-scenes">

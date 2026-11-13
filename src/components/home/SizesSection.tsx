@@ -36,7 +36,7 @@ export async function SizesSection({ sizes, butterStop }: Props) {
         pictureLabel="یک قالب بزرگ کره که برش می‌خورد و به بسته‌های کوچک تک‌نفره تبدیل می‌شود"
       />
       {sizes.packEnabled !== false ? (
-        <section className="pb-16 pt-4">
+        <section className="pb-16 pt-4" data-mood="sizes">
           <div className="wrap packhome">
             <h3 data-reveal className="text-h2 font-display">
               {sizes.packTitle || t.packTitle}

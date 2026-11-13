@@ -25,8 +25,12 @@ export default async function NotFound() {
             layout="stack"
             hint={ui.errors.notFoundToy}
             doneText={ui.toys.riceDone}
+            steps={[ui.toys.riceStep1, ui.toys.riceStep2, ui.toys.riceStep3]}
             progressLabel={ui.toys.riceProgress}
             againLabel={ui.toys.again}
+            guideLabel={ui.toys.riceGuide}
+            startLabel={ui.toys.riceStart}
+            closeLabel={ui.toys.riceClose}
           />
         </div>
       </div>

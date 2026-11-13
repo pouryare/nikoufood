@@ -3,7 +3,6 @@
 .chat-box {
   display: flex;
   flex-direction: column;
-  height: clamp(30rem, 72svh, 38rem);
   border: 1px solid var(--nk-line);
   border-radius: 1.25rem;
   background:
@@ -80,11 +79,14 @@
   color: var(--nk-gold);
 }
 
+/* The conversation has a fixed height and scrolls inside itself; the questions below it never do:
+   every option is always visible at once (the box grows to fit them). */
 .chat-log {
   display: flex;
-  flex: 1;
+  flex: none;
   flex-direction: column;
   gap: 0.75rem;
+  height: clamp(13rem, 36svh, 22rem);
   min-height: 0;
   padding: 1.1rem 1rem;
   overflow-y: auto;
@@ -171,11 +173,10 @@
 
 .chat-ask {
   display: flex;
+  flex: none;
   flex-wrap: wrap;
   gap: 0.5rem;
-  max-height: 11.5rem;
   padding: 0.85rem 1rem 1rem;
-  overflow-y: auto;
   border-top: 1px solid var(--nk-line);
   background: color-mix(in oklab, var(--nk-bg) 60%, transparent);
 }

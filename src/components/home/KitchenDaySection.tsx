@@ -20,7 +20,7 @@ export async function KitchenDaySection({ day }: Props) {
   const head = day.title || day.eyebrow || day.text ? day : KITCHEN_TEXTS
 
   return (
-    <section className="section-y">
+    <section className="section-y" data-mood="kitchen">
       <div className="wrap">
         <SectionHeading eyebrow={head.eyebrow} title={head.title} text={head.text} />
         <div data-reveal className="mt-12">

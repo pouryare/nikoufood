@@ -21,7 +21,7 @@ export function GoldenThread({ children }: { children: ReactNode }) {
   const baseRef = useRef<SVGPathElement>(null)
   const glowRef = useRef<SVGPathElement>(null)
   const lineRef = useRef<SVGPathElement>(null)
-  const headRef = useRef<SVGGElement>(null)
+  const headRef = useRef<HTMLSpanElement>(null)
   const dropRef = useRef<SVGCircleElement>(null)
 
   useEffect(() => {
@@ -149,7 +149,10 @@ export function GoldenThread({ children }: { children: ReactNode }) {
       if (Math.abs(len - lastLen) < 0.5) return
       lastLen = len
       for (const path of [glow, line]) path.style.strokeDashoffset = `${(total - len).toFixed(1)}`
-      head.setAttribute('transform', `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`)
+      // The glowing dot is not part of the scrolling page: it is held at the same height of the screen and only
+      // slides sideways along the line. (Inside the page it would be moved by the scroll first and put back by
+      // the script a moment later, which showed as a jump up and down while scrolling.)
+      head.style.transform = `translate3d(${(zone.getBoundingClientRect().left + p.x).toFixed(1)}px, ${(window.innerHeight * TIP).toFixed(1)}px, 0)`
       head.style.opacity = len > 4 && depth < endY ? '1' : '0'
       for (const a of anchors) a.el.toggleAttribute('data-thread-on', a.y <= depth)
       zone.toggleAttribute('data-thread-done', depth >= endY)
@@ -194,11 +197,13 @@ export function GoldenThread({ children }: { children: ReactNode }) {
         <path ref={glowRef} className="thread-glow" />
         <path ref={lineRef} className="thread-line" />
         <circle ref={dropRef} className="thread-drop" r="5" style={{ display: 'none' }} />
-        <g ref={headRef} className="thread-head" style={{ opacity: 0 }}>
+      </svg>
+      <span ref={headRef} aria-hidden className="thread-head" style={{ opacity: 0 }}>
+        <svg viewBox="-16 -16 32 32" width="32" height="32">
           <circle r="16" fill="url(#thread-head-glow)" />
           <circle r="2.6" className="thread-head-core" />
-        </g>
-      </svg>
+        </svg>
+      </span>
       {children}
     </div>
   )

@@ -61,10 +61,11 @@ const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 
  * One small piece of butter that travels down the home page as the visitor scrolls: it rests on the gold
  * word of the first screen, steps aside while the introduction is read, waits on the board while the big
  * block is cut, sits beside «کسب‌وکار شما چیست؟», and finally lands on the rice and melts into it
- * (with the sizzle, when sound is on). It hides while it is over the film or a section that covers it.
+ * (with the sizzle, when sound is on). It stays in view over every section; only when the CMS switch is off does it
+ * tuck away over the film, the showroom or a sheet that covers it.
  * Stops are marked in the page with `data-butter-stop`; which ones are used is chosen in the CMS. Visitors who prefer less motion never see it.
  */
-export function ButterJourney({ stops: enabled }: { stops: string[] }) {
+export function ButterJourney({ stops: enabled, tuckAway = false }: { stops: string[]; tuckAway?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -96,7 +97,7 @@ export function ButterJourney({ stops: enabled }: { stops: string[] }) {
             leave: { x: 0, y: 0 },
           }
         })
-      hides = Array.from(document.querySelectorAll<HTMLElement>('[data-butter-hide]'))
+      hides = tuckAway ? Array.from(document.querySelectorAll<HTMLElement>('[data-butter-hide]')) : []
       tb.toggleAttribute('data-off', stops.length === 0)
     }
 
@@ -196,7 +197,7 @@ export function ButterJourney({ stops: enabled }: { stops: string[] }) {
       // Only for the look: the pat softens and turns glossy as it melts.
       tb.style.setProperty('--melt', melt.toFixed(3))
       if (last.melt) last.el.parentElement?.style.setProperty('--m', melt.toFixed(3))
-      // It hides while it is over a film, a full-screen clip, the showroom or a sheet sliding over the table.
+      // Only with the CMS switch off: it hides while it is over a film, a full-screen clip, the showroom or a sheet sliding over the table.
       const hidden = hides.some((el) => {
         const r = el.getBoundingClientRect()
         return r.top < y && r.bottom > y
@@ -244,7 +245,7 @@ export function ButterJourney({ stops: enabled }: { stops: string[] }) {
       window.clearTimeout(timer)
       if (frame) cancelAnimationFrame(frame)
     }
-  }, [enabled])
+  }, [enabled, tuckAway])
 
   return (
     <div ref={ref} aria-hidden className="tb">

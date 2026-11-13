@@ -2273,6 +2273,17 @@ html[data-fx-pour] .pour[data-revealed] {
   }
 }
 
+/* Scroll pace: on phones every pinned stretch of the page is longer, so what plays while it holds still
+   plays more slowly (the film, the sizes cut, the route, the giant word, the melt, the products row). */
+:root {
+  --run: 1;
+}
+@media (max-width: 47.99rem) {
+  :root {
+    --run: 1.5;
+  }
+}
+
 /* Smooth wheel scrolling (Lenis) */
 html.lenis,
 html.lenis body {
@@ -2321,7 +2332,20 @@ html.lenis body {
   stroke-width: 1.6;
 }
 .thread-head {
+  /* Fixed to the screen, so scrolling never moves it up or down; the script slides it sideways. */
+  position: fixed;
+  top: -16px;
+  left: -16px;
+  z-index: 3;
+  width: 32px;
+  height: 32px;
+  pointer-events: none;
+  will-change: transform, opacity;
   transition: opacity 0.4s var(--ease-out-quart);
+}
+.thread-head svg {
+  display: block;
+  overflow: visible;
 }
 .thread-head-core {
   fill: var(--nk-cream);
@@ -2591,7 +2615,7 @@ html.lenis body {
   position: relative;
 }
 .melt[data-mode='scrub'] {
-  height: 240svh;
+  height: calc(100svh + 140svh * var(--run, 1));
 }
 .melt-stage {
   position: sticky;
@@ -3048,30 +3072,48 @@ html[data-fx-rise] .rise-text[data-revealed] {
 .showroom-foot {
   display: none;
 }
+/* The row is laid out the same way everywhere; the script moves it as the page scrolls. Until it knows the
+   row is wider than the screen, the cards simply sit in a row. */
+.showroom .product-rail {
+  display: flex;
+  width: max-content;
+  gap: 1rem;
+  margin-inline: 0;
+  padding-inline: 0;
+  padding-block-end: 0;
+  overflow: visible;
+  scroll-snap-type: none;
+  will-change: transform;
+}
+.showroom .product-rail > li {
+  flex: none;
+  width: clamp(16.5rem, 74vw, 19rem);
+}
 @media (min-width: 1024px) {
   .showroom .product-rail {
-    display: flex;
-    width: max-content;
     gap: 1.5rem;
-    will-change: transform;
   }
   .showroom .product-rail > li {
-    flex: none;
     width: clamp(19rem, 25vw, 24rem);
   }
-  .showroom[data-pinned] .showroom-stage {
-    position: sticky;
-    display: flex;
-    min-height: 100svh;
-    flex-direction: column;
-    justify-content: center;
-    padding-block: calc(var(--header-h) + 1rem) 2rem;
-  }
+}
+.showroom[data-pinned] .showroom-stage {
+  position: sticky;
+  display: flex;
+  min-height: 100svh;
+  flex-direction: column;
+  justify-content: center;
+  padding-block: calc(var(--header-h) + 1rem) 2rem;
+}
+.showroom[data-pinned] .showroom-foot {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-top: 2.25rem;
+}
+@media (max-width: 47.99rem) {
   .showroom[data-pinned] .showroom-foot {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-    margin-top: 2.25rem;
+    margin-top: 1.25rem;
   }
 }
 .showroom-count {
@@ -3473,7 +3515,7 @@ html[data-fx-foil] .product-card:hover .product-card-foil {
 /* ---------- 16. A giant word that shrinks into the title ---------- */
 .gw-pin {
   position: relative;
-  height: 230svh;
+  height: calc(100svh + 130svh * var(--run, 1));
 }
 .gw-stage {
   position: sticky;
@@ -3771,7 +3813,7 @@ html[data-fx-foil] .product-card:hover .product-card-foil {
 /* ---------- 15. From packing to the kitchen, drawn while the section holds still ---------- */
 .route-pin {
   position: relative;
-  height: 300svh;
+  height: calc(100svh + 200svh * var(--run, 1));
   margin-top: clamp(1rem, 3vw, 2rem);
 }
 .route-stage {
@@ -3931,7 +3973,7 @@ html[data-fx-foil] .product-card:hover .product-card-foil {
 /* ---------- 12. Bulk or single-serve: one block becomes eight pats ---------- */
 .sizes-pin {
   position: relative;
-  height: 300svh;
+  height: calc(100svh + 200svh * var(--run, 1));
 }
 .sizes-stage {
   position: sticky;

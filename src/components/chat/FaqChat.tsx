@@ -29,10 +29,37 @@ export function FaqChat({ topics, greeting, botName, labels }: Props) {
   const [asked, setAsked] = useState<ReadonlySet<string>>(() => new Set())
   const [typing, setTyping] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
+  const askRef = useRef<HTMLDivElement>(null)
   const timer = useRef<number | undefined>(undefined)
   const nextId = useRef(1)
 
   useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  // The row of questions never scrolls: it always shows every option. Its height can change from one step
+  // to the next, so it keeps the tallest height it has needed, and the box does not jump up and down.
+  useEffect(() => {
+    const ask = askRef.current
+    if (!ask) return
+    let tallest = 0
+    const keep = () => {
+      if (ask.offsetHeight > tallest) {
+        tallest = ask.offsetHeight
+        ask.style.minHeight = `${tallest}px`
+      }
+    }
+    const watch = new ResizeObserver(keep)
+    watch.observe(ask)
+    // A different width needs a different number of lines, so start measuring again.
+    const reset = () => {
+      tallest = 0
+      ask.style.minHeight = ''
+    }
+    window.addEventListener('resize', reset)
+    return () => {
+      watch.disconnect()
+      window.removeEventListener('resize', reset)
+    }
+  }, [])
 
   // Keep the newest message in view inside the box (never scroll the page itself).
   useEffect(() => {
@@ -48,13 +75,13 @@ export function FaqChat({ topics, greeting, botName, labels }: Props) {
     setAsked(now)
     setMessages((list) => [...list, { id: nextId.current++, from: 'you', text: node.question }])
     setTyping(true)
-    emitSound('click')
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     // A longer answer "takes" a little longer to write, within reason.
     const wait = still ? 0 : Math.min(1500, 520 + node.answer.length * 9)
     window.clearTimeout(timer.current)
     timer.current = window.setTimeout(() => {
       setTyping(false)
+      emitSound('pop')
       setMessages((list) => [...list, { id: nextId.current++, from: 'bot', text: node.answer, link: node.link }])
       // Go deeper when the answer has follow-ups. When a level runs out, step back up to the nearest level
       // that still has questions; when everything has been asked, offer the main questions again.
@@ -140,7 +167,7 @@ export function FaqChat({ topics, greeting, botName, labels }: Props) {
         ) : null}
       </div>
 
-      <div className="chat-ask" role="group" aria-label={labels.ask}>
+      <div ref={askRef} className="chat-ask" role="group" aria-label={labels.ask}>
         {options.map((node, i) => (
           <button
             key={node.question}

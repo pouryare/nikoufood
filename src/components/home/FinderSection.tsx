@@ -47,7 +47,7 @@ export async function FinderSection({ finder, butterStop }: Props) {
   }))
 
   return (
-    <section className="section-y">
+    <section className="section-y" data-mood="finder">
       <div className="wrap">
         <div className="relative w-fit max-w-full">
           <SectionHeading eyebrow={head.eyebrow} title={head.title} text={head.text} />

@@ -1,4 +1,4 @@
-import type { SoundName } from './effects'
+import type { SoundName } from './sound-names'
 
 export type SoundAction = 'play' | 'start' | 'stop'
 export type SoundRequest = { name: SoundName; action: SoundAction }

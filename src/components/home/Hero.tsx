@@ -92,6 +92,7 @@ export function Hero({ brandName, eyebrow, words, subtitle, primaryCta, secondar
   return (
     <section
       ref={sectionRef}
+      data-mood="hero"
       className="relative isolate flex min-h-svh flex-col overflow-clip pt-(--header-h)"
       style={{ '--mx': 0, '--my': 0, '--p': 0 } as CSSProperties}
     >

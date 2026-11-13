@@ -24,7 +24,7 @@ export function IntroSection({ eyebrow, title, text, highlights, cta, wordLight,
   const stats = (highlights ?? []).filter((h) => h.value && h.label)
   if (!title && !text && stats.length === 0) return null
   return (
-    <section className="section-y">
+    <section className="section-y" data-mood="intro">
       <div className="wrap">
         <div className="grid gap-8 lg:grid-cols-12 lg:gap-x-16">
           <div className={wordLight ? 'lg:col-span-5' : 'lg:col-span-6'}>

@@ -93,7 +93,7 @@ export function MeltStep({ video, videoMobile, line }: Props) {
 
   if (!motion) {
     return (
-      <section ref={rootRef} className="melt" data-mode="still">
+      <section ref={rootRef} className="melt" data-mode="still" data-mood="melt">
         <div className="wrap section-y">
           <video className="melt-plain" muted playsInline controls preload="metadata">
             {sources}
@@ -109,6 +109,7 @@ export function MeltStep({ video, videoMobile, line }: Props) {
       ref={rootRef}
       className="melt"
       data-mode="scrub"
+      data-mood="melt"
       style={{ '--m': 0 } as React.CSSProperties}
     >
       <div className="melt-stage">

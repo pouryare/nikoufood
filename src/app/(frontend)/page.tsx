@@ -229,7 +229,7 @@ export default async function HomePage() {
         </div>
       ) : null}
       {fx.goldenThread ? <GoldenThread>{afterFilm}</GoldenThread> : afterFilm}
-      {butterStops.length ? <ButterJourney stops={butterStops} /> : null}
+      {butterStops.length ? <ButterJourney stops={butterStops} tuckAway={!fx.butterEverywhere} /> : null}
       {fx.sectionMap ? <SectionMap labels={{ mapLabel: ui.touches.mapLabel }} /> : null}
     </>
   )
