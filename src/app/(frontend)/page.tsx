@@ -153,7 +153,10 @@ export default async function HomePage() {
       {mark(dist.eyebrow || dist.title, 'truck')}
       <NetworkSection
         head={dist}
-        tehran={{ title: dist.tehranTitle, text: dist.tehranText }}
+        tehranCards={[
+          { title: 'تهران (شرق): طعمینو', text: dist.tehranText ?? 'توزیع در شرق تهران توسط شرکت طعمینو انجام می‌شود.' },
+          { title: 'تهران (غرب): ارس', text: 'توزیع در غرب تهران توسط شرکت ارس انجام می‌شود.' },
+        ]}
         others={{ title: dist.provincesTitle, text: dist.provincesText }}
         cta={{ label: home.map?.ctaLabel, href: '/network' }}
         route={

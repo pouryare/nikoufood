@@ -34,7 +34,7 @@ export default async function NetworkPage() {
         trail={[{ name: header?.eyebrow || header?.title || '', path: '/network' }]}
       />
 
-      <NetworkSection head={page.map ?? {}} tehran={page.tehran ?? undefined} others={page.provinces ?? undefined} />
+      <NetworkSection head={page.map ?? {}} tehranCards={[page.tehran ?? undefined, { title: 'غرب تهران: ارس', text: 'توزیع در غرب تهران توسط شرکت ارس انجام می‌شود.' }].filter(Boolean) as { title?: string | null; text?: string | null }[]} others={page.provinces ?? undefined} />
 
       {steps.length ? (
         <section className="section-y">

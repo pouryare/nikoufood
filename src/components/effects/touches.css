@@ -3,7 +3,9 @@
 /* ---------- Gold cursor (computers only; switched on by GoldCursor) ---------- */
 html[data-gold-cursor] body,
 html[data-gold-cursor] body * {
-  cursor: none !important;
+  /* Modern browsers get the gold dot; old browsers (IE11, legacy Edge) get the
+     same small dot as a real cursor image, so the pointer stays tiny and gold. */
+  cursor: url('cursor.png'), url('cursor.cur'), auto !important;
 }
 /* Typing places keep the normal text cursor, so nobody hunts for the caret. */
 html[data-gold-cursor] input,
@@ -46,7 +48,9 @@ html[data-gold-cursor][data-gc-text] .gc-ring {
   width: 36px;
   height: 36px;
   margin: -18px 0 0 -18px;
-  border: 1.5px solid color-mix(in oklab, var(--nk-gold) 85%, transparent);
+  /* Old browsers see a plain gold ring; modern ones see the semi-transparent one. */
+  border: 1.5px solid var(--nk-gold);
+  background: transparent;
   transition:
     opacity 0.25s,
     width 0.35s var(--ease-out-expo),
@@ -54,6 +58,11 @@ html[data-gold-cursor][data-gc-text] .gc-ring {
     margin 0.35s var(--ease-out-expo),
     background-color 0.3s,
     border-color 0.3s;
+}
+@supports (border-color: color-mix(in oklab, red, blue)) {
+  .gc-ring {
+    border-color: color-mix(in oklab, var(--nk-gold) 85%, transparent);
+  }
 }
 .gc-ring span {
   color: var(--nk-bg);
@@ -71,15 +80,25 @@ html[data-gold-cursor][data-gc-text] .gc-ring {
   width: 58px;
   height: 58px;
   margin: -29px 0 0 -29px;
-  background: color-mix(in oklab, var(--nk-gold) 14%, transparent);
+  background: rgba(227, 176, 75, 0.14);
+}
+@supports (background-color: color-mix(in oklab, red, blue)) {
+  .gc-ring[data-state='hover'] {
+    background: color-mix(in oklab, var(--nk-gold) 14%, transparent);
+  }
 }
 .gc-ring[data-state='label'] {
   width: 84px;
   height: 84px;
   margin: -42px 0 0 -42px;
   border-color: transparent;
-  background: color-mix(in oklab, var(--nk-gold) 92%, transparent);
+  background: rgba(227, 176, 75, 0.92);
   box-shadow: 0 12px 30px -10px rgb(0 0 0 / 0.6);
+}
+@supports (background-color: color-mix(in oklab, red, blue)) {
+  .gc-ring[data-state='label'] {
+    background: color-mix(in oklab, var(--nk-gold) 92%, transparent);
+  }
 }
 .gc-ring[data-state='label'] span {
   opacity: 1;
@@ -216,12 +235,17 @@ html[data-fx-molten] .btn-molten[data-variant='primary'][data-pour] {
   padding: 0.45rem 0.35rem;
   border: 1px solid var(--nk-line);
   border-radius: 999px;
-  background: color-mix(in oklab, var(--nk-bg) 78%, transparent);
-  backdrop-filter: blur(8px);
-  transform: translate(0, -50%);
-  transition:
-    opacity 0.4s,
-    transform 0.5s var(--ease-out-expo);
+  /* Old browsers get a solid panel; modern ones blur the page behind them. */
+  background: var(--nk-raised);
+}
+@supports (backdrop-filter: blur(8px)) {
+  .smap-rail {
+    background: color-mix(in oklab, var(--nk-bg) 78%, transparent);
+    backdrop-filter: blur(8px);
+    transition:
+      opacity 0.4s,
+      transform 0.5s var(--ease-out-expo);
+  }
 }
 .smap-rail[data-hidden] {
   opacity: 0;
@@ -309,11 +333,17 @@ html[data-fx-molten] .btn-molten[data-variant='primary'][data-pour] {
   padding: 0 0.95rem 0 0.45rem;
   border: 1px solid var(--nk-line);
   border-radius: 999px;
-  background: color-mix(in oklab, var(--nk-bg) 86%, transparent);
-  backdrop-filter: blur(10px);
+  /* Old browsers get a solid panel; modern ones blur the page behind them. */
+  background: var(--nk-raised);
   box-shadow: 0 14px 34px -14px rgb(0 0 0 / 0.8);
   font-size: 0.82rem;
   font-weight: 700;
+}
+@supports (backdrop-filter: blur(10px)) {
+  .smap-pill {
+    background: color-mix(in oklab, var(--nk-bg) 86%, transparent);
+    backdrop-filter: blur(10px);
+  }
 }
 .smap-pill b {
   overflow: hidden;

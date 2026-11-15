@@ -24,8 +24,12 @@ export function GoldCursor({ labels }: { labels: Labels }) {
     const ring = ringRef.current
     const text = textRef.current
     if (!dot || !ring || !text) return
-    const fine = window.matchMedia('(hover: hover) and (pointer: fine)')
-    if (!fine.matches || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    // Old browsers (IE11, legacy Edge) have no `pointer` media feature, no PointerEvent
+    // and no CSS.supports — they keep their own pointer and never see the gold dot.
+    if (!window.matchMedia || !window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (typeof window.PointerEvent !== 'function' || !window.CSS || !window.CSS.supports) return
+    if (!window.requestAnimationFrame) return
     const root = document.documentElement
     let x = -100
     let y = -100

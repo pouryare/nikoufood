@@ -20,14 +20,14 @@ function mix(a: string, b: string, t: number) {
 /** The coverage map with its heading and the two "how we distribute" cards. Used on the home page and the network page. */
 export async function NetworkSection({
   head,
-  tehran,
+  tehranCards,
   others,
   cta,
   as = 'h2',
   route,
 }: {
   head: Head
-  tehran?: Card
+  tehranCards?: Card[]
   others?: Card
   cta?: { label?: string | null; href: string }
   as?: 'h1' | 'h2'
@@ -38,7 +38,7 @@ export async function NetworkSection({
   const c = themeColors(theme)
   const labels: NetworkMapLabels = { ...ui.network }
   const cards = [
-    { ...tehran, icon: 'truck' as const },
+    ...(tehranCards ?? []).map((card) => ({ ...card, icon: 'truck' as const })),
     { ...others, icon: 'users' as const },
   ].filter((card) => card.title)
 

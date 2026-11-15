@@ -149,16 +149,23 @@
     overflow-x: clip;
   }
 
-  /* Soft depth behind every page: one cool glow at the top, fine grain on top of everything. */
+  /* Soft depth behind every page: one cool glow at the top, fine grain on top of everything.
+     A solid colour comes first so browsers without color-mix()/var() (IE11, legacy Edge) still
+     get a dark room instead of a transparent page. Modern browsers paint the gradients on top. */
   body::before {
     content: '';
     position: fixed;
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    background:
-      radial-gradient(120% 70% at 85% -10%, color-mix(in oklab, var(--nk-raised) 85%, transparent), transparent 60%),
-      radial-gradient(90% 60% at 0% 110%, color-mix(in oklab, var(--nk-surface) 90%, transparent), transparent 60%);
+    background: #0e1526;
+  }
+  @supports (background: color-mix(in oklab, red, blue)) {
+    body::before {
+      background:
+        radial-gradient(120% 70% at 85% -10%, color-mix(in oklab, var(--nk-raised) 85%, transparent), transparent 60%),
+        radial-gradient(90% 60% at 0% 110%, color-mix(in oklab, var(--nk-surface) 90%, transparent), transparent 60%);
+    }
   }
 
   h1,

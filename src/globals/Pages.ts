@@ -340,7 +340,7 @@ export const NetworkPage = page('network-page', 'شبکه توزیع و نمای
     fields: [
       text('title', 'عنوان'),
       textarea('text', 'متن'),
-      text('partnerName', 'نام شرکت پخش', { defaultValue: 'طعمینو' }),
+      text('partnerName', 'نام شرکت پخش (مثلاً «طعمینو، ارس»)', { defaultValue: 'طعمینو، ارس' }),
       image('partnerLogo', 'لوگوی شرکت پخش'),
       text('partnerUrl', 'نشانی وب‌سایت'),
     ],

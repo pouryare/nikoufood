@@ -57,7 +57,7 @@ async function main() {
   for (const b of c.brands) idBySlug[`brands:${b.slug}`] = (await upsert('brands', b.slug, { ...b, featured: true })).id as number
 
   for (const p of PROVINCES) {
-    await upsert('provinces', p.slug, { ...p, coverage: p.slug === 'tehran' ? 'direct' : 'open', publicNote: p.slug === 'tehran' ? 'پخش مستقیم از طریق طعمینو' : '' })
+    await upsert('provinces', p.slug, { ...p, coverage: p.slug === 'tehran' ? 'direct' : 'open', publicNote: p.slug === 'tehran' ? 'پخش مستقیم در شرق تهران توسط شرکت طعمینو و در غرب تهران توسط شرکت ارس' : '' })
   }
 
   for (const p of c.products) {
