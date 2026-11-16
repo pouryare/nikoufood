@@ -162,12 +162,12 @@ export const homePage = {
   },
   brands: {
     eyebrow: 'برندها',
-    title: 'دو برند، یک استاندارد',
-    text: 'آلانیک و پاک‌خواه، برندهای متعلق به مجموعهٔ نیکو اعتماد هستند.',
+    title: 'سه برند، یک استاندارد',
+    text: 'آلانیک و پاک‌خواه و خرسند، برندهای متعلق به مجموعهٔ نیکو اعتماد هستند.',
   },
   distribution: {
     eyebrow: 'شبکهٔ توزیع',
-    title: 'دو مدل حضور، یک هدف: دسترسی مطمئن',
+    title: 'سه مدل حضور، یک هدف: دسترسی مطمئن',
     text: 'در تهران محصولات به‌صورت مستقیم پخش می‌شوند و در سایر استان‌ها، نمایندگان و پخش‌کنندگان منطقه‌ای مسئول فروش و توزیع‌اند.',
     tehranTitle: 'تهران: پخش مستقیم',
     tehranText: 'توزیع در شرق تهران توسط شرکت طعمینو و در غرب تهران توسط شرکت ارس انجام می‌شود.',
@@ -420,6 +420,13 @@ export const brands = [
     tagline: 'برندی از مجموعهٔ نیکو اعتماد',
     description: 'پاک‌خواه یکی از برندهای متعلق به نیکو اعتماد است. توضیح کامل برند به‌زودی در این بخش قرار می‌گیرد.',
   },
+  {
+    name: 'خرسند',
+    slug: 'khorsand',
+    order: 30,
+    tagline: 'برندی از مجموعهٔ نیکو اعتماد',
+    description: 'خرسند یکی از برندهای متعلق به نیکو اعتماد است. توضیح کامل برند به‌زودی در این بخش قرار می‌گیرد.',
+  },
 ]
 
 const placeholderText = 'اطلاعات کامل این محصول به‌زودی در این بخش قرار می‌گیرد.'
@@ -478,6 +485,30 @@ export const products = [
     variants: [{ label: 'فله‌ای' }],
     markets: ['food-centers', 'food-businesses', 'wholesalers'],
     featured: true,
+  },
+  {
+    name: 'کره فله‌ای خرسند گیاهی',
+    slug: 'khorsand-bulk-plant',
+    order: 50,
+    brand: 'khorsand',
+    category: 'bulk',
+    fatType: 'plant',
+    shortDescription: placeholderText,
+    variants: [{ label: 'فله‌ای' }],
+    markets: ['food-centers', 'food-businesses', 'wholesalers'],
+    featured: true,
+  },
+  {
+    name: 'کره تکی خرسند',
+    slug: 'khorsand-single-serve',
+    order: 60,
+    brand: 'khorsand',
+    category: 'single-serve',
+    fatType: undefined as string | undefined,
+    shortDescription: placeholderText,
+    variants: [{ label: 'تک‌نفره' }],
+    markets: ['restaurants', 'catering', 'hotels', 'food-centers'],
+    featured: false,
   },
 ].map((p) => ({ ...p, applications: riceUses, features: [] as { text: string }[], specs: [] as { label: string; value: string }[] }))
 
