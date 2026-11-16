@@ -67,7 +67,10 @@ export async function NetworkSection({
           <NetworkMap
             provinces={provinces.map((p) => ({ slug: p.slug, name: p.name, coverage: p.coverage as Coverage, note: p.publicNote }))}
             labels={labels}
-            partner={{ name: network.tehran?.partnerName, logo: mediaOf(network.tehran?.partnerLogo), url: network.tehran?.partnerUrl }}
+            partners={[
+              { name: 'طعمینو', region: 'شرق تهران', logo: mediaOf(network.tehran?.partnerLogo), url: network.tehran?.partnerUrl },
+              { name: 'ارس', region: 'غرب تهران', logo: mediaOf(network.tehran?.partnerLogo), url: network.tehran?.partnerUrl },
+            ]}
             representatives={reps}
             enable3D={settings.enable3D !== false}
             colors={{

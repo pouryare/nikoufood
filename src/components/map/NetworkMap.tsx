@@ -31,8 +31,8 @@ type Props = {
   provinces: MapProvince[]
   hubSlug?: string
   labels: NetworkMapLabels
-  /** The company that distributes directly in the hub province. */
-  partner?: { name?: string | null; logo?: { url: string; alt: string } | null; url?: string | null } | null
+  /** The companies that distribute directly in the hub province. */
+  partners?: { name?: string | null; region?: string | null; logo?: { url: string; alt: string } | null; url?: string | null }[]
   representatives?: { id: number | string; name: string; city: string; phone: string; provinceSlug: string }[]
   representationHref?: string
   enable3D?: boolean
@@ -40,7 +40,7 @@ type Props = {
 }
 
 /** The Iran coverage map with its info panel: live 3D on capable desktops, a flat animated map everywhere else. */
-export function NetworkMap({ provinces, hubSlug = 'tehran', labels, partner, representatives = [], representationHref = '/representation', enable3D = true, colors }: Props) {
+export function NetworkMap({ provinces, hubSlug = 'tehran', labels, partners = [], representatives = [], representationHref = '/representation', enable3D = true, colors }: Props) {
   const rootRef = useRef<HTMLDivElement>(null)
   const bySlug = useMemo(() => Object.fromEntries(provinces.map((p) => [p.slug, p])), [provinces])
   const [selected, setSelected] = useState<string>(bySlug[hubSlug] ? hubSlug : (provinces[0]?.slug ?? ''))
@@ -104,22 +104,29 @@ export function NetworkMap({ provinces, hubSlug = 'tehran', labels, partner, rep
             <h3 className="mt-4 text-h3">{shown.name}</h3>
             {shown.note ? <p className="mt-3 text-muted">{shown.note}</p> : null}
 
-            {shown.coverage === 'direct' && partner?.name ? (
-              <div className="network-map-partner">
-                <span className="network-map-partner-logo">
-                  {partner.logo ? <Image src={partner.logo.url} alt={partner.logo.alt || partner.name} width={96} height={96} className="size-full object-contain" /> : <span>{partner.name.slice(0, 1)}</span>}
-                </span>
-                <span>
-                  <span className="block text-small text-muted">{labels.directBy}</span>
-                  <strong className="block text-[1.15rem]">{partner.name}</strong>
-                  <span className="block text-small text-muted">{labels.sisterCompany}</span>
-                </span>
-                {partner.url ? (
-                  <a href={partner.url} target="_blank" rel="noopener" className="network-map-partner-link">
-                    {labels.visitWebsite}
-                    <Icon name="external" size={15} />
-                  </a>
-                ) : null}
+            {shown.coverage === 'direct' && partners.length ? (
+              <div className="network-map-partners">
+                {partners.map((p) => {
+                  const region = p.region ?? ''
+                  return (
+                    <div key={p.name ?? region} className="network-map-partner">
+                      <span className="network-map-partner-logo">
+                        {p.logo ? <Image src={p.logo.url} alt={p.logo.alt || p.name || ''} width={96} height={96} className="size-full object-contain" /> : <span>{(p.name ?? '').slice(0, 1)}</span>}
+                      </span>
+                      <span>
+                        <span className="block text-small text-muted">{`پخش مستقیم در ${region} توسط شرکت ${p.name || ''}`}</span>
+                        <strong className="block text-[1.15rem]">{p.name}</strong>
+                        <span className="block text-small text-muted">{labels.sisterCompany}</span>
+                      </span>
+                      {p.url ? (
+                        <a href={p.url} target="_blank" rel="noopener" className="network-map-partner-link">
+                          {labels.visitWebsite}
+                          <Icon name="external" size={15} />
+                        </a>
+                      ) : null}
+                    </div>
+                  )
+                })}
               </div>
             ) : null}
 
